@@ -5,6 +5,10 @@ import mongoose from "mongoose";
 import dotenv from "dotenv";
 import userRoutes from "./routes/userRoutes.js"; // <-- import your routes
 import authRoutes from "./routes/authRoutes.js";
+import availabilityRoutes from "./routes/availabilityRoutes.js";
+import bookingRoutes from "./routes/bookingRoutes.js";
+
+
 
 
 
@@ -21,6 +25,10 @@ app.use(express.json());
 // Routes
 app.use("/api/users", userRoutes);
 app.use("/api/auth", authRoutes);
+app.use("/api/availability", availabilityRoutes);
+app.use("/api/bookings", bookingRoutes);
+
+
 
 
 // Basic route
