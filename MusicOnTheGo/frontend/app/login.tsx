@@ -30,10 +30,11 @@ export default function LoginScreen() {
 
       // Redirect based on role
       if (user.role === "student") {
-        router.replace("/student-dashboard" as Href);
-      } else if (user.role === "teacher") {
-        router.replace("/teacher-dashboard" as Href);
+        router.replace("/(student)/dashboard");
+      } else {
+        router.replace("/(teacher)/dashboard");
       }
+
 
     } catch (err: any) {
       alert(err.message);
