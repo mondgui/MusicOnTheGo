@@ -9,8 +9,10 @@ import {
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter, type Href } from "expo-router";
+import { useRouter } from "expo-router";
 import { api } from "../lib/api";
+import { saveAuth } from "../lib/auth";
+
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -20,22 +22,24 @@ export default function LoginScreen() {
 
   const loginUser = async () => {
     try {
-      const result = await api("/auth/login", {
+      const result = await api("/api/auth/login", {
         method: "POST",
         body: JSON.stringify({ email, password }),
       });
 
-      const user = result.user;
+      // ✅ Save JWT token
+      await saveAuth(result.token, result.user);
+
+
+
       alert("Logged in successfully!");
 
       // Redirect based on role
-      if (user.role === "student") {
+      if (result.user.role === "student") {
         router.replace("/(student)/dashboard");
       } else {
         router.replace("/(teacher)/dashboard");
       }
-
-
     } catch (err: any) {
       alert(err.message);
     }

@@ -82,6 +82,20 @@ router.get("/student-only", authMiddleware, roleMiddleware("student"), (req, res
 });
 
 
+// // GET all teachers
+// router.get("/teachers", async (req, res) => {
+//   try {
+//     const teachers = await User.find({ role: "teacher" }).select(
+//       "name email instruments experience location"
+//     );
+
+//     res.json(teachers);
+//   } catch (err) {
+//     res.status(500).json({ message: "Failed to load teachers." });
+//   }
+// });
+
+
 
 
 export default router; // ES Module export

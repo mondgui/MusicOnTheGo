@@ -17,9 +17,7 @@ export default function WelcomeScreen() {
         <View style={styles.iconCircle}>
           <Ionicons name="musical-note" size={60} color="white" />
         </View>
-
         <Text style={styles.title}>MusicOnTheGo</Text>
-
         <Text style={styles.subtitle}>
         Learn. Teach. Connect.{"\n"}
         Find your music teacher or student.

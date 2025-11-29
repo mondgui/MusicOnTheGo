@@ -60,7 +60,7 @@ export default function RegisterTeacher() {
     }
 
     try {
-      await api("/auth/register", {
+      await api("/api/auth/register", {
         method: "POST",
         body: JSON.stringify({
           name: fullName,
@@ -152,11 +152,9 @@ export default function RegisterTeacher() {
           setItems={setItems}
           placeholder="Select instrument(s)"
           listMode="SCROLLVIEW"
-          nestedScrollEnabled={true}
           style={styles.dropdown}
           dropDownContainerStyle={styles.dropdownContainer}
           renderBadgeItem={(item: { label: string; value: string }) => (
-
             <View style={styles.badge} key={item.value}>
               <Text style={styles.badgeText}>{item.label}</Text>
             </View>

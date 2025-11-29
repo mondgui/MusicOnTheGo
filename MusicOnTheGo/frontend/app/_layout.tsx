@@ -20,6 +20,10 @@ export default function RootLayout() {
         <Stack.Screen name="success" />
         <Stack.Screen name="profile-setup" />
 
+        {/* IMPORTANT — register route groups */}
+        <Stack.Screen name="(student)" />
+        <Stack.Screen name="(teacher)" />
+
         
 
       </Stack>

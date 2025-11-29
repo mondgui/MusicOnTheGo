@@ -3,10 +3,13 @@ import express from "express";
 import cors from "cors";
 import mongoose from "mongoose";
 import dotenv from "dotenv";
-import userRoutes from "./routes/userRoutes.js"; // <-- import your routes
+import userRoutes from "./routes/userRoutes.js"; // 
 import authRoutes from "./routes/authRoutes.js";
 import availabilityRoutes from "./routes/availabilityRoutes.js";
 import bookingRoutes from "./routes/bookingRoutes.js";
+import inquiryRoutes from "./routes/inquiryRoutes.js";
+import teacherRoutes from "./routes/teacherRoutes.js";
+
 
 
 
@@ -24,6 +27,9 @@ app.use("/api/users", userRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/availability", availabilityRoutes);
 app.use("/api/bookings", bookingRoutes);
+app.use("/inquiries", inquiryRoutes);
+app.use("/api/teachers", teacherRoutes);
+
 
 
 
