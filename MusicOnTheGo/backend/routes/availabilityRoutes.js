@@ -106,4 +106,26 @@ router.delete(
   }
 );
 
+/**
+ * TEACHER: Get your own availability
+ */
+router.get(
+  "/me",
+  authMiddleware,
+  roleMiddleware("teacher"),
+  async (req, res) => {
+    try {
+      const availability = await Availability.find({
+        teacher: req.user.id,
+      });
+
+      res.json(availability);
+    } catch (err) {
+      res.status(500).json({ message: err.message });
+    }
+  }
+);
+
+
+
 export default router;

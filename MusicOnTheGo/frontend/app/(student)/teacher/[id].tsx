@@ -33,7 +33,7 @@ export default function TeacherProfileScreen() {
   useEffect(() => {
     async function fetchTeacher() {
       try {
-        const data = await api(`/api/api/users/${id}`, { auth: true });
+        const data = await api(`/api/users/${id}`, { auth: true });
         setTeacher(data);
       } catch (err: any) {
         console.log("Teacher fetch error:", err.message);
