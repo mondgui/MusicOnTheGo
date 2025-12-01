@@ -42,6 +42,39 @@ const userSchema = new mongoose.Schema(
       type: String,
       default: "",
     },
+
+    about: {
+      type: String,
+      default: "",
+    },
+    
+    rate: {
+      type: Number,
+      default: 0,
+    },
+
+    // Student-specific fields
+    skillLevel: {
+      type: String,
+      default: "",
+    },
+    learningMode: {
+      type: String,
+      default: "",
+    },
+    ageGroup: {
+      type: String,
+      default: "",
+    },
+    availability: {
+      type: String,
+      default: "",
+    },
+    goals: {
+      type: String,
+      default: "",
+    },
+    
   },
   { timestamps: true }
 );
@@ -49,4 +82,3 @@ const userSchema = new mongoose.Schema(
 const User = mongoose.model("User", userSchema);
 
 export default User;
-

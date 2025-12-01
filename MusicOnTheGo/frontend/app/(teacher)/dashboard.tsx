@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
+import { api } from "../../lib/api";
 
 // -------- TYPES -------- //
 
@@ -86,6 +87,20 @@ const TEACHER_TABS: TeacherTabConfig[] = [
 
 export default function TeacherDashboard() {
   const [activeTab, setActiveTab] = useState<TeacherTabKey>("schedule");
+  const [user, setUser] = useState<any | null>(null);
+
+  useEffect(() => {
+    const loadUser = async () => {
+      try {
+        const me = await api("/api/users/me", { auth: true });
+        setUser(me);
+      } catch (err) {
+        console.error("Failed to load user", err);
+      }
+    };
+
+    loadUser();
+  }, []);
 
   return (
     <View style={styles.container}>
@@ -114,9 +129,15 @@ export default function TeacherDashboard() {
               style={styles.avatar}
             />
             <View>
-              <Text style={styles.teacherName}>Guimond Pierre Louis</Text>
-              <Text style={styles.teacherInstrument}>Guitar</Text>
-              <Text style={styles.teacherRate}>$45/hour</Text>
+              <Text style={styles.teacherName}>{user?.name || "Your Name"}</Text>
+              <Text style={styles.teacherInstrument}>
+                {user?.instruments?.length
+                  ? user.instruments.join(", ")
+                  : "Instruments"}
+              </Text>
+              <Text style={styles.teacherRate}>
+                {user?.rate ? `$${user.rate}/hour` : "$—/hour"}
+              </Text>
             </View>
           </View>
 
