@@ -20,6 +20,8 @@ type Teacher = {
   instruments: string[];
   experience: string;
   location: string;
+  rate?: number;
+  about?: string;
 };
 
 export default function TeacherProfileScreen() {
@@ -33,7 +35,9 @@ export default function TeacherProfileScreen() {
   useEffect(() => {
     async function fetchTeacher() {
       try {
-        const data = await api(`/api/users/${id}`, { auth: true });
+        const data = await api(`/api/teachers/${id}`);
+//        console.log("TEACHER DATA FROM API:", data);   
+
         setTeacher(data);
       } catch (err: any) {
         console.log("Teacher fetch error:", err.message);
@@ -92,7 +96,12 @@ export default function TeacherProfileScreen() {
         <DetailRow
           icon="book-outline"
           label="Experience"
-          value={teacher.experience || "No experience listed"}
+          value={
+            teacher.experience
+              ? `${teacher.experience} years of experience`
+              : "No experience listed"
+          }
+          
         />
 
         <DetailRow
@@ -100,6 +109,19 @@ export default function TeacherProfileScreen() {
           label="Instruments"
           value={teacher.instruments.join(", ")}
         />
+
+        <DetailRow
+          icon="cash-outline"
+          label="Rate"
+          value={teacher.rate ? `$${teacher.rate}/hour` : "Rate not specified"}
+        />
+
+        <Text style={styles.sectionTitle}>About</Text>
+        <Text style={styles.aboutText}>
+          {teacher.about || "This teacher has not added an introduction yet."}
+        </Text>
+
+
 
         {/* Request Info Button */}
         <TouchableOpacity
@@ -226,4 +248,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+
+  aboutText: {
+    fontSize: 15,
+    color: "#444",
+    lineHeight: 22,
+    marginBottom: 20,
+  },
+  
 });

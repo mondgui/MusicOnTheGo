@@ -83,15 +83,14 @@ export default function StudentDashboard() {
 
   const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [loadingTeachers, setLoadingTeachers] = useState<boolean>(false);
+  const [user, setUser] = useState<any | null>(null);
 
   // Load teachers from backend
   useEffect(() => {
     async function loadTeachers() {
       try {
         setLoadingTeachers(true);
-        // Use the public teachers endpoint (no auth required)
         const response = await api("/api/teachers");
-
         setTeachers(Array.isArray(response) ? response : []);
       } catch (err: any) {
         console.log("Error loading teachers:", err.message);
@@ -101,8 +100,19 @@ export default function StudentDashboard() {
       }
     }
 
+    async function loadUser() {
+      try {
+        const me = await api("/api/users/me", { auth: true });
+        setUser(me);
+      } catch (err) {
+        console.log("Error loading user:", err);
+      }
+    }
+
     loadTeachers();
+    loadUser();
   }, []);
+
 
   return (
     <View style={styles.container}>
@@ -112,13 +122,21 @@ export default function StudentDashboard() {
         contentContainerStyle={{ paddingBottom: 100 }}
       >
         {/* Gradient Header */}
+
         <LinearGradient colors={["#FF9076", "#FF6A5C"]} style={styles.header}>
           <Text style={styles.appTitle}>MusicOnTheGo</Text>
-          <Text style={styles.welcomeText}>Welcome back, student 🎧</Text>
+          <Text style={styles.welcomeText}>Welcome back, {user?.name || "student"} 🎧
+          </Text>
           <Text style={styles.welcomeSub}>
-            Continue your musical journey with your next lesson.
+           Continue your musical journey with your next lesson.
           </Text>
         </LinearGradient>
+
+      
+
+
+
+        
 
         {/* Screen content depending on active tab */}
         <View style={styles.contentWrapper}>

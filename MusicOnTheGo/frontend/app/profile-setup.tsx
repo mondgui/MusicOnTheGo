@@ -1,3 +1,6 @@
+// // frontend/app/profile-setup.tsx
+
+// frontend/app/profile-setup.tsx
 import React, { useState } from "react";
 import {
   View,
@@ -5,212 +8,389 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  Image,
   ScrollView,
+  KeyboardAvoidingView,
+  Platform,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
+  import { useRouter, useLocalSearchParams } from "expo-router";
+import { api } from "../lib/api";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
-import RNPickerSelect from "react-native-picker-select";
-
-const instruments = [
-  { label: "Piano", value: "piano" },
-  { label: "Guitar", value: "guitar" },
-  { label: "Violin", value: "violin" },
-  { label: "Voice / Singing", value: "voice" },
-  { label: "Drums", value: "drums" },
-  { label: "Bass", value: "bass" },
-  { label: "Saxophone", value: "saxophone" },
-];
 
 export default function ProfileSetup() {
   const router = useRouter();
+  const params = useLocalSearchParams();
 
-  const [fullName, setFullName] = useState("");
-  const [instrument, setInstrument] = useState("");
-  const [location, setLocation] = useState("");
+  const fullName = (params.fullName as string) || "";
+  const instruments =
+    (params.instruments && JSON.parse(params.instruments as string)) || [];
+  const location = (params.location as string) || "";
+
+  const [experience, setExperience] = useState("");
+  const [rate, setRate] = useState("");
+  const [about, setAbout] = useState("");
+
+  const saveProfile = async () => {
+    try {
+      await api("/api/users/me", {
+        method: "PUT",
+        auth: true,
+        body: JSON.stringify({
+          instruments,
+          location,
+          experience,
+          rate: rate ? Number(rate) : undefined,
+          about,
+        }),
+      });
+
+      router.replace("/login");
+    } catch (e: any) {
+      alert(e.message || "Failed to save profile");
+    }
+  };
 
   return (
     <View style={styles.container}>
-      {/* Gradient header */}
       <LinearGradient colors={["#FF9076", "#FF6A5C"]} style={styles.header}>
-        <Text style={styles.headerTitle}>Complete Your Profile</Text>
-        <Text style={styles.headerSubtitle}>
-          Just a few more details before you begin!
-        </Text>
+        <Text style={styles.title}>Complete Your Profile</Text>
+        <Text style={styles.subtitle}>Add final details to continue</Text>
       </LinearGradient>
 
-      <ScrollView contentContainerStyle={styles.content}>
-        {/* Profile photo */}
-        <View style={styles.photoWrapper}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 80 : 0}
+      >
+        <ScrollView
+          contentContainerStyle={styles.content}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
           <TouchableOpacity style={styles.photoCircle}>
             <Ionicons name="camera" size={40} color="#FF6A5C" />
           </TouchableOpacity>
-          <Text style={styles.photoText}>Add Profile Photo</Text>
-        </View>
 
-        {/* Full Name */}
-        <Text style={styles.label}>Full Name</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="John Doe"
-          value={fullName}
-          onChangeText={setFullName}
-        />
+          <Text style={styles.label}>Full Name</Text>
+          <TextInput style={styles.inputDisabled} value={fullName} editable={false} />
 
-        {/* Instrument */}
-        <Text style={styles.label}>Primary Instrument</Text>
-        <View style={styles.pickerWrapper}>
-          <RNPickerSelect
-            onValueChange={(v) => setInstrument(v)}
-            items={instruments}
-            placeholder={{ label: "Select instrument", value: null }}
-            useNativeAndroidPickerStyle={false}
-            style={{
-              inputIOS: styles.picker,
-              inputAndroid: styles.pickerAndroid,
-            }}
+          <Text style={styles.label}>Primary Instrument(s)</Text>
+          <TextInput
+            style={styles.inputDisabled}
+            value={instruments.join(", ")}
+            editable={false}
           />
-        </View>
 
-        {/* Location */}
-        <Text style={styles.label}>Location</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="City, State"
-          value={location}
-          onChangeText={setLocation}
-        />
+          <Text style={styles.label}>Location</Text>
+          <TextInput
+            style={styles.inputDisabled}
+            value={location}
+            editable={false}
+          />
 
-        {/* Save Button */}
-        <TouchableOpacity
-          style={styles.saveButton}
-          onPress={() => router.push("/dashboard")}
-        >
-          <Text style={styles.saveText}>Save & Continue</Text>
-        </TouchableOpacity>
+          <Text style={styles.label}>Experience (years)</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="e.g. 5"
+            value={experience}
+            onChangeText={setExperience}
+            keyboardType="numeric"
+          />
 
-        {/* Teacher-specific option (will build later) */}
-        <TouchableOpacity>
-          <Text style={styles.link}>
-            Set Weekly Availability (Teachers Only)
-          </Text>
-        </TouchableOpacity>
-      </ScrollView>
+          <Text style={styles.label}>Rate per hour ($)</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="e.g. 40"
+            value={rate}
+            onChangeText={setRate}
+            keyboardType="numeric"
+          />
+
+          <Text style={styles.label}>About Me</Text>
+          <TextInput
+            style={styles.textArea}
+            multiline
+            numberOfLines={5}
+            placeholder="Tell the students about your teaching style..."
+            value={about}
+            onChangeText={setAbout}
+          />
+
+          <TouchableOpacity style={styles.saveBtn} onPress={saveProfile}>
+            <Text style={styles.saveText}>Finish and create profile</Text>
+          </TouchableOpacity>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </View>
   );
 }
 
+/* STYLES */
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "white" },
-
-  header: {
-    paddingTop: 60,
-    paddingBottom: 40,
-    paddingHorizontal: 20,
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
+  header: { paddingTop: 60, paddingBottom: 40, paddingHorizontal: 20 },
+  title: { fontSize: 24, fontWeight: "700", color: "white", textAlign: "center" },
+  subtitle: { color: "white", opacity: 0.9, textAlign: "center", marginTop: 5 },
+  content: { paddingHorizontal: 20, paddingBottom: 50 },
+  label: { marginTop: 15, fontWeight: "600", fontSize: 14 },
+  input: {
+    backgroundColor: "#F5F5F5",
+    padding: 12,
+    borderRadius: 10,
+    marginTop: 6,
   },
-
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: "700",
-    color: "white",
-    textAlign: "center",
+  inputDisabled: {
+    backgroundColor: "#EDEDED",
+    padding: 12,
+    borderRadius: 10,
+    marginTop: 6,
+    color: "#999",
   },
-
-  headerSubtitle: {
-    fontSize: 14,
-    color: "white",
-    textAlign: "center",
-    opacity: 0.9,
-    marginTop: 5,
+  textArea: {
+    backgroundColor: "#F5F5F5",
+    padding: 12,
+    borderRadius: 10,
+    marginTop: 6,
+    height: 120,
+    textAlignVertical: "top",
   },
-
-  content: {
-    paddingHorizontal: 20,
-    paddingBottom: 40,
-  },
-
-  photoWrapper: {
-    alignItems: "center",
-    marginTop: 20,
-    marginBottom: 30,
-  },
-
   photoCircle: {
+    alignSelf: "center",
     width: 120,
     height: 120,
-    backgroundColor: "#F7F7F7",
     borderRadius: 60,
-    alignItems: "center",
-    justifyContent: "center",
+    backgroundColor: "#FFF2EE",
     borderWidth: 2,
     borderColor: "#FF6A5C",
-  },
-
-  photoText: {
-    marginTop: 10,
-    color: "#555",
-    fontSize: 14,
-  },
-
-  label: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#333",
-    marginBottom: 6,
-  },
-
-  input: {
-    backgroundColor: "#F7F7F7",
-    padding: 14,
-    borderRadius: 10,
-    fontSize: 15,
-    borderWidth: 1,
-    borderColor: "#E0E0E0",
-    marginBottom: 15,
-  },
-
-  pickerWrapper: {
-    backgroundColor: "#F7F7F7",
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: "#E0E0E0",
-    marginBottom: 15,
-  },
-
-  picker: {
-    paddingVertical: 14,
-    paddingHorizontal: 10,
-    fontSize: 15,
-  },
-
-  pickerAndroid: {
-    color: "#333",
-    paddingHorizontal: 10,
-    paddingVertical: 14,
-    fontSize: 15,
-  },
-
-  saveButton: {
-    backgroundColor: "#FF6A5C",
-    paddingVertical: 16,
-    borderRadius: 30,
     alignItems: "center",
-    marginTop: 10,
-  },
-
-  saveText: {
-    color: "white",
-    fontSize: 17,
-    fontWeight: "700",
-  },
-
-  link: {
-    textAlign: "center",
-    color: "#FF6A5C",
-    fontSize: 14,
+    justifyContent: "center",
     marginTop: 20,
+    marginBottom: 20,
   },
+  saveBtn: {
+    backgroundColor: "#FF6A5C",
+    paddingVertical: 15,
+    borderRadius: 30,
+    marginTop: 30,
+    alignItems: "center",
+  },
+  saveText: { color: "white", fontSize: 16, fontWeight: "700" },
 });
+
+
+
+
+
+
+
+// import React, { useState } from "react";
+// import {
+//   View,
+//   Text,
+//   TextInput,
+//   TouchableOpacity,
+//   StyleSheet,
+//   ScrollView,
+// } from "react-native";
+// import { LinearGradient } from "expo-linear-gradient";
+// import { useRouter, useLocalSearchParams } from "expo-router";
+// import { api } from "../lib/api";
+// import { Ionicons } from "@expo/vector-icons";
+// import * as SecureStore from "expo-secure-store";
+
+// export default function ProfileSetup() {
+//   const router = useRouter();
+//   const params = useLocalSearchParams();
+
+//   const fullName = (params.fullName as string) || "";
+//   const instrumentsParam = (params.instruments as string) || "[]";
+//   const instruments: string[] = JSON.parse(instrumentsParam);
+//   const location = (params.location as string) || "";
+//   const experience = (params.experience as string) || "";
+
+//   const [rate, setRate] = useState("");
+//   const [about, setAbout] = useState("");
+
+//   const saveProfile = async () => {
+//     try {
+//       await api("/api/users/me", {
+//         method: "PUT",
+//         auth: true,
+//         body: JSON.stringify({
+//           rate: rate ? Number(rate) : undefined,
+//           about,
+//         }),
+//       });
+
+//       // After finishing profile, log them out and send to login
+//       await SecureStore.deleteItemAsync("token");
+//       alert("Profile saved! Please log in to access your teacher dashboard.");
+//       router.replace("/login");
+//     } catch (e: any) {
+//       alert(e.message || "Failed to save profile.");
+//     }
+//   };
+
+//   return (
+//     <View style={styles.container}>
+//       <LinearGradient colors={["#FF9076", "#FF6A5C"]} style={styles.header}>
+//         <Text style={styles.title}>Complete Your Profile</Text>
+//         <Text style={styles.subtitle}>Add final details to continue</Text>
+//       </LinearGradient>
+
+//       <ScrollView contentContainerStyle={styles.content}>
+//         {/* PROFILE PHOTO (static for now) */}
+//         <View style={styles.photoWrapper}>
+//           <View style={styles.photoCircle}>
+//             <Ionicons name="camera" size={40} color="#FF6A5C" />
+//           </View>
+//           <Text style={styles.photoLabel}>Add Profile Photo</Text>
+//         </View>
+
+//         {/* READONLY FIELDS FROM STEP 1 */}
+//         <Text style={styles.label}>Full Name</Text>
+//         <TextInput style={styles.inputDisabled} value={fullName} editable={false} />
+
+//         <Text style={styles.label}>Instrument(s) You Teach</Text>
+//         <TextInput
+//           style={styles.inputDisabled}
+//           value={instruments.join(", ")}
+//           editable={false}
+//         />
+
+//         <Text style={styles.label}>Location</Text>
+//         <TextInput
+//           style={styles.inputDisabled}
+//           value={location}
+//           editable={false}
+//         />
+
+//         <Text style={styles.label}>Experience (years)</Text>
+//         <TextInput
+//           style={styles.inputDisabled}
+//           value={experience}
+//           editable={false}
+//         />
+
+//         {/* EDITABLE FIELDS */}
+//         <Text style={styles.label}>Rate per hour ($)</Text>
+//         <TextInput
+//           style={styles.input}
+//           placeholder="e.g. 40"
+//           value={rate}
+//           onChangeText={setRate}
+//           keyboardType="numeric"
+//         />
+
+//         <Text style={styles.label}>About Me</Text>
+//         <TextInput
+//           style={styles.textArea}
+//           multiline
+//           numberOfLines={5}
+//           placeholder="Tell students about your experience and teaching style..."
+//           value={about}
+//           onChangeText={setAbout}
+//         />
+
+//         <TouchableOpacity style={styles.saveBtn} onPress={saveProfile}>
+//           <Text style={styles.saveText}>Save Profile &amp; Create Account</Text>
+//         </TouchableOpacity>
+//       </ScrollView>
+//     </View>
+//   );
+// }
+
+// /* STYLES */
+// const styles = StyleSheet.create({
+//   container: { flex: 1, backgroundColor: "white" },
+
+//   header: {
+//     paddingTop: 60,
+//     paddingBottom: 40,
+//     paddingHorizontal: 20,
+//     borderBottomLeftRadius: 30,
+//     borderBottomRightRadius: 30,
+//   },
+
+//   title: {
+//     fontSize: 24,
+//     fontWeight: "700",
+//     color: "white",
+//     textAlign: "center",
+//   },
+
+//   subtitle: {
+//     color: "white",
+//     opacity: 0.9,
+//     textAlign: "center",
+//     marginTop: 5,
+//   },
+
+//   content: { paddingHorizontal: 20, paddingBottom: 50 },
+
+//   photoWrapper: {
+//     alignItems: "center",
+//     marginTop: 20,
+//     marginBottom: 20,
+//   },
+
+//   photoCircle: {
+//     width: 120,
+//     height: 120,
+//     borderRadius: 60,
+//     backgroundColor: "#FFF2EE",
+//     borderWidth: 2,
+//     borderColor: "#FF6A5C",
+//     alignItems: "center",
+//     justifyContent: "center",
+//   },
+
+//   photoLabel: {
+//     marginTop: 8,
+//     color: "#777",
+//   },
+
+//   label: {
+//     marginTop: 15,
+//     fontWeight: "600",
+//     fontSize: 14,
+//   },
+
+//   input: {
+//     backgroundColor: "#F5F5F5",
+//     padding: 12,
+//     borderRadius: 10,
+//     marginTop: 6,
+//   },
+
+//   inputDisabled: {
+//     backgroundColor: "#EDEDED",
+//     padding: 12,
+//     borderRadius: 10,
+//     marginTop: 6,
+//     color: "#777",
+//   },
+
+//   textArea: {
+//     backgroundColor: "#F5F5F5",
+//     padding: 12,
+//     borderRadius: 10,
+//     marginTop: 6,
+//     height: 120,
+//     textAlignVertical: "top",
+//   },
+
+//   saveBtn: {
+//     backgroundColor: "#FF6A5C",
+//     paddingVertical: 15,
+//     borderRadius: 30,
+//     marginTop: 30,
+//     alignItems: "center",
+//   },
+//   saveText: {
+//     color: "white",
+//     fontSize: 16,
+//     fontWeight: "700",
+//     textAlign: "center",
+//   },
+// });
