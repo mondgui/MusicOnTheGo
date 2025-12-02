@@ -39,7 +39,7 @@ export default function ProfileSetup() {
           instruments,
           location,
           experience,
-          rate,
+          rate: rate ? Number(rate) : undefined,
           about,
         }),
       });
