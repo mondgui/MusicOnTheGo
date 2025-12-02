@@ -17,9 +17,6 @@ import { useRouter } from "expo-router";
 import { api } from "../lib/api";
 import * as SecureStore from "expo-secure-store";
 
-
-
-
 const INSTRUMENT_OPTIONS = [
   { label: "Piano", value: "piano" },
   { label: "Guitar", value: "guitar" },
@@ -40,6 +37,7 @@ const INSTRUMENT_OPTIONS = [
   { label: "Synthesizer / Keyboard", value: "synth" },
   { label: "Percussion (General)", value: "percussion" },
   { label: "Harp", value: "harp" },
+  { label: "Music Theory", value: "Music Theory"},
 ];
 
 export default function RegisterTeacher() {
@@ -49,12 +47,9 @@ export default function RegisterTeacher() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [location, setLocation] = useState("");
   const [selectedInstruments, setSelectedInstruments] = useState<string[]>([]);
-  const [otherString, setOtherString] = useState("");
-  const [otherWind, setOtherWind] = useState("");
-  const [otherPercussion, setOtherPercussion] = useState("");
-  const [otherKeyboard, setOtherKeyboard] = useState("");
-  const [otherElectronic, setOtherElectronic] = useState("");
+  const [otherInstrument, setOtherInstrument] = useState("");
   const [loading, setLoading] = useState(false);
 
   const toggleInstrument = (value: string) => {
@@ -63,7 +58,7 @@ export default function RegisterTeacher() {
     );
   };
 
-  const handleContinue = async () => {
+  const registerTeacher = async () => {
     if (!fullName || !email || !password || !confirmPassword) {
       alert("Please fill in all required fields.");
       return;
@@ -74,15 +69,8 @@ export default function RegisterTeacher() {
       return;
     }
 
-    const customInstruments = [
-      otherString.trim(),
-      otherWind.trim(),
-      otherPercussion.trim(),
-      otherKeyboard.trim(),
-      otherElectronic.trim(),
-    ].filter(Boolean);
-
-    const allInstruments = [...selectedInstruments, ...customInstruments];
+    const custom = otherInstrument.trim();
+    const allInstruments = [...selectedInstruments, ...(custom ? [custom] : [])];
 
     if (allInstruments.length === 0) {
       alert("Please select at least one instrument you teach.");
@@ -100,6 +88,7 @@ export default function RegisterTeacher() {
           password,
           role: "teacher",
           instruments: allInstruments,
+          location,
         }),
       });
 
@@ -112,6 +101,7 @@ export default function RegisterTeacher() {
         params: {
           fullName,
           instruments: JSON.stringify(allInstruments),
+          location,
         },
       });
     } catch (err: any) {
@@ -214,22 +204,30 @@ export default function RegisterTeacher() {
               );
             })}
           </View>
-  
+
           <Text style={styles.label}>Other instruments not listed above</Text>
           <TextInput
             style={styles.input}
             placeholder="e.g. Viola, Bassoon, Marimba, ukulele, etc."
-            value={otherString}
-            onChangeText={setOtherString}
+            value={otherInstrument}
+            onChangeText={setOtherInstrument}
+          />
+
+          <Text style={styles.label}>Location</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="City, State"
+            value={location}
+            onChangeText={setLocation}
           />
 
           <TouchableOpacity
             style={styles.submitButton}
-            onPress={handleContinue}
+            onPress={registerTeacher}
             disabled={loading}
           >
             <Text style={styles.submitText}>
-              {loading ? "Please wait..." : "Continue"}
+              {loading ? "Please wait..." : "Save and Continue"}
             </Text>
           </TouchableOpacity>
 

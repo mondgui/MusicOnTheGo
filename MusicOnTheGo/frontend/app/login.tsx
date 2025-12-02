@@ -104,13 +104,23 @@ export default function LoginScreen() {
             </Text>
           </TouchableOpacity>
 
-          <TouchableOpacity onPress={() => router.push("/register-student")}>
+          <View style={styles.linkContainer}>
+            <Text style={styles.link}>New here?</Text>
+          </View>
+
+          <TouchableOpacity 
+            style={styles.linkContainer}
+            onPress={() => router.push("/register-student")}
+          >
             <Text style={styles.link}>
-              New here? <Text style={styles.linkBold}>Create a student account</Text>
+              Want to Learn? <Text style={styles.linkBold}>Create a student account</Text>
             </Text>
           </TouchableOpacity>
 
-          <TouchableOpacity onPress={() => router.push("/register-teacher")}>
+          <TouchableOpacity 
+            style={styles.linkContainer}
+            onPress={() => router.push("/register-teacher")}
+          >
             <Text style={styles.link}>
               Want to teach?{" "}
               <Text style={styles.linkBold}>Create a teacher account</Text>
@@ -170,9 +180,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "700",
   },
+  linkContainer: {
+    alignItems: "center",
+    marginTop: 15,
+  },
   link: {
     textAlign: "center",
-    marginTop: 15,
     color: "#555",
   },
   linkBold: {

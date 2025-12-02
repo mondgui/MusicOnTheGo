@@ -36,7 +36,7 @@ export default function TeacherProfileScreen() {
     async function fetchTeacher() {
       try {
         const data = await api(`/api/teachers/${id}`);
-//        console.log("TEACHER DATA FROM API:", data);   // ← ADD THIS
+//        console.log("TEACHER DATA FROM API:", data);   
 
         setTeacher(data);
       } catch (err: any) {

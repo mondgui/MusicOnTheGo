@@ -24,8 +24,8 @@ export default function ProfileSetup() {
   const fullName = (params.fullName as string) || "";
   const instruments =
     (params.instruments && JSON.parse(params.instruments as string)) || [];
+  const location = (params.location as string) || "";
 
-  const [location, setLocation] = useState("");
   const [experience, setExperience] = useState("");
   const [rate, setRate] = useState("");
   const [about, setAbout] = useState("");
@@ -83,10 +83,9 @@ export default function ProfileSetup() {
 
           <Text style={styles.label}>Location</Text>
           <TextInput
-            style={styles.input}
-            placeholder="City, State"
+            style={styles.inputDisabled}
             value={location}
-            onChangeText={setLocation}
+            editable={false}
           />
 
           <Text style={styles.label}>Experience (years)</Text>
@@ -112,7 +111,7 @@ export default function ProfileSetup() {
             style={styles.textArea}
             multiline
             numberOfLines={5}
-            placeholder="Tell students about your teaching style..."
+            placeholder="Tell the students about your teaching style..."
             value={about}
             onChangeText={setAbout}
           />

@@ -16,7 +16,7 @@ import { api } from "../lib/api";
 
 const SKILL_OPTIONS = ["Beginner", "Intermediate", "Advanced"];
 const MODE_OPTIONS = ["In-person", "Online", "Hybrid"];
-const AGE_OPTIONS = ["10-15", "16-20", "21-30", "31-45", "46+"];
+const AGE_OPTIONS = ["5-9 (via parent)", "10-15", "16-20", "21-30", "31-45", "46-60", "61+"];
 
 export default function StudentProfileSetup() {
   const router = useRouter();
