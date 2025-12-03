@@ -2,23 +2,38 @@ import React from "react";
 import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
-type Props = {
-  schedule: { id: number; student: string; instrument: string; time: string }[];
+type ScheduleItem = {
+  id: number | string;
+  student: string;
+  instrument: string;
+  time: string;
 };
 
-export default function ScheduleTab({ schedule }: Props) {
+type Props = {
+  schedule: ScheduleItem[];
+  onBookingRequestsPress?: () => void;
+  onCreateAvailabilityPress?: () => void;
+};
+
+export default function ScheduleTab({ schedule, onBookingRequestsPress, onCreateAvailabilityPress }: Props) {
   return (
     <View style={styles.section}>
       <Text style={styles.sectionTitle}>Quick actions</Text>
       <View style={styles.quickRow}>
-        <TouchableOpacity style={styles.quickCard}>
+        <TouchableOpacity 
+          style={styles.quickCard}
+          onPress={onCreateAvailabilityPress}
+        >
           <View style={styles.quickIcon}>
             <Ionicons name="calendar-outline" size={22} color="white" />
           </View>
           <Text style={styles.quickText}>Create availability</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.quickCard}>
+        <TouchableOpacity 
+          style={styles.quickCard}
+          onPress={onBookingRequestsPress}
+        >
           <View style={styles.quickIcon}>
             <Ionicons name="clipboard-outline" size={22} color="white" />
           </View>

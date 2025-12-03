@@ -21,12 +21,14 @@ import TeacherProfileTab from "./_tabs/TeacherProfileTab";
 type ScheduleItem = { id: number; student: string; instrument: string; time: string };
 
 type BookingItem = {
-  id: number;
+  id: number | string;
   student: string;
   instrument: string;
   date: string;
   time: string;
   status: "Confirmed" | "Pending";
+  _id?: string;
+  studentName?: string;
 };
 
 type AvailabilityDay = { day: string; slots: string[] };
@@ -98,9 +100,72 @@ const TEACHER_TABS: TeacherTabConfig[] = [
   { key: "profile", label: "Profile", icon: "person-outline" },
 ];
 
+// Helper function to format time slot
+function formatTimeSlot(start: string, end: string): string {
+  // Convert 24h format (e.g., "14:00") to 12h format (e.g., "2:00 PM")
+  const formatTime = (timeStr: string) => {
+    const [hours, minutes] = timeStr.split(":");
+    const hour = parseInt(hours, 10);
+    const ampm = hour >= 12 ? "PM" : "AM";
+    const hour12 = hour % 12 || 12;
+    return `${hour12}:${minutes || "00"} ${ampm}`;
+  };
+  return `${formatTime(start)} - ${formatTime(end)}`;
+}
+
+// Helper function to transform booking data
+function transformBooking(booking: any): BookingItem {
+  const studentName = booking.student?.name || "Student";
+  // Parse the day field - it might be a date string or formatted date
+  let dateStr = booking.day;
+  if (booking.createdAt && !dateStr) {
+    dateStr = new Date(booking.createdAt).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+  } else if (dateStr && !dateStr.includes(",")) {
+    // If day is just a date string, format it
+    try {
+      const date = new Date(dateStr);
+      if (!isNaN(date.getTime())) {
+        dateStr = date.toLocaleDateString("en-US", {
+          month: "short",
+          day: "numeric",
+          year: "numeric",
+        });
+      }
+    } catch {
+      // Keep original if parsing fails
+    }
+  }
+  
+  const time = booking.timeSlot?.start 
+    ? formatTimeSlot(booking.timeSlot.start, booking.timeSlot.end)
+    : "Time TBD";
+  const status = booking.status === "approved" 
+    ? "Confirmed" 
+    : booking.status === "pending" 
+    ? "Pending" 
+    : "Pending";
+
+  return {
+    id: booking._id,
+    student: studentName,
+    instrument: "Instrument", // You may want to add instrument to booking model
+    date: dateStr || "Date TBD",
+    time,
+    status: status as "Confirmed" | "Pending",
+    _id: booking._id,
+    studentName,
+  };
+}
+
 export default function TeacherDashboard() {
   const [activeTab, setActiveTab] = useState<TeacherTabKey>("schedule");
   const [user, setUser] = useState<any | null>(null);
+  const [bookings, setBookings] = useState<BookingItem[]>([]);
+  const [loadingBookings, setLoadingBookings] = useState(false);
 
   useEffect(() => {
     const loadUser = async () => {
@@ -114,6 +179,88 @@ export default function TeacherDashboard() {
 
     loadUser();
   }, []);
+
+  useEffect(() => {
+    const loadBookings = async () => {
+      try {
+        setLoadingBookings(true);
+        const data = await api("/api/bookings/teacher/me", { auth: true });
+        
+        // Transform backend booking format to frontend format
+        const transformedBookings: BookingItem[] = data.map(transformBooking);
+
+        setBookings(transformedBookings);
+      } catch (err) {
+        console.error("Failed to load bookings", err);
+      } finally {
+        setLoadingBookings(false);
+      }
+    };
+
+    loadBookings();
+  }, []);
+
+  const handleAcceptBooking = async (bookingId: string) => {
+    try {
+      await api(`/api/bookings/${bookingId}/status`, {
+        method: "PUT",
+        auth: true,
+        body: JSON.stringify({ status: "approved" }),
+      });
+      
+      // Refresh bookings
+      const data = await api("/api/bookings/teacher/me", { auth: true });
+      const transformedBookings: BookingItem[] = data.map(transformBooking);
+
+      setBookings(transformedBookings);
+    } catch (err) {
+      console.error("Failed to accept booking", err);
+      alert("Failed to accept booking. Please try again.");
+    }
+  };
+
+  const handleRejectBooking = async (bookingId: string) => {
+    try {
+      await api(`/api/bookings/${bookingId}/status`, {
+        method: "PUT",
+        auth: true,
+        body: JSON.stringify({ status: "rejected" }),
+      });
+      
+      // Remove rejected booking from list (or refresh)
+      setBookings(bookings.filter((b) => b._id !== bookingId));
+    } catch (err) {
+      console.error("Failed to reject booking", err);
+      alert("Failed to reject booking. Please try again.");
+    }
+  };
+
+  // Get today's bookings for schedule tab
+  const getTodaysBookings = () => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    return bookings
+      .filter((booking) => {
+        // Check if booking date matches today
+        try {
+          const bookingDate = new Date(booking.date);
+          bookingDate.setHours(0, 0, 0, 0);
+          return (
+            bookingDate.getTime() === today.getTime() &&
+            booking.status === "Confirmed"
+          );
+        } catch {
+          return false;
+        }
+      })
+      .map((booking) => ({
+        id: booking.id,
+        student: booking.student,
+        instrument: booking.instrument,
+        time: booking.time.split(" - ")[0] || booking.time, // Just show start time
+      }));
+  };
 
   return (
     <View style={styles.container}>
@@ -154,18 +301,27 @@ export default function TeacherDashboard() {
         </LinearGradient>
 
         <View style={styles.contentWrapper}>
-          {activeTab === "schedule" && <ScheduleTab schedule={scheduleData} />}
+          {activeTab === "schedule" && (
+            <ScheduleTab 
+              schedule={getTodaysBookings()} 
+              onBookingRequestsPress={() => setActiveTab("bookings")}
+              onCreateAvailabilityPress={() => setActiveTab("times")}
+            />
+          )}
           {activeTab === "messages" && <MessagesTab messages={messagesData} />}
           {activeTab === "bookings" && (
             <BookingsTab
-              bookings={bookingsData.map((item) => ({
-                _id: item.id.toString(),
-                studentName: item.student,
+              bookings={bookings.map((item) => ({
+                _id: item._id || item.id.toString(),
+                studentName: item.studentName || item.student,
                 instrument: item.instrument,
                 date: item.date,
                 time: item.time,
                 status: item.status,
               }))}
+              loading={loadingBookings}
+              onAccept={handleAcceptBooking}
+              onReject={handleRejectBooking}
             />
           )}
           {activeTab === "times" && <TimesTab availability={availabilityData} />}
