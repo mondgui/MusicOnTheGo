@@ -1,6 +1,4 @@
-// // frontend/app/profile-setup.tsx
-
-// frontend/app/profile-setup.tsx
+// frontend/app/complete-profile-teacher.tsx
 import React, { useState } from "react";
 import {
   View,

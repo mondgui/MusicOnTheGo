@@ -99,7 +99,7 @@ export default function RegisterStudent() {
       }
 
       router.push({
-        pathname: "/student-profile-setup",
+        pathname: "/complete-profile-student",
         params: {
           fullName,
           instruments: JSON.stringify(allInstruments),
@@ -227,7 +227,7 @@ export default function RegisterStudent() {
             disabled={loading}
           >
             <Text style={styles.submitText}>
-              {loading ? "Please wait..." : "Continue"}
+              {loading ? "Please wait..." : "Save & Continue"}
             </Text>
           </TouchableOpacity>
 

@@ -1,4 +1,4 @@
-// frontend/app/student-profile-setup.tsx
+// frontend/app/complete-profile-student.tsx
 import React, { useState } from "react";
 import {
   View,
