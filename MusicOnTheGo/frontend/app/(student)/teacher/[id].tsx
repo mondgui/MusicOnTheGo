@@ -128,7 +128,7 @@ export default function TeacherProfileScreen() {
           style={styles.requestButton}
           onPress={() =>
             router.push({
-              pathname: "/(student)/inquiry-form",
+              pathname: "/booking/contact-detail",
               params: { teacherId: teacher._id },
             })
           }

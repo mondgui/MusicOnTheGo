@@ -13,8 +13,8 @@ import {
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { api } from "../lib/api";
-import { saveAuth } from "../lib/auth";
+import { api } from "../../lib/api";
+import { saveAuth } from "../../lib/auth";
 
 export default function LoginScreen() {
   const router = useRouter();

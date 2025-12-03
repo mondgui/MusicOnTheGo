@@ -12,7 +12,7 @@ import {
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter, useLocalSearchParams } from "expo-router";
-import { api } from "../lib/api";
+import { api } from "../../lib/api";
 
 const SKILL_OPTIONS = ["Beginner", "Intermediate", "Advanced"];
 const MODE_OPTIONS = ["In-person", "Online", "Hybrid"];
@@ -47,7 +47,7 @@ export default function StudentProfileSetup() {
         }),
       });
 
-      router.replace("/login");
+      router.replace("/(auth)/login");
     } catch (e: any) {
       alert(e.message || "Failed to save profile");
     }

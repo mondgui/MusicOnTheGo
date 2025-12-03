@@ -13,16 +13,13 @@ export default function RootLayout() {
 
         {/* Public screens */}
         <Stack.Screen name="index" />
-        <Stack.Screen name="choose-role" />
-        <Stack.Screen name="register-student" />
-        <Stack.Screen name="register-teacher" />
-        <Stack.Screen name="login" />
-        <Stack.Screen name="profile-setup" />
-        <Stack.Screen name="student-profile-setup" />
-
-        {/* IMPORTANT — register route groups */}
+        <Stack.Screen name="role-selection" />
+        
+        {/* Route groups */}
+        <Stack.Screen name="(auth)" />
         <Stack.Screen name="(student)" />
         <Stack.Screen name="(teacher)" />
+        <Stack.Screen name="booking" />
 
         
 

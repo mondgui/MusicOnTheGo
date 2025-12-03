@@ -14,7 +14,7 @@ import {
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
   import { useRouter, useLocalSearchParams } from "expo-router";
-import { api } from "../lib/api";
+import { api } from "../../lib/api";
 import { Ionicons } from "@expo/vector-icons";
 
 export default function ProfileSetup() {
@@ -44,7 +44,7 @@ export default function ProfileSetup() {
         }),
       });
 
-      router.replace("/login");
+      router.replace("/(auth)/login");
     } catch (e: any) {
       alert(e.message || "Failed to save profile");
     }
@@ -194,7 +194,7 @@ const styles = StyleSheet.create({
 // } from "react-native";
 // import { LinearGradient } from "expo-linear-gradient";
 // import { useRouter, useLocalSearchParams } from "expo-router";
-// import { api } from "../lib/api";
+// import { api } from "../../lib/api";
 // import { Ionicons } from "@expo/vector-icons";
 // import * as SecureStore from "expo-secure-store";
 

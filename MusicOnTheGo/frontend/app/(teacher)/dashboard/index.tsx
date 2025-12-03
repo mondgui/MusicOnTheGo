@@ -154,7 +154,13 @@ export default function TeacherDashboard() {
         </LinearGradient>
 
         <View style={styles.contentWrapper}>
-          {activeTab === "schedule" && <ScheduleTab schedule={scheduleData} />}
+          {activeTab === "schedule" && (
+            <ScheduleTab
+              schedule={scheduleData}
+              onBookingRequestsPress={() => setActiveTab("bookings")}
+              onCreateAvailabilityPress={() => setActiveTab("times")}
+            />
+          )}
           {activeTab === "messages" && <MessagesTab messages={messagesData} />}
           {activeTab === "bookings" && (
             <BookingsTab

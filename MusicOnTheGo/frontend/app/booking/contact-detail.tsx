@@ -15,7 +15,7 @@ import { api } from "../../lib/api";
 export default function InquiryForm() {
   const router = useRouter();
 
-  // Teacher ID is passed from: router.push({ pathname: "(student)/inquiry-form", params: { teacherId } })
+  // Teacher ID is passed from: router.push({ pathname: "/booking/contact-detail", params: { teacherId } })
   const { teacherId } = useLocalSearchParams();
 
   const [instrument, setInstrument] = useState("");
@@ -47,7 +47,7 @@ export default function InquiryForm() {
         }),
       });
 
-      router.push("/(student)/inquiry-success");
+      router.push("/booking/booking-success");
 
     } catch (err: any) {
       setError(err.message || "Something went wrong.");

@@ -27,12 +27,12 @@ export default function WelcomeScreen() {
       {/* Get Started button */}
       <TouchableOpacity
         style={styles.button}
-        onPress={() => router.push('/choose-role')}
+        onPress={() => router.push('/role-selection')}
       >
         <Text style={styles.buttonText}>Get Started</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity onPress={() => router.push('/login')}>
+      <TouchableOpacity onPress={() => router.push('/(auth)/login')}>
         <Text style={styles.loginLink}>
         Already have an account? <Text style={styles.loginLinkHighlight}>Log in</Text>
         </Text>
@@ -42,7 +42,7 @@ export default function WelcomeScreen() {
     </LinearGradient>
   );
 }
-      
+     
 
 const styles = StyleSheet.create({
   container: {

@@ -14,7 +14,7 @@ import {
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { api } from "../lib/api";
+import { api } from "../../lib/api";
 import * as SecureStore from "expo-secure-store";
 
 const INSTRUMENT_OPTIONS = [
@@ -231,7 +231,7 @@ export default function RegisterTeacher() {
             </Text>
           </TouchableOpacity>
 
-          <TouchableOpacity onPress={() => router.push("/login")}>
+          <TouchableOpacity onPress={() => router.push("/(auth)/login")}>
             <Text style={styles.footerText}>
               Already have an account?{" "}
               <Text style={styles.footerLink}>Log in</Text>

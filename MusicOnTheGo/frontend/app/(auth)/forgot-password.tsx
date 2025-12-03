@@ -43,7 +43,7 @@ export default function ForgotPassword() {
         </TouchableOpacity>
 
         {/* Footer */}
-        <TouchableOpacity onPress={() => router.push('/login')}>
+        <TouchableOpacity onPress={() => router.push('/(auth)/login')}>
           <Text style={styles.footerText}>
             Remember your password? <Text style={styles.footerLink}>Log in</Text>
           </Text>
