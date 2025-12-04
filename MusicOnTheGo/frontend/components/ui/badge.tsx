@@ -12,9 +12,29 @@ export function Badge({
   variant = "default",
   style,
 }: BadgeProps) {
+  // Check if children contains React elements (like icons) or just text
+  const hasReactElements = React.Children.toArray(children).some(
+    (child) => React.isValidElement(child)
+  );
+
   return (
     <View style={[styles.badge, styles[variant], style]}>
-      <Text style={[styles.text, styles[`${variant}Text`]]}>{children}</Text>
+      {hasReactElements ? (
+        <View style={styles.badgeContent}>
+          {React.Children.map(children, (child) => {
+            if (typeof child === "string") {
+              return (
+                <Text style={[styles.text, styles[`${variant}Text`]]}>
+                  {child}
+                </Text>
+              );
+            }
+            return child;
+          })}
+        </View>
+      ) : (
+        <Text style={[styles.text, styles[`${variant}Text`]]}>{children}</Text>
+      )}
     </View>
   );
 }
@@ -61,6 +81,10 @@ const styles = StyleSheet.create({
   text: {
     fontSize: 12,
     fontWeight: "600",
+  },
+  badgeContent: {
+    flexDirection: "row",
+    alignItems: "center",
   },
 });
 

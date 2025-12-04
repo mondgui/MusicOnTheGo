@@ -72,8 +72,7 @@ export default function HomeTab({ teachers, loading }: HomeTabProps) {
         <Card
           style={styles.quickAccessCard}
           onPress={() => {
-            // Navigate to Progress - placeholder for now
-            console.log("Navigate to Progress");
+            router.push("/(student)/practice-log");
           }}
         >
           <Ionicons name="trending-up-outline" size={20} color="#FF6A5C" />
