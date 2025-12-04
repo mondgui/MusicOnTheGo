@@ -61,6 +61,7 @@ router.put("/me", authMiddleware, async (req, res) => {
     const updates = {};
 
     // shared
+    if (req.body.name !== undefined) updates.name = req.body.name;
     if (req.body.instruments !== undefined) updates.instruments = req.body.instruments;
     if (req.body.location !== undefined) updates.location = req.body.location;
 

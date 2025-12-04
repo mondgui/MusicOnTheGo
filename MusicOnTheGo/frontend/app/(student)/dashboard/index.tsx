@@ -15,7 +15,7 @@ import { api } from "../../../lib/api";
 
 import HomeTab from "./_tabs/HomeTab";
 import LessonsTab from "./_tabs/LessonsTab";
-import ProfileTab from "./_tabs/ProfileTab";
+import SettingsTab from "./_tabs/SettingsTab";
 
 // ---------- TYPES ---------- //
 
@@ -30,7 +30,7 @@ type Teacher = {
   about?: string;
 };
 
-type TabKey = "home" | "lessons" | "profile";
+type TabKey = "home" | "lessons" | "settings";
 
 type TabConfig = {
   key: TabKey;
@@ -42,7 +42,7 @@ type TabConfig = {
 const TABS: TabConfig[] = [
   { key: "home", label: "Home", icon: "home-outline" },
   { key: "lessons", label: "My Lessons", icon: "calendar-outline" },
-  { key: "profile", label: "Profile", icon: "person-outline" },
+  { key: "settings", label: "Settings", icon: "settings-outline" },
 ];
 
 // ---------- MAIN COMPONENT ---------- //
@@ -106,12 +106,6 @@ export default function StudentDashboard() {
               >
                 <Ionicons name="chatbubbles-outline" size={24} color="white" />
               </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.headerIconButton}
-                onPress={() => router.push("/(student)/settings")}
-              >
-                <Ionicons name="settings-outline" size={24} color="white" />
-              </TouchableOpacity>
             </View>
           </View>
         </LinearGradient>
@@ -122,7 +116,7 @@ export default function StudentDashboard() {
             <HomeTab teachers={teachers} loading={loadingTeachers} />
           )}
           {activeTab === "lessons" && <LessonsTab />}
-          {activeTab === "profile" && <ProfileTab />}
+          {activeTab === "settings" && <SettingsTab />}
         </View>
       </ScrollView>
 

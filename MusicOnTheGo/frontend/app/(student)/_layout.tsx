@@ -11,6 +11,7 @@ export default function StudentLayout() {
       <Stack.Screen name="resources" />
       <Stack.Screen name="practice-tools" />
       <Stack.Screen name="settings" />
+      <Stack.Screen name="edit-profile" />
       <Stack.Screen name="privacy-policy" />
       <Stack.Screen name="help-center" />
       <Stack.Screen name="contact-support" />
