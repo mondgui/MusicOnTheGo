@@ -64,6 +64,7 @@ router.put("/me", authMiddleware, async (req, res) => {
     if (req.body.name !== undefined) updates.name = req.body.name;
     if (req.body.instruments !== undefined) updates.instruments = req.body.instruments;
     if (req.body.location !== undefined) updates.location = req.body.location;
+    if (req.body.profileImage !== undefined) updates.profileImage = req.body.profileImage;
 
     // teacher fields
     if (req.body.experience !== undefined) updates.experience = req.body.experience;

@@ -14,13 +14,7 @@ import {
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-// Image picker - install with: npx expo install expo-image-picker
-let ImagePicker: any = null;
-try {
-  ImagePicker = require("expo-image-picker");
-} catch (e) {
-  console.log("expo-image-picker not installed");
-}
+import * as ImagePicker from "expo-image-picker";
 import { api } from "../../lib/api";
 
 const SKILL_OPTIONS = ["Beginner", "Intermediate", "Advanced"];
@@ -85,35 +79,47 @@ export default function EditProfileScreen() {
   };
 
   const pickImage = async () => {
-    if (!ImagePicker) {
-      Alert.alert(
-        "Image Picker Not Available",
-        "Please install expo-image-picker to change your profile picture:\n\nnpx expo install expo-image-picker"
-      );
-      return;
-    }
-
     try {
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (status !== "granted") {
-        Alert.alert("Permission needed", "Please grant camera roll permissions to change your profile picture.");
-        return;
+      // Request permissions
+      if (Platform.OS !== "web") {
+        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (status !== "granted") {
+          Alert.alert(
+            "Permission needed",
+            "Please grant camera roll permissions to change your profile picture."
+          );
+          return;
+        }
       }
 
+      // Launch image picker
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
         aspect: [1, 1],
         quality: 0.8,
+        allowsMultipleSelection: false,
       });
 
-      if (!result.canceled && result.assets[0]) {
-        setProfileImage(result.assets[0].uri);
-        // TODO: Upload image to backend and get URL
-        // For now, we'll just store the local URI
+      // Check if user canceled
+      if (result.canceled) {
+        return; // User canceled, no error
       }
-    } catch (err) {
-      Alert.alert("Error", "Failed to pick image");
+
+      // Check if we have an asset
+      if (result.assets && result.assets.length > 0 && result.assets[0]?.uri) {
+        const imageUri = result.assets[0].uri;
+        setProfileImage(imageUri);
+      } else {
+        Alert.alert("Error", "No image was selected. Please try again.");
+      }
+    } catch (err: any) {
+      console.error("Image picker error:", err);
+      const errorMessage = err?.message || err?.toString() || "Unknown error";
+      Alert.alert(
+        "Error",
+        `Failed to pick image: ${errorMessage}. Please try again.`
+      );
     }
   };
 
@@ -145,7 +151,7 @@ export default function EditProfileScreen() {
           ageGroup,
           availability: availability.trim(),
           goals: goals.trim(),
-          // profileImage will be handled separately when backend supports it
+          profileImage: profileImage || "",
         }),
       });
 

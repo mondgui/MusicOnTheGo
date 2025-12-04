@@ -1,16 +1,17 @@
 // app/(student)/dashboard/index.tsx
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
   ScrollView,
+  Image,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
 import { api } from "../../../lib/api";
 
 import HomeTab from "./_tabs/HomeTab";
@@ -55,6 +56,16 @@ export default function StudentDashboard() {
   const [loadingTeachers, setLoadingTeachers] = useState<boolean>(false);
   const [user, setUser] = useState<any | null>(null);
 
+  // Load user data
+  const loadUser = useCallback(async () => {
+    try {
+      const me = await api("/api/users/me", { auth: true });
+      setUser(me);
+    } catch (err) {
+      console.log("Error loading user:", err);
+    }
+  }, []);
+
   // Load teachers from backend
   useEffect(() => {
     async function loadTeachers() {
@@ -70,18 +81,16 @@ export default function StudentDashboard() {
       }
     }
 
-    async function loadUser() {
-      try {
-        const me = await api("/api/users/me", { auth: true });
-        setUser(me);
-      } catch (err) {
-        console.log("Error loading user:", err);
-      }
-    }
-
     loadTeachers();
     loadUser();
-  }, []);
+  }, [loadUser]);
+
+  // Refresh user data when screen comes into focus (e.g., after editing profile)
+  useFocusEffect(
+    useCallback(() => {
+      loadUser();
+    }, [loadUser])
+  );
 
   return (
     <View style={styles.container}>
@@ -93,12 +102,33 @@ export default function StudentDashboard() {
         {/* Gradient Header */}
         <LinearGradient colors={["#FF9076", "#FF6A5C"]} style={styles.header}>
           <View style={styles.headerTopRow}>
+            {/* Profile Picture */}
+            <TouchableOpacity
+              style={styles.profilePictureContainer}
+              onPress={() => router.push("/(student)/edit-profile")}
+              activeOpacity={0.7}
+            >
+              {user?.profileImage ? (
+                <Image
+                  source={{ uri: user.profileImage }}
+                  style={styles.profilePicture}
+                />
+              ) : (
+                <View style={styles.profilePicturePlaceholder}>
+                  <Ionicons name="person" size={24} color="white" />
+                </View>
+              )}
+            </TouchableOpacity>
+
+            {/* Text Content */}
             <View style={styles.headerTextContainer}>
               <Text style={styles.appTitle}>Find Your Teacher</Text>
               <Text style={styles.welcomeSub}>
                 Discover expert music instructors near you
               </Text>
             </View>
+
+            {/* Messages Button */}
             <View style={styles.headerButtons}>
               <TouchableOpacity
                 style={styles.headerIconButton}
@@ -188,7 +218,28 @@ const styles = StyleSheet.create({
   headerTopRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "flex-start",
+    alignItems: "center",
+    gap: 12,
+  },
+  profilePictureContainer: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    overflow: "hidden",
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    borderWidth: 2,
+    borderColor: "rgba(255, 255, 255, 0.3)",
+  },
+  profilePicture: {
+    width: "100%",
+    height: "100%",
+  },
+  profilePicturePlaceholder: {
+    width: "100%",
+    height: "100%",
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
   },
   headerTextContainer: {
     flex: 1,
