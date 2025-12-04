@@ -92,8 +92,7 @@ export default function HomeTab({ teachers, loading }: HomeTabProps) {
         <Card
           style={styles.quickAccessCard}
           onPress={() => {
-            // Navigate to Tools - placeholder for now
-            console.log("Navigate to Tools");
+            router.push("/(student)/practice-tools");
           }}
         >
           <Ionicons name="construct-outline" size={20} color="#4A90E2" />

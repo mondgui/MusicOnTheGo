@@ -9,6 +9,7 @@ export default function StudentLayout() {
       <Stack.Screen name="student-profile-setup" />
       <Stack.Screen name="practice-log" />
       <Stack.Screen name="resources" />
+      <Stack.Screen name="practice-tools" />
       <Stack.Screen name="teacher" />
     </Stack>
   );
