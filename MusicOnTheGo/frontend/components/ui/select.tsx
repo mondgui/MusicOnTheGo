@@ -18,6 +18,27 @@ type SelectProps = {
   style?: ViewStyle;
 };
 
+// Helper function to recursively find SelectItem components
+function findSelectItems(children: React.ReactNode): React.ReactElement<{ value: string; children: React.ReactNode }>[] {
+  const items: React.ReactElement<{ value: string; children: React.ReactNode }>[] = [];
+  
+  React.Children.forEach(children, (child) => {
+    if (!React.isValidElement(child)) return;
+    
+    // Check if this is a SelectItem by checking if it has a 'value' prop
+    // (SelectItem components have a value prop)
+    const props = child.props as { value?: string; children?: React.ReactNode };
+    if (props && typeof props === 'object' && 'value' in props && typeof props.value === 'string') {
+      items.push(child as React.ReactElement<{ value: string; children: React.ReactNode }>);
+    } else if (props && props.children) {
+      // Recursively search in children
+      items.push(...findSelectItems(props.children));
+    }
+  });
+  
+  return items;
+}
+
 export function Select({
   value,
   onValueChange,
@@ -26,13 +47,15 @@ export function Select({
   style,
 }: SelectProps) {
   const [modalVisible, setModalVisible] = useState(false);
-  const items = React.Children.toArray(children) as React.ReactElement[];
+  
+  // Find all SelectItem components recursively
+  const items = findSelectItems(children);
 
   const selectedItem = items.find(
-    (item) => item.props.value === value
+    (item) => (item.props as { value: string }).value === value
   );
   const displayText = selectedItem
-    ? selectedItem.props.children
+    ? (selectedItem.props as { children: React.ReactNode }).children
     : placeholder;
 
   return (
@@ -64,31 +87,35 @@ export function Select({
               </TouchableOpacity>
             </View>
             <ScrollView>
-              {items.map((item, index) => (
-                <TouchableOpacity
-                  key={index}
-                  style={[
-                    styles.option,
-                    value === item.props.value && styles.optionSelected,
-                  ]}
-                  onPress={() => {
-                    onValueChange(item.props.value);
-                    setModalVisible(false);
-                  }}
-                >
-                  <Text
+              {items.map((item, index) => {
+                const itemProps = item.props as { value: string; children: React.ReactNode };
+                const isSelected = value === itemProps.value;
+                return (
+                  <TouchableOpacity
+                    key={index}
                     style={[
-                      styles.optionText,
-                      value === item.props.value && styles.optionTextSelected,
+                      styles.option,
+                      isSelected && styles.optionSelected,
                     ]}
+                    onPress={() => {
+                      onValueChange(itemProps.value);
+                      setModalVisible(false);
+                    }}
                   >
-                    {item.props.children}
-                  </Text>
-                  {value === item.props.value && (
-                    <Ionicons name="checkmark" size={20} color="#FF6A5C" />
-                  )}
-                </TouchableOpacity>
-              ))}
+                    <Text
+                      style={[
+                        styles.optionText,
+                        isSelected && styles.optionTextSelected,
+                      ]}
+                    >
+                      {itemProps.children}
+                    </Text>
+                    {isSelected && (
+                      <Ionicons name="checkmark" size={20} color="#FF6A5C" />
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
             </ScrollView>
           </View>
         </TouchableOpacity>

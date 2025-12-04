@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 import { api } from "../../../lib/api";
 
 import HomeTab from "./_tabs/HomeTab";
@@ -47,6 +48,7 @@ const TABS: TabConfig[] = [
 // ---------- MAIN COMPONENT ---------- //
 
 export default function StudentDashboard() {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<TabKey>("home");
 
   const [teachers, setTeachers] = useState<Teacher[]>([]);
@@ -97,15 +99,20 @@ export default function StudentDashboard() {
                 Discover expert music instructors near you
               </Text>
             </View>
-            <TouchableOpacity
-              style={styles.settingsButton}
-              onPress={() => {
-                // Navigate to settings - placeholder for now
-                console.log("Navigate to settings");
-              }}
-            >
-              <Ionicons name="settings-outline" size={24} color="white" />
-            </TouchableOpacity>
+            <View style={styles.headerButtons}>
+              <TouchableOpacity
+                style={styles.headerIconButton}
+                onPress={() => router.push("/messages")}
+              >
+                <Ionicons name="chatbubbles-outline" size={24} color="white" />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.headerIconButton}
+                onPress={() => router.push("/(student)/settings")}
+              >
+                <Ionicons name="settings-outline" size={24} color="white" />
+              </TouchableOpacity>
+            </View>
           </View>
         </LinearGradient>
 
@@ -204,7 +211,11 @@ const styles = StyleSheet.create({
     marginTop: 4,
     fontSize: 14,
   },
-  settingsButton: {
+  headerButtons: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  headerIconButton: {
     padding: 8,
     borderRadius: 8,
   },

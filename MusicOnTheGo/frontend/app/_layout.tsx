@@ -20,6 +20,7 @@ export default function RootLayout() {
         <Stack.Screen name="(student)" />
         <Stack.Screen name="(teacher)" />
         <Stack.Screen name="booking" />
+        <Stack.Screen name="messages" />
 
         
 
