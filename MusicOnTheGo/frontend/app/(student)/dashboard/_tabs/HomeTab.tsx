@@ -82,8 +82,7 @@ export default function HomeTab({ teachers, loading }: HomeTabProps) {
         <Card
           style={styles.quickAccessCard}
           onPress={() => {
-            // Navigate to Resources - placeholder for now
-            console.log("Navigate to Resources");
+            router.push("/(student)/resources");
           }}
         >
           <Ionicons name="book-outline" size={20} color="#FF9076" />
