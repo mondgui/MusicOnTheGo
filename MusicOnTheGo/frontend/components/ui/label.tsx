@@ -1,9 +1,9 @@
 import React from "react";
-import { Text, StyleSheet, ViewStyle } from "react-native";
+import { Text, StyleSheet, TextStyle } from "react-native";
 
 type LabelProps = {
   children: React.ReactNode;
-  style?: ViewStyle;
+  style?: TextStyle;
 };
 
 export function Label({ children, style }: LabelProps) {

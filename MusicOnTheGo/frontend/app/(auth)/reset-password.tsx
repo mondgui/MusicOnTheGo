@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -9,30 +9,58 @@ import {
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { api } from "../../lib/api";
 
-export default function ForgotPassword() {
+export default function ResetPassword() {
   const router = useRouter();
-  const [email, setEmail] = useState("");
-  const [submitted, setSubmitted] = useState(false);
+  const { token, email } = useLocalSearchParams();
+
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState(false);
+
+  useEffect(() => {
+    // Validate token and email are present
+    if (!token || !email) {
+      Alert.alert(
+        "Invalid Link",
+        "This password reset link is invalid or has expired. Please request a new one.",
+        [
+          {
+            text: "Request New Link",
+            onPress: () => router.push("/(auth)/forgot-password"),
+          },
+        ]
+      );
+    }
+  }, [token, email]);
 
   const handleSubmit = async () => {
-    if (!email.trim()) {
-      setError("Please enter your email address");
+    // Validation
+    if (!newPassword.trim()) {
+      setError("Please enter a new password");
       return;
     }
 
-    // Basic email validation
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      setError("Please enter a valid email address");
+    if (newPassword.length < 6) {
+      setError("Password must be at least 6 characters long");
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setError("Passwords do not match");
+      return;
+    }
+
+    if (!token || !email) {
+      setError("Invalid reset link. Please request a new password reset.");
       return;
     }
 
@@ -40,22 +68,29 @@ export default function ForgotPassword() {
       setLoading(true);
       setError("");
 
-      // Call forgot password API
-      await api("/api/auth/forgot-password", {
+      await api("/api/auth/reset-password", {
         method: "POST",
-        body: JSON.stringify({ email: email.trim() }),
+        body: JSON.stringify({
+          token: token as string,
+          email: email as string,
+          newPassword: newPassword.trim(),
+        }),
       });
 
-      setSubmitted(true);
+      setSuccess(true);
+      
+      // Redirect to login after 2 seconds
+      setTimeout(() => {
+        router.replace("/(auth)/login");
+      }, 2000);
     } catch (err: any) {
-      setError(err.message || "Failed to send reset link. Please try again.");
+      setError(err.message || "Failed to reset password. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
-  // Success state
-  if (submitted) {
+  if (success) {
     return (
       <View style={styles.container}>
         <ScrollView
@@ -67,23 +102,16 @@ export default function ForgotPassword() {
               <View style={styles.successContent}>
                 <View style={styles.successIconContainer}>
                   <View style={styles.successIconBackground}>
-                    <Ionicons name="mail" size={48} color="#059669" />
+                    <Ionicons name="checkmark-circle" size={48} color="#059669" />
                   </View>
                 </View>
 
                 <View style={styles.successTextContainer}>
-                  <Text style={styles.successTitle}>Check Your Email</Text>
+                  <Text style={styles.successTitle}>Password Reset Successful!</Text>
                   <Text style={styles.successMessage}>
-                    We've sent password reset instructions to {email}
+                    Your password has been reset. Redirecting to login...
                   </Text>
                 </View>
-
-                <Button
-                  onPress={() => router.push("/(auth)/login")}
-                  style={styles.backButton}
-                >
-                  Back to Login
-                </Button>
               </View>
             </Card>
           </View>
@@ -92,7 +120,6 @@ export default function ForgotPassword() {
     );
   }
 
-  // Form state
   return (
     <View style={styles.container}>
       <ScrollView
@@ -114,7 +141,7 @@ export default function ForgotPassword() {
               <View style={styles.headerSection}>
                 <Text style={styles.title}>Reset Password</Text>
                 <Text style={styles.subtitle}>
-                  Enter your email and we'll send you reset instructions
+                  Enter your new password below
                 </Text>
               </View>
 
@@ -125,28 +152,52 @@ export default function ForgotPassword() {
               ) : null}
 
               <View style={styles.formSection}>
-                <Label style={styles.label}>Email</Label>
+                <Label>New Password</Label>
                 <Input
-                  placeholder="your@email.com"
-                  value={email}
+                  placeholder="Enter new password"
+                  value={newPassword}
                   onChangeText={(text) => {
-                    setEmail(text);
+                    setNewPassword(text);
                     setError("");
                   }}
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  autoCorrect={false}
+                  secureTextEntry
+                  style={styles.input}
+                />
+                <Text style={styles.helperText}>
+                  Must be at least 6 characters
+                </Text>
+              </View>
+
+              <View style={styles.formSection}>
+                <Label>Confirm Password</Label>
+                <Input
+                  placeholder="Confirm new password"
+                  value={confirmPassword}
+                  onChangeText={(text) => {
+                    setConfirmPassword(text);
+                    setError("");
+                  }}
+                  secureTextEntry
                   style={styles.input}
                 />
               </View>
 
               <Button
                 onPress={handleSubmit}
-                disabled={loading}
+                disabled={loading || !token || !email}
                 style={styles.submitButton}
               >
-                {loading ? "Sending..." : "Send Reset Link"}
+                {loading ? "Resetting..." : "Reset Password"}
               </Button>
+
+              <TouchableOpacity
+                onPress={() => router.push("/(auth)/login")}
+                style={styles.loginLink}
+              >
+                <Text style={styles.loginLinkText}>
+                  Remember your password? <Text style={styles.loginLinkBold}>Log in</Text>
+                </Text>
+              </TouchableOpacity>
             </View>
           </Card>
         </View>
@@ -218,17 +269,29 @@ const styles = StyleSheet.create({
   formSection: {
     gap: 8,
   },
-  label: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#333",
-  },
   input: {
     backgroundColor: "#FFF5F3",
     borderColor: "#FFE0D6",
   },
+  helperText: {
+    fontSize: 12,
+    color: "#999",
+    marginTop: -4,
+  },
   submitButton: {
     marginTop: 8,
+  },
+  loginLink: {
+    alignItems: "center",
+    marginTop: 8,
+  },
+  loginLinkText: {
+    fontSize: 14,
+    color: "#666",
+  },
+  loginLinkBold: {
+    color: "#FF6A5C",
+    fontWeight: "600",
   },
   // Success state styles
   successContent: {
@@ -259,8 +322,5 @@ const styles = StyleSheet.create({
     textAlign: "center",
     lineHeight: 20,
   },
-  backButton: {
-    width: "100%",
-    marginTop: 8,
-  },
 });
+

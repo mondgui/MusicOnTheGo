@@ -1,19 +1,16 @@
 // backend/server.js
+import dotenv from "dotenv";
+dotenv.config(); // Load environment variables FIRST, before any other imports
+
 import express from "express";
 import cors from "cors";
 import mongoose from "mongoose";
-import dotenv from "dotenv";
 import userRoutes from "./routes/userRoutes.js"; // 
 import authRoutes from "./routes/authRoutes.js";
 import availabilityRoutes from "./routes/availabilityRoutes.js";
 import bookingRoutes from "./routes/bookingRoutes.js";
 import inquiryRoutes from "./routes/inquiryRoutes.js";
 import teacherRoutes from "./routes/teacherRoutes.js";
-
-
-
-
-dotenv.config(); // Load environment variables
 
 const app = express();
 
