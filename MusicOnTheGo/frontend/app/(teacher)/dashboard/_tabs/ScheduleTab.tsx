@@ -1,107 +1,82 @@
 import React from "react";
-import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
+import { View, Text, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { Card } from "@/components/ui/card";
 
 type ScheduleItem = { id: string | number; student: string; instrument: string; time: string };
 
 type Props = {
   schedule: ScheduleItem[];
-  onBookingRequestsPress?: () => void;
-  onCreateAvailabilityPress?: () => void;
 };
 
-export default function ScheduleTab({ schedule, onBookingRequestsPress, onCreateAvailabilityPress }: Props) {
+export default function ScheduleTab({ schedule }: Props) {
   return (
     <View style={styles.section}>
-      <Text style={styles.sectionTitle}>Quick actions</Text>
-      <View style={styles.quickRow}>
-        <TouchableOpacity
-          style={styles.quickCard}
-          onPress={() => onCreateAvailabilityPress?.()}
-          disabled={!onCreateAvailabilityPress}
-        >
-          <View style={styles.quickIcon}>
-            <Ionicons name="calendar-outline" size={22} color="white" />
-          </View>
-          <Text style={styles.quickText}>Create availability</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.quickCard}
-          onPress={() => onBookingRequestsPress?.()}
-          disabled={!onBookingRequestsPress}
-        >
-          <View style={styles.quickIcon}>
-            <Ionicons name="clipboard-outline" size={22} color="white" />
-          </View>
-          <Text style={styles.quickText}>Booking requests</Text>
-        </TouchableOpacity>
-      </View>
-
-      <Text style={styles.sectionTitle}>Today&apos;s Schedule</Text>
-
-      {schedule.map((item) => (
-        <View key={item.id} style={styles.lessonCardRow}>
-          <View style={styles.lessonIconCircle}>
-            <Ionicons name="time-outline" size={22} color="#FF6A5C" />
-          </View>
-
-          <View style={{ flex: 1 }}>
-            <Text style={styles.cardTitle}>{item.student}</Text>
-            <Text style={styles.cardSubtitle}>
-              {item.instrument} • {item.time}
-            </Text>
-          </View>
+      <Card style={styles.scheduleCard}>
+        <Text style={styles.sectionTitle}>Today's Schedule</Text>
+        <View style={styles.scheduleList}>
+          {schedule.map((item) => (
+            <View key={item.id} style={styles.scheduleItem}>
+              <View style={styles.timeIcon}>
+                <Ionicons name="time-outline" size={20} color="white" />
+              </View>
+              <View style={styles.scheduleInfo}>
+                <Text style={styles.studentName}>{item.student}</Text>
+                <Text style={styles.scheduleDetails}>
+                  {item.instrument} • {item.time}
+                </Text>
+              </View>
+            </View>
+          ))}
         </View>
-      ))}
+      </Card>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  section: { marginBottom: 30 },
-  sectionTitle: { fontSize: 20, fontWeight: "700", marginBottom: 15 },
-  quickRow: { flexDirection: "row", justifyContent: "space-between", marginBottom: 20 },
-  quickCard: {
-    flex: 1,
-    backgroundColor: "white",
-    paddingVertical: 14,
-    borderRadius: 14,
-    marginRight: 10,
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOpacity: 0.06,
-    shadowOffset: { width: 0, height: 4 },
-    shadowRadius: 6,
-    elevation: 2,
+  section: {
+    marginBottom: 16,
   },
-  quickIcon: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
-    backgroundColor: "#FF6A5C",
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 8,
+  scheduleCard: {
+    padding: 16,
   },
-  quickText: { fontWeight: "600", color: "#333" },
-  lessonCardRow: {
-    flexDirection: "row",
-    backgroundColor: "white",
-    padding: 15,
-    borderRadius: 15,
-    marginBottom: 12,
-    alignItems: "center",
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#333",
+    marginBottom: 16,
+  },
+  scheduleList: {
     gap: 12,
   },
-  lessonIconCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: "#FFE0D6",
+  scheduleItem: {
+    flexDirection: "row",
+    gap: 12,
+    padding: 12,
+    backgroundColor: "#FFF5F3",
+    borderRadius: 12,
+  },
+  timeIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    backgroundColor: "#FF6A5C",
     justifyContent: "center",
     alignItems: "center",
   },
-  cardTitle: { fontSize: 16, fontWeight: "700" },
-  cardSubtitle: { color: "#777", marginTop: 3 },
+  scheduleInfo: {
+    flex: 1,
+    justifyContent: "center",
+  },
+  studentName: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#333",
+    marginBottom: 4,
+  },
+  scheduleDetails: {
+    fontSize: 14,
+    color: "#666",
+  },
 });

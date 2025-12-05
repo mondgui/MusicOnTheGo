@@ -1,5 +1,5 @@
 // app/(teacher)/dashboard/index.tsx
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import {
   View,
   Text,
@@ -10,13 +10,32 @@ import {
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
+import { useRouter, useFocusEffect } from "expo-router";
 import { api } from "../../../lib/api";
+import { Avatar } from "@/components/ui/avatar";
+import { Card } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 import ScheduleTab from "./_tabs/ScheduleTab";
-import MessagesTab from "./_tabs/MessagesTab";
 import BookingsTab from "./_tabs/BookingsTab";
 import TimesTab from "./_tabs/TimesTab";
 import TeacherProfileTab from "./_tabs/TeacherProfileTab";
+import SettingsTab from "./_tabs/SettingsTab";
+
+type TabKey = "home" | "bookings" | "settings";
+
+type TabConfig = {
+  key: TabKey;
+  label: string;
+  icon: keyof typeof Ionicons.glyphMap;
+};
+
+// Bottom tabs config
+const TABS: TabConfig[] = [
+  { key: "home", label: "Home", icon: "home-outline" },
+  { key: "bookings", label: "Bookings", icon: "calendar-outline" },
+  { key: "settings", label: "Settings", icon: "settings-outline" },
+];
 
 type ScheduleItem = { id: number; student: string; instrument: string; time: string };
 
@@ -31,38 +50,9 @@ type BookingItem = {
 
 type AvailabilityDay = { day: string; slots: string[] };
 
-type TeacherTabKey = "schedule" | "messages" | "bookings" | "times" | "profile";
-
-type TeacherTabConfig = {
-  key: TeacherTabKey;
-  label: string;
-  icon: keyof typeof Ionicons.glyphMap;
-};
-
 const scheduleData: ScheduleItem[] = [
   { id: 1, student: "Emily Johnson", instrument: "Piano", time: "2:00 PM" },
   { id: 2, student: "Michael Chen", instrument: "Guitar", time: "4:00 PM" },
-];
-
-const messagesData = [
-  {
-    id: 1,
-    student: "Emily Johnson",
-    instrument: "Piano",
-    preview: "Thanks for today’s lesson!",
-    time: "2h ago",
-    unread: true,
-    photo: "https://picsum.photos/200",
-  },
-  {
-    id: 2,
-    student: "Michael Chen",
-    instrument: "Guitar",
-    preview: "Can we reschedule to Tuesday?",
-    time: "Yesterday",
-    unread: false,
-    photo: "https://picsum.photos/210",
-  },
 ];
 
 const bookingsData: BookingItem[] = [
@@ -90,78 +80,93 @@ const availabilityData: AvailabilityDay[] = [
   { day: "Friday", slots: ["2:00 PM - 3:00 PM", "5:00 PM - 6:00 PM"] },
 ];
 
-const TEACHER_TABS: TeacherTabConfig[] = [
-  { key: "schedule", label: "Home", icon: "home-outline" },
-  { key: "messages", label: "Messages", icon: "chatbubble-outline" },
-  { key: "bookings", label: "Bookings", icon: "calendar-outline" },
-  { key: "times", label: "Times", icon: "time-outline" },
-  { key: "profile", label: "Profile", icon: "person-outline" },
-];
-
 export default function TeacherDashboard() {
-  const [activeTab, setActiveTab] = useState<TeacherTabKey>("schedule");
+  const router = useRouter();
+  const [activeTab, setActiveTab] = useState<TabKey>("home");
   const [user, setUser] = useState<any | null>(null);
 
-  useEffect(() => {
-    const loadUser = async () => {
-      try {
-        const me = await api("/api/users/me", { auth: true });
-        setUser(me);
-      } catch (err) {
-        console.error("Failed to load user", err);
-      }
-    };
-
-    loadUser();
+  // Load user data
+  const loadUser = useCallback(async () => {
+    try {
+      const me = await api("/api/users/me", { auth: true });
+      setUser(me);
+    } catch (err) {
+      console.error("Failed to load user", err);
+    }
   }, []);
+
+  useEffect(() => {
+    loadUser();
+  }, [loadUser]);
+
+  // Refresh user data when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      loadUser();
+    }, [loadUser])
+  );
 
   return (
     <View style={styles.container}>
+      {/* Scrollable content */}
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 100 }}
       >
+        {/* Gradient Header */}
         <LinearGradient colors={["#FF9076", "#FF6A5C"]} style={styles.header}>
           <View style={styles.headerTopRow}>
-            <Text style={styles.appTitle}>MusicOnTheGo</Text>
-            <TouchableOpacity style={styles.bellButton}>
-              <Ionicons name="notifications-outline" size={22} color="white" />
-              <View style={styles.bellDot} />
+            {/* Profile Picture */}
+            <TouchableOpacity
+              style={styles.profilePictureContainer}
+              onPress={() => {
+                // Switch to home tab and show profile
+                setActiveTab("home");
+              }}
+              activeOpacity={0.7}
+            >
+              {user?.profileImage ? (
+                <Image
+                  source={{ uri: user.profileImage }}
+                  style={styles.profilePicture}
+                />
+              ) : (
+                <View style={styles.profilePicturePlaceholder}>
+                  <Ionicons name="person" size={24} color="white" />
+                </View>
+              )}
             </TouchableOpacity>
-          </View>
 
-          <View style={styles.profileRow}>
-            <Image
-              source={{ uri: "https://picsum.photos/300" }}
-              style={styles.avatar}
-            />
-            <View>
-              <Text style={styles.teacherName}>{user?.name || "Your Name"}</Text>
-              <Text style={styles.teacherInstrument}>
-                {user?.instruments?.length
-                  ? user.instruments.join(", ")
-                  : "Instruments"}
-              </Text>
-              <Text style={styles.teacherRate}>
-                {user?.rate ? `$${user.rate}/hour` : "$—/hour"}
+            {/* Text Content */}
+            <View style={styles.headerTextContainer}>
+              <Text style={styles.appTitle}>Teacher Dashboard</Text>
+              <Text style={styles.welcomeSub}>
+                {user?.name || "Welcome back"}
               </Text>
             </View>
-          </View>
 
-          <Text style={styles.headerSubtitle}>
-            Manage your schedule, bookings, and availability.
-          </Text>
+            {/* Messages Button */}
+            <View style={styles.headerButtons}>
+              <TouchableOpacity
+                style={styles.headerIconButton}
+                onPress={() => router.push("/messages")}
+              >
+                <Ionicons name="chatbubbles-outline" size={24} color="white" />
+              </TouchableOpacity>
+            </View>
+          </View>
         </LinearGradient>
 
+        {/* Screen content depending on active tab */}
         <View style={styles.contentWrapper}>
-          {activeTab === "schedule" && (
-            <ScheduleTab
-              schedule={scheduleData}
-              onBookingRequestsPress={() => setActiveTab("bookings")}
-              onCreateAvailabilityPress={() => setActiveTab("times")}
+          {activeTab === "home" && (
+            <HomeTabContent
+              user={user}
+              scheduleData={scheduleData}
+              bookingsData={bookingsData}
+              availabilityData={availabilityData}
             />
           )}
-          {activeTab === "messages" && <MessagesTab messages={messagesData} />}
           {activeTab === "bookings" && (
             <BookingsTab
               bookings={bookingsData.map((item) => ({
@@ -174,32 +179,144 @@ export default function TeacherDashboard() {
               }))}
             />
           )}
-          {activeTab === "times" && <TimesTab availability={availabilityData} />}
-          {activeTab === "profile" && (
+          {activeTab === "settings" && <SettingsTab />}
+        </View>
+      </ScrollView>
+
+      {/* Bottom Gradient Tab Bar */}
+      <BottomTabBar activeTab={activeTab} setActiveTab={setActiveTab} />
+    </View>
+  );
+}
+
+// Home Tab Content Component
+type HomeTabContentProps = {
+  user: any;
+  scheduleData: ScheduleItem[];
+  bookingsData: BookingItem[];
+  availabilityData: AvailabilityDay[];
+};
+
+function HomeTabContent({
+  user,
+  scheduleData,
+  bookingsData,
+  availabilityData,
+}: HomeTabContentProps) {
+  const router = useRouter();
+
+  return (
+    <View>
+      {/* Profile Info Card */}
+      <Card style={styles.profileCard}>
+        <View style={styles.profileRow}>
+          <Avatar
+            src={user?.profileImage}
+            fallback={user?.name?.charAt(0) || "T"}
+            size={80}
+            style={styles.avatar}
+          />
+          <View style={styles.profileInfo}>
+            <Text style={styles.teacherName}>{user?.name || "Teacher Name"}</Text>
+            <Text style={styles.teacherInstrument}>
+              {user?.instruments?.length
+                ? user.instruments.join(", ")
+                : "Piano, Guitar"}
+            </Text>
+            <Text style={styles.teacherRate}>
+              {user?.rate ? `$${user.rate}/hour` : "$45/hour"}
+            </Text>
+          </View>
+        </View>
+      </Card>
+
+      {/* Quick Access Cards */}
+      <View style={styles.quickAccessRow}>
+        <Card
+          style={styles.quickAccessCard}
+          onPress={() => {
+            router.push("/(teacher)/student-portfolio");
+          }}
+        >
+          <Ionicons name="people-outline" size={20} color="#FF6A5C" />
+          <Text style={styles.quickAccessText}>Students</Text>
+        </Card>
+        <Card
+          style={styles.quickAccessCard}
+          onPress={() => {
+            router.push("/(student)/resources");
+          }}
+        >
+          <Ionicons name="book-outline" size={20} color="#FF9076" />
+          <Text style={styles.quickAccessText}>Resources</Text>
+        </Card>
+        <Card
+          style={styles.quickAccessCard}
+          onPress={() => {
+            router.push("/(student)/practice-tools");
+          }}
+        >
+          <Ionicons name="construct-outline" size={20} color="#4A90E2" />
+          <Text style={styles.quickAccessText}>Tools</Text>
+        </Card>
+      </View>
+
+      {/* Tabs Content */}
+      <View style={styles.innerTabsWrapper}>
+        <Tabs defaultValue="schedule">
+          <TabsList style={styles.tabsList}>
+            <TabsTrigger value="schedule">Schedule</TabsTrigger>
+            <TabsTrigger value="bookings">Bookings</TabsTrigger>
+            <TabsTrigger value="times">Times</TabsTrigger>
+            <TabsTrigger value="profile">Profile</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="schedule">
+            <ScheduleTab schedule={scheduleData} />
+          </TabsContent>
+
+          <TabsContent value="bookings">
+            <BookingsTab
+              bookings={bookingsData.map((item) => ({
+                _id: item.id.toString(),
+                studentName: item.student,
+                instrument: item.instrument,
+                date: item.date,
+                time: item.time,
+                status: item.status,
+              }))}
+            />
+          </TabsContent>
+
+          <TabsContent value="times">
+            <TimesTab availability={availabilityData} />
+          </TabsContent>
+
+          <TabsContent value="profile">
             <TeacherProfileTab
               name={user?.name}
               email={user?.email}
               instruments={user?.instruments}
               rate={user?.rate}
+              bio={user?.about}
             />
-          )}
-        </View>
-      </ScrollView>
-
-      <TeacherBottomTabBar activeTab={activeTab} setActiveTab={setActiveTab} />
+          </TabsContent>
+        </Tabs>
+      </View>
     </View>
   );
 }
 
-type TeacherBottomTabBarProps = {
-  activeTab: TeacherTabKey;
-  setActiveTab: (tab: TeacherTabKey) => void;
+// Bottom Tab Bar Component
+type BottomTabBarProps = {
+  activeTab: TabKey;
+  setActiveTab: (tab: TabKey) => void;
 };
 
-function TeacherBottomTabBar({ activeTab, setActiveTab }: TeacherBottomTabBarProps) {
+function BottomTabBar({ activeTab, setActiveTab }: BottomTabBarProps) {
   return (
     <View style={styles.tabBar}>
-      {TEACHER_TABS.map((tab) => {
+      {TABS.map((tab) => {
         const isActive = tab.key === activeTab;
 
         return (
@@ -220,7 +337,9 @@ function TeacherBottomTabBar({ activeTab, setActiveTab }: TeacherBottomTabBarPro
                 color={isActive ? "white" : "#FF6A5C"}
               />
             </LinearGradient>
-            <Text style={[styles.tabLabel, isActive && styles.tabLabelActive]}>
+            <Text
+              style={[styles.tabLabel, isActive && styles.tabLabelActive]}
+            >
               {tab.label}
             </Text>
           </TouchableOpacity>
@@ -230,9 +349,12 @@ function TeacherBottomTabBar({ activeTab, setActiveTab }: TeacherBottomTabBarPro
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#FFF5F3" },
 
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: "#FFF5F3",
+  },
   header: {
     paddingTop: 70,
     paddingHorizontal: 20,
@@ -240,39 +362,114 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: 30,
     borderBottomRightRadius: 30,
   },
-
   headerTopRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
+    gap: 12,
   },
-
-  appTitle: { color: "white", fontSize: 22, fontWeight: "700" },
-
-  bellButton: { padding: 6 },
-
-  bellDot: {
-    position: "absolute",
-    top: 4,
-    right: 4,
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: "#34D399",
+  profilePictureContainer: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    overflow: "hidden",
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    borderWidth: 2,
+    borderColor: "rgba(255, 255, 255, 0.3)",
   },
-
-  profileRow: { flexDirection: "row", alignItems: "center", marginTop: 18 },
-
-  avatar: { width: 60, height: 60, borderRadius: 30, marginRight: 15 },
-
-  teacherName: { fontSize: 20, fontWeight: "700", color: "white" },
-  teacherInstrument: { color: "white", opacity: 0.9, marginTop: 2 },
-  teacherRate: { color: "white", opacity: 0.9, marginTop: 2 },
-
-  headerSubtitle: { color: "white", opacity: 0.9, marginTop: 14 },
-
-  contentWrapper: { paddingHorizontal: 20, paddingTop: 25 },
-
+  profilePicture: {
+    width: "100%",
+    height: "100%",
+  },
+  profilePicturePlaceholder: {
+    width: "100%",
+    height: "100%",
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+  },
+  headerTextContainer: {
+    flex: 1,
+  },
+  appTitle: {
+    color: "white",
+    fontSize: 24,
+    fontWeight: "700",
+    marginBottom: 4,
+  },
+  welcomeSub: {
+    color: "white",
+    opacity: 0.9,
+    marginTop: 4,
+    fontSize: 14,
+  },
+  headerButtons: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  headerIconButton: {
+    padding: 8,
+    borderRadius: 8,
+  },
+  contentWrapper: {
+    paddingHorizontal: 20,
+    paddingTop: 25,
+  },
+  profileCard: {
+    marginTop: -16,
+    marginBottom: 16,
+    padding: 16,
+  },
+  profileRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 16,
+  },
+  avatar: {
+    borderWidth: 4,
+    borderColor: "white",
+  },
+  profileInfo: {
+    flex: 1,
+  },
+  teacherName: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#333",
+    marginBottom: 4,
+  },
+  teacherInstrument: {
+    color: "#666",
+    fontSize: 14,
+    marginBottom: 2,
+  },
+  teacherRate: {
+    color: "#666",
+    fontSize: 14,
+  },
+  quickAccessRow: {
+    flexDirection: "row",
+    gap: 12,
+    marginBottom: 20,
+  },
+  quickAccessCard: {
+    flex: 1,
+    padding: 12,
+    alignItems: "center",
+  },
+  quickAccessText: {
+    fontSize: 12,
+    color: "#333",
+    marginTop: 4,
+    fontWeight: "500",
+  },
+  innerTabsWrapper: {
+    marginTop: 8,
+  },
+  tabsList: {
+    marginBottom: 16,
+  },
+  // Bottom tab bar
   tabBar: {
     position: "absolute",
     bottom: 15,
@@ -290,7 +487,11 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 5,
   },
-  tabButton: { flex: 1, alignItems: "center", gap: 4 },
+  tabButton: {
+    flex: 1,
+    alignItems: "center",
+    gap: 4,
+  },
   tabPill: {
     width: 40,
     height: 40,
@@ -299,6 +500,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   tabPillActive: {},
-  tabLabel: { fontSize: 11, color: "#888" },
-  tabLabelActive: { color: "#FF6A5C", fontWeight: "700" },
+  tabLabel: {
+    fontSize: 11,
+    color: "#888",
+  },
+  tabLabelActive: {
+    color: "#FF6A5C",
+    fontWeight: "700",
+  },
 });

@@ -3,7 +3,6 @@ import {
   View,
   Text,
   StyleSheet,
-  Image,
   TouchableOpacity,
   ScrollView,
   ActivityIndicator,
@@ -12,6 +11,10 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { api } from "../../../lib/api";
+import { Avatar } from "@/components/ui/avatar";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 
 type Teacher = {
   _id: string;
@@ -22,6 +25,12 @@ type Teacher = {
   location: string;
   rate?: number;
   about?: string;
+  profileImage?: string;
+};
+
+type AvailabilitySlot = {
+  date: string;
+  time: string;
 };
 
 export default function TeacherProfileScreen() {
@@ -30,14 +39,18 @@ export default function TeacherProfileScreen() {
 
   const [teacher, setTeacher] = useState<Teacher | null>(null);
   const [loading, setLoading] = useState(true);
+  const [availability, setAvailability] = useState<AvailabilitySlot[]>([]);
+  const [loadingAvailability, setLoadingAvailability] = useState(false);
+
+  // Mock data for ratings/reviews (until backend supports it)
+  const mockRating = 4.8;
+  const mockReviews = 24;
 
   // Load teacher from backend
   useEffect(() => {
     async function fetchTeacher() {
       try {
         const data = await api(`/api/teachers/${id}`);
-//        console.log("TEACHER DATA FROM API:", data);   
-
         setTeacher(data);
       } catch (err: any) {
         console.log("Teacher fetch error:", err.message);
@@ -46,6 +59,41 @@ export default function TeacherProfileScreen() {
       }
     }
     fetchTeacher();
+  }, [id]);
+
+  // Load teacher availability
+  useEffect(() => {
+    async function fetchAvailability() {
+      if (!id) return;
+      try {
+        setLoadingAvailability(true);
+        const data = await api(`/api/availability/teacher/${id}`);
+        // Transform availability to available slots
+        // For now, we'll create mock slots from the availability data
+        // TODO: Generate actual available time slots from availability data
+        const mockSlots: AvailabilitySlot[] = [
+          { date: "Nov 15", time: "2:00 PM" },
+          { date: "Nov 16", time: "4:00 PM" },
+          { date: "Nov 18", time: "3:00 PM" },
+          { date: "Nov 20", time: "1:00 PM" },
+          { date: "Nov 22", time: "5:00 PM" },
+        ];
+        setAvailability(mockSlots);
+      } catch (err: any) {
+        console.log("Availability fetch error:", err.message);
+        // Use mock slots on error
+        setAvailability([
+          { date: "Nov 15", time: "2:00 PM" },
+          { date: "Nov 16", time: "4:00 PM" },
+          { date: "Nov 18", time: "3:00 PM" },
+        ]);
+      } finally {
+        setLoadingAvailability(false);
+      }
+    }
+    if (id) {
+      fetchAvailability();
+    }
   }, [id]);
 
   if (loading) {
@@ -64,196 +112,324 @@ export default function TeacherProfileScreen() {
     );
   }
 
+  const handleBookLesson = () => {
+    router.push({
+      pathname: "/booking/booking-confirmation",
+      params: { teacherId: teacher?._id },
+    });
+  };
+
+  const handleContact = () => {
+    router.push({
+      pathname: "/booking/contact-detail",
+      params: { teacherId: teacher?._id },
+    });
+  };
+
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      {/* HEADER */}
-      <LinearGradient colors={["#FF9076", "#FF6A5C"]} style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={26} color="white" />
-        </TouchableOpacity>
+    <View style={styles.container}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
+        {/* Header with Back Button */}
+        <LinearGradient colors={["#FF9076", "#FF6A5C"]} style={styles.header}>
+          <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+            <Ionicons name="arrow-back" size={24} color="white" />
+            <Text style={styles.backText}>Back</Text>
+          </TouchableOpacity>
+        </LinearGradient>
 
-        <Image
-          source={{ uri: "https://picsum.photos/300" }}
-          style={styles.avatar}
-        />
+        {/* Profile Card (overlapping header) */}
+        <View style={styles.content}>
+          <Card style={styles.profileCard}>
+            <View style={styles.profileHeader}>
+              <Avatar
+                src={teacher?.profileImage}
+                fallback={teacher?.name?.charAt(0) || "T"}
+                size={80}
+                style={styles.avatar}
+              />
+              <View style={styles.profileInfo}>
+                <Text style={styles.teacherName}>{teacher?.name}</Text>
+                <Text style={styles.instrumentsText}>
+                  {teacher?.instruments?.join(", ") || "Instruments"}
+                </Text>
+                <View style={styles.ratingRow}>
+                  <Ionicons name="star" size={16} color="#FFD700" />
+                  <Text style={styles.ratingText}>{mockRating}</Text>
+                  <Text style={styles.reviewsText}>({mockReviews} reviews)</Text>
+                </View>
+              </View>
+            </View>
 
-        <Text style={styles.name}>{teacher.name}</Text>
-        <Text style={styles.instrumentList}>
-          {teacher.instruments.join(", ")}
-        </Text>
-      </LinearGradient>
+            <View style={styles.detailsDivider}>
+              <View style={styles.detailItem}>
+                <Ionicons name="location-outline" size={20} color="#FF6A5C" />
+                <Text style={styles.detailText}>{teacher?.location || "Not specified"}</Text>
+              </View>
+              <View style={styles.detailItem}>
+                <Ionicons name="trophy-outline" size={20} color="#FF6A5C" />
+                <Text style={styles.detailText}>
+                  {teacher?.experience || "Experience not listed"}
+                </Text>
+              </View>
+              <View style={styles.detailItem}>
+                <Ionicons name="musical-notes-outline" size={20} color="#FF6A5C" />
+                <Text style={styles.detailText}>
+                  Teaches {teacher?.instruments?.join(" & ") || "Instruments"}
+                </Text>
+              </View>
+            </View>
 
-      {/* DETAILS */}
-      <View style={styles.detailsSection}>
-        <Text style={styles.sectionTitle}>About This Teacher</Text>
+            <View style={styles.priceRow}>
+              <Text style={styles.price}>${teacher?.rate || 0}</Text>
+              <Text style={styles.priceLabel}>per hour</Text>
+            </View>
+          </Card>
 
-        <DetailRow
-          icon="location-outline"
-          label="Location"
-          value={teacher.location || "Not specified"}
-        />
+          {/* About Section */}
+          <Card style={styles.aboutCard}>
+            <Text style={styles.cardTitle}>About</Text>
+            <Text style={styles.aboutText}>
+              {teacher?.about ||
+                `With over ${teacher?.experience || "years of"} experience, I specialize in teaching ${teacher?.instruments?.join(" and ") || "music"} to students of all levels. My approach focuses on building a strong foundation while keeping lessons engaging and fun. Whether you're a complete beginner or looking to refine your skills, I'll create a personalized learning plan to help you achieve your musical goals.`}
+            </Text>
+          </Card>
 
-        <DetailRow
-          icon="book-outline"
-          label="Experience"
-          value={
-            teacher.experience
-              ? `${teacher.experience} years of experience`
-              : "No experience listed"
-          }
-          
-        />
+          {/* Specialties */}
+          <Card style={styles.specialtiesCard}>
+            <Text style={styles.cardTitle}>Specialties</Text>
+            <View style={styles.badgesRow}>
+              <Badge variant="default">Beginners Welcome</Badge>
+              <Badge variant="warning">Music Theory</Badge>
+              <Badge variant="default">Performance Prep</Badge>
+              <Badge variant="warning">Sight Reading</Badge>
+            </View>
+          </Card>
 
-        <DetailRow
-          icon="musical-notes-outline"
-          label="Instruments"
-          value={teacher.instruments.join(", ")}
-        />
+          {/* Available Times */}
+          <Card style={styles.availabilityCard}>
+            <View style={styles.availabilityHeader}>
+              <Ionicons name="calendar-outline" size={20} color="#FF6A5C" />
+              <Text style={styles.cardTitle}>Available Times</Text>
+            </View>
+            {loadingAvailability ? (
+              <ActivityIndicator color="#FF6A5C" style={{ marginTop: 16 }} />
+            ) : (
+              <View style={styles.slotsGrid}>
+                {availability.map((slot, index) => (
+                  <TouchableOpacity
+                    key={index}
+                    style={styles.slotButton}
+                    onPress={() => handleBookLesson()}
+                  >
+                    <Text style={styles.slotDate}>{slot.date}</Text>
+                    <Text style={styles.slotTime}>{slot.time}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+          </Card>
 
-        <DetailRow
-          icon="cash-outline"
-          label="Rate"
-          value={teacher.rate ? `$${teacher.rate}/hour` : "Rate not specified"}
-        />
-
-        <Text style={styles.sectionTitle}>About</Text>
-        <Text style={styles.aboutText}>
-          {teacher.about || "This teacher has not added an introduction yet."}
-        </Text>
-
-
-
-        {/* Request Info Button */}
-        <TouchableOpacity
-          style={styles.requestButton}
-          onPress={() =>
-            router.push({
-              pathname: "/booking/contact-detail",
-              params: { teacherId: teacher._id },
-            })
-          }
-        >
-          <LinearGradient
-            colors={["#FF9076", "#FF6A5C"]}
-            style={styles.requestButtonGradient}
-          >
-            <Text style={styles.requestButtonText}>Request Info</Text>
-          </LinearGradient>
-        </TouchableOpacity>
-      </View>
-    </ScrollView>
-  );
-}
-
-// Reusable detail row
-function DetailRow({
-  icon,
-  label,
-  value,
-}: {
-  icon: keyof typeof Ionicons.glyphMap;
-  label: string;
-  value: string;
-}) {
-  return (
-    <View style={styles.detailRow}>
-      <Ionicons name={icon} size={22} color="#FF6A5C" />
-      <View style={{ marginLeft: 12 }}>
-        <Text style={styles.detailLabel}>{label}</Text>
-        <Text style={styles.detailValue}>{value}</Text>
-      </View>
+          {/* Action Buttons */}
+          <View style={styles.actionsRow}>
+            <Button onPress={handleBookLesson} style={styles.bookButton}>
+              <Text style={styles.bookButtonText}>Book a Lesson</Text>
+            </Button>
+            <Button
+              variant="outline"
+              onPress={handleContact}
+              style={styles.contactButton}
+            >
+              <Ionicons name="chatbubble-outline" size={20} color="#FF6A5C" style={{ marginRight: 8 }} />
+              <Text style={styles.contactButtonText}>Contact Teacher</Text>
+            </Button>
+          </View>
+        </View>
+      </ScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#FFF5F3" },
-
+  container: {
+    flex: 1,
+    backgroundColor: "#FFF5F3",
+  },
   header: {
-    paddingTop: 60,
-    paddingBottom: 30,
-    alignItems: "center",
+    paddingTop: 50,
+    paddingBottom: 60,
+    paddingHorizontal: 20,
     borderBottomLeftRadius: 30,
     borderBottomRightRadius: 30,
   },
-
-  avatar: {
-    width: 110,
-    height: 110,
-    borderRadius: 55,
-    marginTop: 15,
-    marginBottom: 10,
-  },
-
-  name: {
-    fontSize: 24,
-    color: "white",
-    fontWeight: "700",
-  },
-
-  instrumentList: {
-    color: "white",
-    marginTop: 6,
-    opacity: 0.9,
-  },
-
-  detailsSection: {
-    padding: 20,
-  },
-
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: "700",
-    marginBottom: 20,
-  },
-
-  detailRow: {
+  backButton: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 18,
+    gap: 8,
+    marginBottom: 16,
   },
-
-  detailLabel: {
-    fontSize: 14,
+  backText: {
+    color: "rgba(255, 255, 255, 0.9)",
+    fontSize: 16,
     fontWeight: "600",
-    color: "#444",
   },
-
-  detailValue: {
+  content: {
+    paddingHorizontal: 20,
+    marginTop: -48,
+    gap: 16,
+  },
+  profileCard: {
+    padding: 24,
+  },
+  profileHeader: {
+    flexDirection: "row",
+    gap: 16,
+    marginBottom: 16,
+  },
+  avatar: {
+    borderWidth: 0,
+  },
+  profileInfo: {
+    flex: 1,
+  },
+  teacherName: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#333",
+    marginBottom: 4,
+  },
+  instrumentsText: {
     fontSize: 14,
     color: "#666",
-    marginTop: 3,
+    marginBottom: 8,
   },
-
-  requestButton: {
-    marginTop: 25,
-    borderRadius: 12,
-    overflow: "hidden",
-  },
-
-  requestButtonGradient: {
-    paddingVertical: 15,
-    borderRadius: 12,
+  ratingRow: {
+    flexDirection: "row",
     alignItems: "center",
+    gap: 4,
   },
-
-  requestButtonText: {
+  ratingText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#FFD700",
+  },
+  reviewsText: {
+    fontSize: 14,
+    color: "#999",
+  },
+  detailsDivider: {
+    paddingVertical: 12,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: "#E5E5E5",
+    gap: 12,
+    marginBottom: 16,
+  },
+  detailItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  detailText: {
+    fontSize: 14,
+    color: "#666",
+  },
+  priceRow: {
+    flexDirection: "row",
+    alignItems: "baseline",
+    gap: 8,
+  },
+  price: {
+    fontSize: 24,
+    fontWeight: "700",
+    color: "#FF6A5C",
+  },
+  priceLabel: {
+    fontSize: 14,
+    color: "#999",
+  },
+  aboutCard: {
+    padding: 24,
+  },
+  specialtiesCard: {
+    padding: 24,
+  },
+  cardTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#333",
+    marginBottom: 12,
+  },
+  aboutText: {
+    fontSize: 14,
+    color: "#666",
+    lineHeight: 20,
+  },
+  badgesRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  availabilityCard: {
+    padding: 24,
+  },
+  availabilityHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 16,
+  },
+  slotsGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 12,
+  },
+  slotButton: {
+    flex: 1,
+    minWidth: "45%",
+    padding: 12,
+    borderWidth: 2,
+    borderColor: "#FFE0D6",
+    borderRadius: 12,
+    backgroundColor: "white",
+  },
+  slotDate: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#333",
+    marginBottom: 4,
+  },
+  slotTime: {
+    fontSize: 14,
+    color: "#666",
+  },
+  actionsRow: {
+    gap: 12,
+    marginTop: 8,
+  },
+  bookButton: {
+    width: "100%",
+    paddingVertical: 20,
+  },
+  bookButtonText: {
     color: "white",
-    fontSize: 17,
+    fontSize: 18,
     fontWeight: "700",
   },
-
+  contactButton: {
+    width: "100%",
+    paddingVertical: 20,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  contactButtonText: {
+    color: "#FF6A5C",
+    fontSize: 18,
+    fontWeight: "700",
+  },
   loadingContainer: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
   },
-
-  aboutText: {
-    fontSize: 15,
-    color: "#444",
-    lineHeight: 22,
-    marginBottom: 20,
-  },
-  
 });
