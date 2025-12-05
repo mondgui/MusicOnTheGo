@@ -4,6 +4,7 @@ export default function TeacherLayout() {
   return (
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="dashboard/index" />
+      <Stack.Screen name="student-portfolio" />
     </Stack>
   );
 }
