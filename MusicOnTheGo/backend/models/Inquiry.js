@@ -22,6 +22,14 @@ const inquirySchema = new mongoose.Schema(
 
     // Optional message
     message: { type: String, required: false },
+    
+    // Goals / Interests
+    goals: { type: String, required: false },
+    
+    // Parent/Guardian Contact (optional)
+    guardianName: { type: String, required: false },
+    guardianPhone: { type: String, required: false },
+    guardianEmail: { type: String, required: false },
 
     status: {
       type: String,

@@ -27,7 +27,7 @@ app.use("/api/users", userRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/availability", availabilityRoutes);
 app.use("/api/bookings", bookingRoutes);
-app.use("/inquiries", inquiryRoutes);
+app.use("/api/inquiries", inquiryRoutes);
 app.use("/api/teachers", teacherRoutes);
 
 

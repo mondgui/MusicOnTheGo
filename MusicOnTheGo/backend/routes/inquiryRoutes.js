@@ -18,6 +18,10 @@ router.post("/", authMiddleware, async (req, res) => {
       lessonType,
       availability,
       message,
+      goals,
+      guardianName,
+      guardianPhone,
+      guardianEmail,
     } = req.body;
 
     if (!teacher || !instrument || !level || !lessonType || !availability) {
@@ -33,6 +37,10 @@ router.post("/", authMiddleware, async (req, res) => {
       lessonType,
       availability,
       message,
+      goals,
+      guardianName,
+      guardianPhone,
+      guardianEmail,
     });
 
     res.status(201).json(inquiry);
