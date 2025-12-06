@@ -63,12 +63,7 @@ export default function SettingsTab() {
           <View style={styles.sectionContent}>
             <TouchableOpacity
               style={styles.settingItem}
-              onPress={() => {
-                // Navigate to profile tab in dashboard
-                // We can use a callback or state management for this
-                // For now, just show a message
-                alert("Navigate to Profile tab to edit your profile");
-              }}
+              onPress={() => router.push("/(teacher)/edit-profile")}
             >
               <View style={styles.settingLeft}>
                 <Ionicons name="person-outline" size={20} color="#FF6A5C" />

@@ -10,7 +10,7 @@ import {
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter, useFocusEffect } from "expo-router";
+import { useRouter, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { api } from "../../../lib/api";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -81,8 +81,26 @@ const availabilityData: AvailabilityDay[] = [
 
 export default function TeacherDashboard() {
   const router = useRouter();
+  const params = useLocalSearchParams();
   const [activeTab, setActiveTab] = useState<TabKey>("home");
+  const [innerTab, setInnerTab] = useState<string>("schedule");
   const [user, setUser] = useState<any | null>(null);
+  
+  // Get the tab parameter from query string
+  const getTabParam = (): string => {
+    const tab = params.tab;
+    if (Array.isArray(tab)) return tab[0] || "schedule";
+    return tab || "schedule";
+  };
+  
+  // Set active tab to "home" and inner tab to "profile" if profile tab is requested
+  useEffect(() => {
+    const tabParam = getTabParam();
+    if (tabParam === "profile") {
+      setActiveTab("home");
+      setInnerTab("profile");
+    }
+  }, [params.tab]);
 
   // Load user data
   const loadUser = useCallback(async () => {
@@ -168,6 +186,7 @@ export default function TeacherDashboard() {
               scheduleData={scheduleData}
               bookingsData={bookingsData}
               availabilityData={availabilityData}
+              defaultTab={innerTab}
             />
           )}
           {activeTab === "bookings" && (
@@ -198,6 +217,7 @@ type HomeTabContentProps = {
   scheduleData: ScheduleItem[];
   bookingsData: BookingItem[];
   availabilityData: AvailabilityDay[];
+  defaultTab?: string;
 };
 
 function HomeTabContent({
@@ -205,6 +225,7 @@ function HomeTabContent({
   scheduleData,
   bookingsData,
   availabilityData,
+  defaultTab = "schedule",
 }: HomeTabContentProps) {
   const router = useRouter();
 
@@ -243,7 +264,7 @@ function HomeTabContent({
 
       {/* Tabs Content */}
       <View style={styles.innerTabsWrapper}>
-        <Tabs defaultValue="schedule">
+        <Tabs defaultValue={defaultTab} key={defaultTab}>
           <TabsList style={styles.tabsList}>
             <TabsTrigger value="schedule">Schedule</TabsTrigger>
             <TabsTrigger value="bookings">Bookings</TabsTrigger>
