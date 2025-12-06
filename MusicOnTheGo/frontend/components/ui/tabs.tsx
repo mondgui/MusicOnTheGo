@@ -36,11 +36,11 @@ export function Tabs({ defaultValue = "", children }: TabsProps) {
   // Find the first TabsTrigger value if no defaultValue
   React.useEffect(() => {
     if (!defaultValue) {
-      const childrenArray = React.Children.toArray(children) as React.ReactElement[];
+      const childrenArray = React.Children.toArray(children) as React.ReactElement<TabsListProps>[];
       const tabsList = childrenArray.find((child) => child.type === TabsList);
-      if (tabsList) {
-        const triggers = React.Children.toArray(tabsList.props.children);
-        const firstTrigger = triggers[0] as React.ReactElement;
+      if (tabsList && tabsList.props) {
+        const triggers = React.Children.toArray(tabsList.props.children) as React.ReactElement<TabsTriggerProps>[];
+        const firstTrigger = triggers[0];
         if (firstTrigger?.props?.value) {
           setActiveTab(firstTrigger.props.value);
         }
@@ -107,19 +107,21 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     padding: 4,
     gap: 4,
+    flexWrap: "wrap",
   },
   tabTrigger: {
-    flex: 1,
+    flexShrink: 1,
     paddingVertical: 10,
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
     borderRadius: 8,
     alignItems: "center",
+    minWidth: 60,
   },
   tabTriggerActive: {
     backgroundColor: "#FF6A5C",
   },
   tabTriggerText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: "600",
     color: "#666",
   },

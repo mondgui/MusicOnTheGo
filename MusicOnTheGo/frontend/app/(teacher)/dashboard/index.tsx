@@ -12,7 +12,6 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useFocusEffect } from "expo-router";
 import { api } from "../../../lib/api";
-import { Avatar } from "@/components/ui/avatar";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
@@ -119,10 +118,7 @@ export default function TeacherDashboard() {
             {/* Profile Picture */}
             <TouchableOpacity
               style={styles.profilePictureContainer}
-              onPress={() => {
-                // Switch to home tab and show profile
-                setActiveTab("home");
-              }}
+              onPress={() => router.push("/(teacher)/settings")}
               activeOpacity={0.7}
             >
               {user?.profileImage ? (
@@ -137,11 +133,18 @@ export default function TeacherDashboard() {
               )}
             </TouchableOpacity>
 
-            {/* Text Content */}
+            {/* Teacher Info */}
             <View style={styles.headerTextContainer}>
-              <Text style={styles.appTitle}>Teacher Dashboard</Text>
-              <Text style={styles.welcomeSub}>
-                {user?.name || "Welcome back"}
+              <Text style={styles.headerTeacherName}>
+                {user?.name || "Teacher Name"}
+              </Text>
+              <Text style={styles.headerTeacherInstrument}>
+                {user?.instruments?.length
+                  ? user.instruments.join(", ")
+                  : "Piano, Guitar"}
+              </Text>
+              <Text style={styles.headerTeacherRate}>
+                {user?.rate ? `$${user.rate}/hour` : "$45/hour"}
               </Text>
             </View>
 
@@ -207,29 +210,6 @@ function HomeTabContent({
 
   return (
     <View>
-      {/* Profile Info Card */}
-      <Card style={styles.profileCard}>
-        <View style={styles.profileRow}>
-          <Avatar
-            src={user?.profileImage}
-            fallback={user?.name?.charAt(0) || "T"}
-            size={80}
-            style={styles.avatar}
-          />
-          <View style={styles.profileInfo}>
-            <Text style={styles.teacherName}>{user?.name || "Teacher Name"}</Text>
-            <Text style={styles.teacherInstrument}>
-              {user?.instruments?.length
-                ? user.instruments.join(", ")
-                : "Piano, Guitar"}
-            </Text>
-            <Text style={styles.teacherRate}>
-              {user?.rate ? `$${user.rate}/hour` : "$45/hour"}
-            </Text>
-          </View>
-        </View>
-      </Card>
-
       {/* Quick Access Cards */}
       <View style={styles.quickAccessRow}>
         <Card
@@ -391,16 +371,21 @@ const styles = StyleSheet.create({
   headerTextContainer: {
     flex: 1,
   },
-  appTitle: {
+  headerTeacherName: {
     color: "white",
     fontSize: 24,
     fontWeight: "700",
     marginBottom: 4,
   },
-  welcomeSub: {
+  headerTeacherInstrument: {
     color: "white",
     opacity: 0.9,
-    marginTop: 4,
+    fontSize: 14,
+    marginBottom: 2,
+  },
+  headerTeacherRate: {
+    color: "white",
+    opacity: 0.9,
     fontSize: 14,
   },
   headerButtons: {
@@ -414,23 +399,6 @@ const styles = StyleSheet.create({
   contentWrapper: {
     paddingHorizontal: 20,
     paddingTop: 25,
-  },
-  profileCard: {
-    marginTop: -16,
-    marginBottom: 16,
-    padding: 16,
-  },
-  profileRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 16,
-  },
-  avatar: {
-    borderWidth: 4,
-    borderColor: "white",
-  },
-  profileInfo: {
-    flex: 1,
   },
   teacherName: {
     fontSize: 20,
