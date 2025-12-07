@@ -29,8 +29,8 @@ type Teacher = {
 };
 
 type AvailabilitySlot = {
-  date: string;
-  time: string;
+  day: string;
+  timeRange: string;
 };
 
 export default function TeacherProfileScreen() {
@@ -61,6 +61,15 @@ export default function TeacherProfileScreen() {
     fetchTeacher();
   }, [id]);
 
+  // Convert 24-hour format to 12-hour format with AM/PM
+  const formatTime24To12 = (time24: string): string => {
+    const [hours, minutes] = time24.split(":");
+    const hour = parseInt(hours);
+    const ampm = hour >= 12 ? "PM" : "AM";
+    const hour12 = hour % 12 || 12;
+    return `${hour12}:${minutes} ${ampm}`;
+  };
+
   // Load teacher availability
   useEffect(() => {
     async function fetchAvailability() {
@@ -68,25 +77,36 @@ export default function TeacherProfileScreen() {
       try {
         setLoadingAvailability(true);
         const data = await api(`/api/availability/teacher/${id}`);
-        // Transform availability to available slots
-        // For now, we'll create mock slots from the availability data
-        // TODO: Generate actual available time slots from availability data
-        const mockSlots: AvailabilitySlot[] = [
-          { date: "Nov 15", time: "2:00 PM" },
-          { date: "Nov 16", time: "4:00 PM" },
-          { date: "Nov 18", time: "3:00 PM" },
-          { date: "Nov 20", time: "1:00 PM" },
-          { date: "Nov 22", time: "5:00 PM" },
-        ];
-        setAvailability(mockSlots);
+        
+        // Transform backend availability data to display format
+        // Backend returns: [{ day: "Monday", timeSlots: [{ start: "14:00", end: "16:00" }] }]
+        if (Array.isArray(data) && data.length > 0) {
+          const slots: AvailabilitySlot[] = [];
+          
+          data.forEach((item: any) => {
+            const day = item.day || "";
+            const timeSlots = item.timeSlots || [];
+            
+            timeSlots.forEach((slot: any) => {
+              if (slot.start && slot.end) {
+                const startTime = formatTime24To12(slot.start);
+                const endTime = formatTime24To12(slot.end);
+                slots.push({
+                  day: day,
+                  timeRange: `${startTime} - ${endTime}`,
+                });
+              }
+            });
+          });
+          
+          setAvailability(slots);
+        } else {
+          // No availability set yet
+          setAvailability([]);
+        }
       } catch (err: any) {
         console.log("Availability fetch error:", err.message);
-        // Use mock slots on error
-        setAvailability([
-          { date: "Nov 15", time: "2:00 PM" },
-          { date: "Nov 16", time: "4:00 PM" },
-          { date: "Nov 18", time: "3:00 PM" },
-        ]);
+        setAvailability([]);
       } finally {
         setLoadingAvailability(false);
       }
@@ -112,10 +132,27 @@ export default function TeacherProfileScreen() {
     );
   }
 
-  const handleBookLesson = () => {
+  const handleBookLesson = (slot?: AvailabilitySlot) => {
+    const params: any = { teacherId: teacher?._id };
+    
+    // If a specific slot was clicked, pass the day and time information
+    if (slot) {
+      // Parse the timeRange (e.g., "2:00 PM - 4:00 PM") to get start and end times
+      const timeParts = slot.timeRange.split(" - ");
+      const startTime = timeParts[0]; // Get "2:00 PM"
+      const endTime = timeParts[1] || ""; // Get "4:00 PM" if available
+      
+      params.selectedDay = slot.day;
+      params.selectedTime = startTime;
+      params.selectedTimeRange = slot.timeRange; // Pass full range for display
+      if (endTime) {
+        params.selectedEndTime = endTime;
+      }
+    }
+    
     router.push({
       pathname: "/booking/booking-confirmation",
-      params: { teacherId: teacher?._id },
+      params,
     });
   };
 
@@ -213,16 +250,20 @@ export default function TeacherProfileScreen() {
             </View>
             {loadingAvailability ? (
               <ActivityIndicator color="#FF6A5C" style={{ marginTop: 16 }} />
+            ) : availability.length === 0 ? (
+              <Text style={styles.noAvailabilityText}>
+                No availability set yet. Contact the teacher to schedule a lesson.
+              </Text>
             ) : (
               <View style={styles.slotsGrid}>
                 {availability.map((slot, index) => (
                   <TouchableOpacity
                     key={index}
                     style={styles.slotButton}
-                    onPress={() => handleBookLesson()}
+                    onPress={() => handleBookLesson(slot)}
                   >
-                    <Text style={styles.slotDate}>{slot.date}</Text>
-                    <Text style={styles.slotTime}>{slot.time}</Text>
+                    <Text style={styles.slotDay}>{slot.day}</Text>
+                    <Text style={styles.slotTime}>{slot.timeRange}</Text>
                   </TouchableOpacity>
                 ))}
               </View>
@@ -392,7 +433,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     backgroundColor: "white",
   },
-  slotDate: {
+  slotDay: {
     fontSize: 14,
     fontWeight: "600",
     color: "#333",
@@ -401,6 +442,13 @@ const styles = StyleSheet.create({
   slotTime: {
     fontSize: 14,
     color: "#666",
+  },
+  noAvailabilityText: {
+    fontSize: 14,
+    color: "#999",
+    textAlign: "center",
+    marginTop: 16,
+    fontStyle: "italic",
   },
   actionsRow: {
     gap: 12,

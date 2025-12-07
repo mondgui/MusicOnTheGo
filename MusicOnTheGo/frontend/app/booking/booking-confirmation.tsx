@@ -25,11 +25,18 @@ import { api } from "../../lib/api";
 
 export default function BookingConfirmationScreen() {
   const router = useRouter();
-  const { teacherId } = useLocalSearchParams();
+  const params = useLocalSearchParams();
+  const { 
+    teacherId, 
+    selectedDay, 
+    selectedTime: preSelectedTime,
+    selectedTimeRange,
+    selectedEndTime 
+  } = params;
   
   const [teacher, setTeacher] = useState<any>(null);
-  const [selectedDate, setSelectedDate] = useState("");
-  const [selectedTime, setSelectedTime] = useState("");
+  const [selectedDate, setSelectedDate] = useState(selectedDay ? String(selectedDay) : "");
+  const [selectedTime, setSelectedTime] = useState(preSelectedTime ? String(preSelectedTime) : "");
   const [loading, setLoading] = useState(false);
 
   // Fetch teacher data
@@ -68,23 +75,89 @@ export default function BookingConfirmationScreen() {
     "5:00 PM",
   ];
 
+  // Convert 12-hour format to 24-hour format
+  const formatTime12To24 = (time12: string): string => {
+    const [time, ampm] = time12.trim().split(" ");
+    const [hours, minutes] = time.split(":");
+    let hour = parseInt(hours);
+    if (ampm === "PM" && hour !== 12) hour += 12;
+    if (ampm === "AM" && hour === 12) hour = 0;
+    return `${hour.toString().padStart(2, "0")}:${minutes}`;
+  };
+
+  // Add hours to a time string (24-hour format)
+  const addHours = (time24: string, hoursToAdd: number): string => {
+    const [hours, minutes] = time24.split(":");
+    const totalMinutes = parseInt(hours) * 60 + parseInt(minutes) + hoursToAdd * 60;
+    const newHours = Math.floor(totalMinutes / 60);
+    const newMinutes = totalMinutes % 60;
+    return `${newHours.toString().padStart(2, "0")}:${newMinutes.toString().padStart(2, "0")}`;
+  };
+
   const handleConfirm = async () => {
-    if (!selectedDate || !selectedTime || !teacher) {
+    if (!selectedDate || !selectedTime) {
       Alert.alert("Error", "Please select both date and time");
+      return;
+    }
+
+    if (!teacher) {
+      Alert.alert("Error", "Teacher information not loaded");
+      return;
+    }
+
+    const teacherIdValue = teacher._id || teacherId;
+    if (!teacherIdValue) {
+      Alert.alert("Error", "Teacher ID is missing");
       return;
     }
 
     try {
       setLoading(true);
       
-      // Create booking - backend expects: teacher (ID), day, timeSlot
+      // Convert selected time to 24-hour format and create timeSlot object
+      const startTime24 = formatTime12To24(selectedTime);
+      
+      // If we have an end time from the availability slot, use it; otherwise add 1 hour
+      let endTime24: string;
+      if (selectedEndTime) {
+        endTime24 = formatTime12To24(String(selectedEndTime));
+      } else {
+        endTime24 = addHours(startTime24, 1); // Assume 1-hour lesson duration
+      }
+      
+      // Determine day name
+      // If selectedDate is already a day name (from availability slot), use it
+      // Otherwise, parse the date string to get the day name
+      const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+      let dayName = selectedDate;
+      
+      // Check if selectedDate is already a day name
+      if (!dayNames.includes(selectedDate)) {
+        // It's a date string, parse it to get day name
+        const dateObj = new Date(selectedDate);
+        if (!isNaN(dateObj.getTime())) {
+          dayName = dayNames[dateObj.getDay()];
+        }
+      }
+      
+      // Validate all required fields before sending
+      if (!dayName || !startTime24 || !endTime24) {
+        Alert.alert("Error", "Invalid date or time selection");
+        setLoading(false);
+        return;
+      }
+      
+      // Create booking - backend expects: teacher (ID), day (day name), timeSlot {start, end}
       await api("/api/bookings", {
         method: "POST",
         auth: true,
         body: JSON.stringify({
-          teacher: teacher._id || teacherId,
-          day: selectedDate,
-          timeSlot: selectedTime,
+          teacher: teacherIdValue,
+          day: dayName,
+          timeSlot: {
+            start: startTime24,
+            end: endTime24,
+          },
         }),
       });
 
@@ -162,46 +235,71 @@ export default function BookingConfirmationScreen() {
           </View>
         </Card>
 
-        {/* Date & Time Selection */}
-        <Card style={styles.selectionCard}>
-          <View style={styles.selectionGroup}>
-            <Label style={styles.label}>
-              <Ionicons name="calendar-outline" size={16} color="#FF6A5C" />
-              <Text style={styles.labelText}> Select Date</Text>
-            </Label>
-            <Select value={selectedDate} onValueChange={setSelectedDate}>
-              <SelectTrigger>
-                <SelectValue placeholder="Choose a date" />
-              </SelectTrigger>
-              <SelectContent>
-                {availableDates.map((date) => (
-                  <SelectItem key={date} value={date}>
-                    {date}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </View>
+        {/* Date & Time Selection - Only show if not pre-selected */}
+        {(!selectedDate || !selectedTime) && (
+          <Card style={styles.selectionCard}>
+            <View style={styles.selectionGroup}>
+              <Label style={styles.label}>
+                <Ionicons name="calendar-outline" size={16} color="#FF6A5C" />
+                <Text style={styles.labelText}> Select Date</Text>
+              </Label>
+              <Select value={selectedDate} onValueChange={setSelectedDate}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Choose a date" />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableDates.map((date) => (
+                    <SelectItem key={date} value={date}>
+                      {date}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </View>
 
-          <View style={styles.selectionGroup}>
-            <Label style={styles.label}>
-              <Ionicons name="time-outline" size={16} color="#FF6A5C" />
-              <Text style={styles.labelText}> Select Time</Text>
-            </Label>
-            <Select value={selectedTime} onValueChange={setSelectedTime}>
-              <SelectTrigger>
-                <SelectValue placeholder="Choose a time" />
-              </SelectTrigger>
-              <SelectContent>
-                {availableTimes.map((time) => (
-                  <SelectItem key={time} value={time}>
-                    {time}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </View>
-        </Card>
+            <View style={styles.selectionGroup}>
+              <Label style={styles.label}>
+                <Ionicons name="time-outline" size={16} color="#FF6A5C" />
+                <Text style={styles.labelText}> Select Time</Text>
+              </Label>
+              <Select value={selectedTime} onValueChange={setSelectedTime}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Choose a time" />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableTimes.map((time) => (
+                    <SelectItem key={time} value={time}>
+                      {time}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </View>
+          </Card>
+        )}
+
+        {/* Show selected day and time if pre-selected */}
+        {selectedDate && selectedTime && (
+          <Card style={styles.selectionCard}>
+            <View style={styles.selectionGroup}>
+              <Label style={styles.label}>
+                <Ionicons name="calendar-outline" size={16} color="#FF6A5C" />
+                <Text style={styles.labelText}> Selected Day</Text>
+              </Label>
+              <Text style={styles.selectedValue}>{selectedDate}</Text>
+            </View>
+
+            <View style={styles.selectionGroup}>
+              <Label style={styles.label}>
+                <Ionicons name="time-outline" size={16} color="#FF6A5C" />
+                <Text style={styles.labelText}> Selected Time</Text>
+              </Label>
+              <Text style={styles.selectedValue}>
+                {selectedTimeRange || selectedTime}
+              </Text>
+            </View>
+          </Card>
+        )}
 
         {/* Booking Summary */}
         {selectedDate && selectedTime && (
@@ -360,6 +458,17 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "#333",
     marginLeft: 4,
+  },
+  selectedValue: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#333",
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: "#FFF5F3",
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#FFE0D6",
   },
   summaryCard: {
     marginBottom: 20,

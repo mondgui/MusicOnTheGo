@@ -85,6 +85,9 @@ export default function TeacherDashboard() {
   const [activeTab, setActiveTab] = useState<TabKey>("home");
   const [innerTab, setInnerTab] = useState<string>("schedule");
   const [user, setUser] = useState<any | null>(null);
+  const [bookings, setBookings] = useState<any[]>([]);
+  const [bookingsLoading, setBookingsLoading] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
   
   // Get the tab parameter from query string
   const getTabParam = (): string => {
@@ -102,24 +105,100 @@ export default function TeacherDashboard() {
     }
   }, [params.tab]);
 
+  // Convert 24-hour format to 12-hour format with AM/PM (moved outside to prevent recreation)
+  const formatTime24To12 = useCallback((time24: string): string => {
+    const [hours, minutes] = time24.split(":");
+    const hour = parseInt(hours);
+    const ampm = hour >= 12 ? "PM" : "AM";
+    const hour12 = hour % 12 || 12;
+    return `${hour12}:${minutes} ${ampm}`;
+  }, []);
+
+  // Format time slot for display
+  const formatTimeSlot = useCallback((timeSlot: { start: string; end: string }): string => {
+    const start = formatTime24To12(timeSlot.start);
+    const end = formatTime24To12(timeSlot.end);
+    return `${start} - ${end}`;
+  }, [formatTime24To12]);
+
+  // Format day for display (convert "Monday" to a date-like format or keep as is)
+  const formatDay = useCallback((day: string): string => {
+    // If it's already a day name, we can show it as is or convert to next occurrence
+    const today = new Date();
+    const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+    const dayIndex = dayNames.indexOf(day);
+    
+    if (dayIndex === -1) return day; // If not a day name, return as is
+    
+    // Find next occurrence of this day
+    const currentDay = today.getDay();
+    let daysUntil = dayIndex - currentDay;
+    if (daysUntil <= 0) daysUntil += 7; // Next week if today or past
+    
+    const nextDate = new Date(today);
+    nextDate.setDate(today.getDate() + daysUntil);
+    
+    return nextDate.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+  }, []);
+
   // Load user data
   const loadUser = useCallback(async () => {
     try {
       const me = await api("/api/users/me", { auth: true });
       setUser(me);
+      setUserId(me?._id || null);
     } catch (err) {
       console.error("Failed to load user", err);
     }
   }, []);
 
+  // Load bookings from backend
+  const loadBookings = useCallback(async () => {
+    try {
+      setBookingsLoading(true);
+      const data = await api("/api/bookings/teacher/me", { auth: true });
+      
+      // Transform backend booking data to display format
+      const transformed = (Array.isArray(data) ? data : []).map((booking: any) => ({
+        _id: booking._id,
+        studentName: booking.student?.name || "Student",
+        instrument: user?.instruments?.[0] || "Music",
+        date: formatDay(booking.day),
+        time: formatTimeSlot(booking.timeSlot),
+        status: booking.status === "approved" ? "Confirmed" : booking.status === "pending" ? "Pending" : "Rejected",
+      }));
+      
+      setBookings(transformed);
+    } catch (err) {
+      console.error("Failed to load bookings", err);
+      setBookings([]);
+    } finally {
+      setBookingsLoading(false);
+    }
+  }, [user, formatDay, formatTimeSlot]);
+
+  // Load data on mount
   useEffect(() => {
     loadUser();
   }, [loadUser]);
 
-  // Refresh user data when screen comes into focus
+  // Load bookings after user is loaded
+  useEffect(() => {
+    if (userId) {
+      loadBookings();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId]); // Only reload when user ID changes
+
+  // Refresh data when screen comes into focus
   useFocusEffect(
     useCallback(() => {
       loadUser();
+      // Load bookings will be triggered by the useEffect above when user changes
     }, [loadUser])
   );
 
@@ -187,18 +266,14 @@ export default function TeacherDashboard() {
               bookingsData={bookingsData}
               availabilityData={availabilityData}
               defaultTab={innerTab}
+              bookings={bookings}
+              bookingsLoading={bookingsLoading}
             />
           )}
           {activeTab === "bookings" && (
             <BookingsTab
-              bookings={bookingsData.map((item) => ({
-                _id: item.id.toString(),
-                studentName: item.student,
-                instrument: item.instrument,
-                date: item.date,
-                time: item.time,
-                status: item.status,
-              }))}
+              bookings={bookings}
+              loading={bookingsLoading}
             />
           )}
           {activeTab === "settings" && <SettingsTab />}
@@ -218,6 +293,8 @@ type HomeTabContentProps = {
   bookingsData: BookingItem[];
   availabilityData: AvailabilityDay[];
   defaultTab?: string;
+  bookings: any[];
+  bookingsLoading: boolean;
 };
 
 function HomeTabContent({
@@ -226,6 +303,8 @@ function HomeTabContent({
   bookingsData,
   availabilityData,
   defaultTab = "schedule",
+  bookings,
+  bookingsLoading,
 }: HomeTabContentProps) {
   const router = useRouter();
 
@@ -278,14 +357,8 @@ function HomeTabContent({
 
           <TabsContent value="bookings">
             <BookingsTab
-              bookings={bookingsData.map((item) => ({
-                _id: item.id.toString(),
-                studentName: item.student,
-                instrument: item.instrument,
-                date: item.date,
-                time: item.time,
-                status: item.status,
-              }))}
+              bookings={bookings}
+              loading={bookingsLoading}
             />
           </TabsContent>
 

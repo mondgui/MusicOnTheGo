@@ -5,19 +5,83 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
+import { Select, SelectItem } from "@/components/ui/select";
 import { api } from "../../../../lib/api";
 
 type Availability = { day: string; slots: string[] };
 type Props = { availability: Availability[] };
 
+// Days of the week matching backend enum
+const DAYS_OF_WEEK = [
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+  "Sunday",
+];
+
+// Generate individual time options with 15-minute intervals
+// Format: "8:00 AM", "8:15 AM", "8:30 AM", etc.
+function generateTimeOptions(): string[] {
+  const times: string[] = [];
+  const startHour = 8; // 8:00 AM
+  const endHour = 22; // 10:00 PM (22:00)
+  
+  for (let hour = startHour; hour <= endHour; hour++) {
+    for (let minute = 0; minute < 60; minute += 15) {
+      if (hour === endHour && minute > 0) break; // Don't go past end hour
+      const time24 = `${hour.toString().padStart(2, "0")}:${minute.toString().padStart(2, "0")}`;
+      times.push(formatTime24To12(time24));
+    }
+  }
+  
+  return times;
+}
+
+// Convert 24-hour format to 12-hour format with AM/PM
+function formatTime24To12(time24: string): string {
+  const [hours, minutes] = time24.split(":");
+  const hour = parseInt(hours);
+  const ampm = hour >= 12 ? "PM" : "AM";
+  const hour12 = hour % 12 || 12;
+  return `${hour12}:${minutes} ${ampm}`;
+}
+
+// Convert 12-hour format to 24-hour format
+function formatTime12To24(time12: string): string {
+  const [time, ampm] = time12.trim().split(" ");
+  const [hours, minutes] = time.split(":");
+  let hour = parseInt(hours);
+  if (ampm === "PM" && hour !== 12) hour += 12;
+  if (ampm === "AM" && hour === 12) hour = 0;
+  return `${hour.toString().padStart(2, "0")}:${minutes}`;
+}
+
+// Compare two time strings in 12-hour format to see if time1 is before time2
+function isTimeBefore(time1: string, time2: string): boolean {
+  const time1_24 = formatTime12To24(time1);
+  const time2_24 = formatTime12To24(time2);
+  return time1_24 < time2_24;
+}
+
+const TIME_OPTIONS = generateTimeOptions();
+
 export default function TimesTab({ availability: initialAvailability }: Props) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedDay, setSelectedDay] = useState("");
-  const [selectedTimeSlot, setSelectedTimeSlot] = useState("");
+  const [selectedFromTime, setSelectedFromTime] = useState("");
+  const [selectedToTime, setSelectedToTime] = useState("");
   const [availability, setAvailability] = useState<Availability[]>(initialAvailability);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  // Filter "To" time options to only show times after the selected "From" time
+  const getAvailableToTimes = (): string[] => {
+    if (!selectedFromTime) return TIME_OPTIONS;
+    return TIME_OPTIONS.filter((time) => isTimeBefore(selectedFromTime, time));
+  };
 
   useEffect(() => {
     loadAvailability();
@@ -55,66 +119,38 @@ export default function TimesTab({ availability: initialAvailability }: Props) {
   };
 
   const handleSave = async () => {
-    if (!selectedDay || !selectedTimeSlot) {
-      alert("Please fill in both day and time slot");
+    if (!selectedDay || !selectedFromTime || !selectedToTime) {
+      alert("Please select day, from time, and to time");
       return;
     }
 
-    // Parse time slot like "2:00 PM - 3:00 PM" to { start: "14:00", end: "15:00" }
-    const parseTimeSlot = (timeSlot: string) => {
-      const parts = timeSlot.split(" - ");
-      if (parts.length !== 2) {
-        throw new Error("Invalid time slot format. Use: '2:00 PM - 3:00 PM'");
-      }
-      
-      const convertTo24Hour = (time12: string) => {
-        const [time, ampm] = time12.trim().split(" ");
-        const [hours, minutes] = time.split(":");
-        let hour = parseInt(hours);
-        if (ampm === "PM" && hour !== 12) hour += 12;
-        if (ampm === "AM" && hour === 12) hour = 0;
-        return `${hour.toString().padStart(2, "0")}:${minutes}`;
-      };
-
-      return {
-        start: convertTo24Hour(parts[0]),
-        end: convertTo24Hour(parts[1]),
-      };
-    };
+    // Validate that "To" time is after "From" time
+    if (!isTimeBefore(selectedFromTime, selectedToTime)) {
+      alert("The 'To' time must be after the 'From' time");
+      return;
+    }
 
     try {
       setSaving(true);
-      const timeSlotObj = parseTimeSlot(selectedTimeSlot);
+      const timeSlotObj = {
+        start: formatTime12To24(selectedFromTime),
+        end: formatTime12To24(selectedToTime),
+      };
       
-      // Check if day already exists
-      const existingDay = availability.find((a) => a.day === selectedDay);
-      
-      if (existingDay) {
-        // For now, create a new availability entry
-        // TODO: Update existing entry when backend supports it better
-        await api("/api/availability", {
-          method: "POST",
-          auth: true,
-          body: {
-            day: selectedDay,
-            timeSlots: [timeSlotObj],
-          },
-        });
-      } else {
-        // Create new day
-        await api("/api/availability", {
-          method: "POST",
-          auth: true,
-          body: {
-            day: selectedDay,
-            timeSlots: [timeSlotObj],
-          },
-        });
-      }
+      // Create new availability entry
+      await api("/api/availability", {
+        method: "POST",
+        auth: true,
+        body: JSON.stringify({
+          day: selectedDay,
+          timeSlots: [timeSlotObj],
+        }),
+      });
 
       setDialogOpen(false);
       setSelectedDay("");
-      setSelectedTimeSlot("");
+      setSelectedFromTime("");
+      setSelectedToTime("");
       await loadAvailability(); // Reload availability
     } catch (error: any) {
       alert(error.message || "Failed to save availability");
@@ -138,22 +174,55 @@ export default function TimesTab({ availability: initialAvailability }: Props) {
           </DialogHeader>
           <View style={styles.dialogForm}>
             <View style={styles.formField}>
-              <Label>Day</Label>
-              <Input
+              <Label>Day of Week</Label>
+              <Select
                 value={selectedDay}
-                onChangeText={setSelectedDay}
-                placeholder="Monday, Tuesday, etc."
-                style={styles.input}
-              />
+                onValueChange={setSelectedDay}
+                placeholder="Select a day"
+                style={styles.select}
+              >
+                {DAYS_OF_WEEK.map((day) => (
+                  <SelectItem key={day} value={day}>
+                    {day}
+                  </SelectItem>
+                ))}
+              </Select>
             </View>
             <View style={styles.formField}>
-              <Label>Time Slot</Label>
-              <Input
-                value={selectedTimeSlot}
-                onChangeText={setSelectedTimeSlot}
-                placeholder="2:00 PM - 3:00 PM"
-                style={styles.input}
-              />
+              <Label>From (15-minute intervals)</Label>
+              <Select
+                value={selectedFromTime}
+                onValueChange={(value) => {
+                  setSelectedFromTime(value);
+                  // Reset "To" time if it's now invalid
+                  if (selectedToTime && !isTimeBefore(value, selectedToTime)) {
+                    setSelectedToTime("");
+                  }
+                }}
+                placeholder="Select start time"
+                style={styles.select}
+              >
+                {TIME_OPTIONS.map((time) => (
+                  <SelectItem key={time} value={time}>
+                    {time}
+                  </SelectItem>
+                ))}
+              </Select>
+            </View>
+            <View style={styles.formField}>
+              <Label>To (15-minute intervals)</Label>
+              <Select
+                value={selectedToTime}
+                onValueChange={setSelectedToTime}
+                placeholder={selectedFromTime ? "Select end time" : "Select 'From' time first"}
+                style={styles.select}
+              >
+                {getAvailableToTimes().map((time) => (
+                  <SelectItem key={time} value={time}>
+                    {time}
+                  </SelectItem>
+                ))}
+              </Select>
             </View>
             <Button onPress={handleSave} disabled={saving} style={styles.saveButton}>
               <Text style={styles.saveButtonText}>
@@ -211,7 +280,7 @@ const styles = StyleSheet.create({
   formField: {
     gap: 8,
   },
-  input: {
+  select: {
     marginTop: 0,
   },
   saveButton: {
