@@ -1,8 +1,9 @@
 import React from "react";
-import { View, Text, StyleSheet, ActivityIndicator } from "react-native";
+import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 
 export type Booking = {
   _id: string;
@@ -10,7 +11,7 @@ export type Booking = {
   instrument: string;
   date: string;
   time: string;
-  status: "Confirmed" | "Pending";
+  status: "Confirmed" | "Pending" | "Rejected";
 };
 
 type Props = {
@@ -42,7 +43,13 @@ export default function BookingsTab({ bookings, loading, onAccept, onReject }: P
               <Text style={styles.instrument}>{item.instrument}</Text>
             </View>
             <Badge
-              variant={item.status === "Confirmed" ? "success" : "warning"}
+              variant={
+                item.status === "Confirmed" 
+                  ? "success" 
+                  : item.status === "Rejected"
+                  ? "secondary"
+                  : "warning"
+              }
             >
               {item.status}
             </Badge>
@@ -57,6 +64,24 @@ export default function BookingsTab({ bookings, loading, onAccept, onReject }: P
               <Text style={styles.detailText}>{item.time}</Text>
             </View>
           </View>
+          
+          {item.status === "Pending" && (
+            <View style={styles.actionsRow}>
+              <TouchableOpacity
+                style={styles.rejectButton}
+                onPress={() => onReject?.(item._id)}
+              >
+                <Text style={styles.rejectButtonText}>Reject</Text>
+              </TouchableOpacity>
+              <Button
+                size="sm"
+                onPress={() => onAccept?.(item._id)}
+                style={styles.acceptButton}
+              >
+                Accept
+              </Button>
+            </View>
+          )}
         </Card>
       ))}
     </View>
@@ -114,6 +139,31 @@ const styles = StyleSheet.create({
   detailText: {
     fontSize: 14,
     color: "#666",
+  },
+  actionsRow: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    gap: 12,
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: "#E5E5E5",
+  },
+  rejectButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#FF6A5C",
+    backgroundColor: "white",
+  },
+  rejectButtonText: {
+    color: "#FF6A5C",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  acceptButton: {
+    minWidth: 100,
   },
 });
 

@@ -123,26 +123,44 @@ export default function TeacherDashboard() {
 
   // Format day for display (convert "Monday" to a date-like format or keep as is)
   const formatDay = useCallback((day: string): string => {
-    // If it's already a day name, we can show it as is or convert to next occurrence
-    const today = new Date();
+    // Check if it's a day name
     const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
     const dayIndex = dayNames.indexOf(day);
     
-    if (dayIndex === -1) return day; // If not a day name, return as is
+    if (dayIndex !== -1) {
+      // Convert day name to next occurrence date
+      const today = new Date();
+      const currentDay = today.getDay();
+      let daysUntil = dayIndex - currentDay;
+      if (daysUntil <= 0) daysUntil += 7; // Next week if today or past
+      
+      const nextDate = new Date(today);
+      nextDate.setDate(today.getDate() + daysUntil);
+      
+      return nextDate.toLocaleDateString("en-US", {
+        weekday: "long",
+        month: "long",
+        day: "numeric",
+        year: "numeric",
+      });
+    }
     
-    // Find next occurrence of this day
-    const currentDay = today.getDay();
-    let daysUntil = dayIndex - currentDay;
-    if (daysUntil <= 0) daysUntil += 7; // Next week if today or past
+    // Try to parse as date string
+    try {
+      const date = new Date(day);
+      if (!isNaN(date.getTime())) {
+        return date.toLocaleDateString("en-US", {
+          weekday: "long",
+          month: "long",
+          day: "numeric",
+          year: "numeric",
+        });
+      }
+    } catch {
+      // If parsing fails, return as is
+    }
     
-    const nextDate = new Date(today);
-    nextDate.setDate(today.getDate() + daysUntil);
-    
-    return nextDate.toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
+    return day; // If not a day name or date, return as is
   }, []);
 
   // Load user data
@@ -201,6 +219,38 @@ export default function TeacherDashboard() {
       // Load bookings will be triggered by the useEffect above when user changes
     }, [loadUser])
   );
+
+  // Handle accept booking
+  const handleAcceptBooking = useCallback(async (bookingId: string) => {
+    try {
+      await api(`/api/bookings/${bookingId}/status`, {
+        method: "PUT",
+        auth: true,
+        body: JSON.stringify({ status: "approved" }),
+      });
+      // Reload bookings to reflect the change
+      loadBookings();
+    } catch (err: any) {
+      console.error("Failed to accept booking", err);
+      alert(err.message || "Failed to accept booking");
+    }
+  }, [loadBookings]);
+
+  // Handle reject booking
+  const handleRejectBooking = useCallback(async (bookingId: string) => {
+    try {
+      await api(`/api/bookings/${bookingId}/status`, {
+        method: "PUT",
+        auth: true,
+        body: JSON.stringify({ status: "rejected" }),
+      });
+      // Reload bookings to reflect the change
+      loadBookings();
+    } catch (err: any) {
+      console.error("Failed to reject booking", err);
+      alert(err.message || "Failed to reject booking");
+    }
+  }, [loadBookings]);
 
   return (
     <View style={styles.container}>
@@ -268,12 +318,16 @@ export default function TeacherDashboard() {
               defaultTab={innerTab}
               bookings={bookings}
               bookingsLoading={bookingsLoading}
+              onAccept={handleAcceptBooking}
+              onReject={handleRejectBooking}
             />
           )}
           {activeTab === "bookings" && (
             <BookingsTab
               bookings={bookings}
               loading={bookingsLoading}
+              onAccept={handleAcceptBooking}
+              onReject={handleRejectBooking}
             />
           )}
           {activeTab === "settings" && <SettingsTab />}
@@ -295,6 +349,8 @@ type HomeTabContentProps = {
   defaultTab?: string;
   bookings: any[];
   bookingsLoading: boolean;
+  onAccept?: (id: string) => void;
+  onReject?: (id: string) => void;
 };
 
 function HomeTabContent({
@@ -305,6 +361,8 @@ function HomeTabContent({
   defaultTab = "schedule",
   bookings,
   bookingsLoading,
+  onAccept,
+  onReject,
 }: HomeTabContentProps) {
   const router = useRouter();
 
@@ -315,7 +373,7 @@ function HomeTabContent({
         <Card
           style={styles.quickAccessCard}
           onPress={() => {
-            router.push("/(teacher)/student-portfolio");
+            router.push("/(teacher)/students");
           }}
         >
           <Ionicons name="people-outline" size={20} color="#FF6A5C" />
@@ -359,6 +417,8 @@ function HomeTabContent({
             <BookingsTab
               bookings={bookings}
               loading={bookingsLoading}
+              onAccept={onAccept}
+              onReject={onReject}
             />
           </TabsContent>
 

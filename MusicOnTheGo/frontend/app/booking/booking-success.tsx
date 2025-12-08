@@ -142,18 +142,6 @@ export default function BookingSuccessScreen() {
         {/* Action Buttons */}
         <View style={styles.actionsContainer}>
           <Button
-            variant="outline"
-            onPress={() => {
-              // TODO: Implement add to calendar functionality
-              // This would require expo-calendar or similar
-            }}
-            style={styles.calendarButton}
-          >
-            <Ionicons name="calendar-outline" size={18} color="#FF6A5C" />
-            <Text style={styles.calendarButtonText}>Add to Calendar</Text>
-          </Button>
-
-          <Button
             onPress={() => router.push("/(student)/dashboard")}
             style={styles.homeButton}
           >
@@ -164,8 +152,7 @@ export default function BookingSuccessScreen() {
         {/* Confirmation Message */}
         <Card style={styles.confirmationCard}>
           <Text style={styles.confirmationText}>
-            A confirmation email has been sent to your inbox with all the
-            details
+            Your booking request has been sent to the teacher. You'll receive a confirmation once the teacher approves your request.
           </Text>
         </Card>
       </ScrollView>
@@ -298,19 +285,6 @@ const styles = StyleSheet.create({
   actionsContainer: {
     gap: 12,
     marginBottom: 20,
-  },
-  calendarButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    backgroundColor: "white",
-    borderColor: "#FF6A5C",
-    borderWidth: 2,
-  },
-  calendarButtonText: {
-    color: "#FF6A5C",
-    fontWeight: "600",
   },
   homeButton: {
     marginTop: 0,

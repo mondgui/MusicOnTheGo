@@ -1,23 +1,35 @@
-import React from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  ActivityIndicator,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter, useLocalSearchParams } from "expo-router";
+import { useRouter, useLocalSearchParams, useFocusEffect } from "expo-router";
+import { api } from "../../lib/api";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar } from "@/components/ui/avatar";
 
+type Lesson = {
+  id: string;
+  date: string;
+  topic: string;
+  notes: string;
+  duration: string;
+};
+
 export default function StudentPortfolioScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
+  const [bookings, setBookings] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   
   // Helper to safely get string from params (can be string | string[])
   const getParam = (key: string, defaultValue: string = ""): string => {
@@ -26,38 +38,99 @@ export default function StudentPortfolioScreen() {
     return value || defaultValue;
   };
   
-  // Get student data from params or use mock data
+  // Get student data from params
+  const studentId = getParam("studentId", "");
   const student = {
-    _id: getParam("studentId", "1"),
+    _id: studentId,
     name: getParam("studentName", "Student Name"),
     instrument: getParam("instrument", "Piano"),
     image: getParam("image", ""),
   };
 
-  const mockLessons = [
-    {
-      id: 1,
-      date: "2025-12-01",
-      topic: "Scale Mastery - C Major",
-      notes: "Great progress on hand position. Keep practicing daily.",
-      duration: "60 min",
-    },
-    {
-      id: 2,
-      date: "2025-11-24",
-      topic: "Fur Elise - Introduction",
-      notes: "Learned first section. Work on tempo consistency.",
-      duration: "60 min",
-    },
-    {
-      id: 3,
-      date: "2025-11-17",
-      topic: "Music Theory - Chord Progressions",
-      notes: "Understood basic chord structure. Homework assigned.",
-      duration: "45 min",
-    },
-  ];
+  // Fetch bookings for this student
+  const loadBookings = useCallback(async () => {
+    if (!studentId) {
+      setLoading(false);
+      return;
+    }
 
+    try {
+      setLoading(true);
+      const allBookings = await api("/api/bookings/teacher/me", { auth: true });
+      
+      // Filter bookings for this specific student
+      // Handle both populated student object and student ID string
+      const studentBookings = (Array.isArray(allBookings) ? allBookings : []).filter(
+        (booking: any) => {
+          if (!booking.student) return false;
+          
+          // Check if student is populated object or just ID
+          const bookingStudentId = booking.student._id 
+            ? String(booking.student._id) 
+            : String(booking.student);
+          
+          return bookingStudentId === String(studentId);
+        }
+      );
+
+      // Sort by date (newest first)
+      studentBookings.sort((a, b) => {
+        const dateA = new Date(a.day || a.createdAt || 0).getTime();
+        const dateB = new Date(b.day || b.createdAt || 0).getTime();
+        return dateB - dateA;
+      });
+
+      setBookings(studentBookings);
+    } catch (err) {
+      console.error("Failed to load bookings", err);
+      setBookings([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [studentId]);
+
+  useEffect(() => {
+    loadBookings();
+  }, [loadBookings]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadBookings();
+    }, [loadBookings])
+  );
+
+  // Calculate stats from bookings
+  const totalLessons = bookings.length;
+  const firstLessonDate = bookings.length > 0 
+    ? bookings[bookings.length - 1]?.day || bookings[bookings.length - 1]?.createdAt
+    : null;
+
+  // Transform bookings to lessons format
+  const lessons: Lesson[] = bookings.map((booking, index) => {
+    const startTime = booking.timeSlot?.start || "";
+    const endTime = booking.timeSlot?.end || "";
+    
+    // Calculate duration
+    let duration = "60 min";
+    if (startTime && endTime) {
+      const [startHour, startMin] = startTime.split(":").map(Number);
+      const [endHour, endMin] = endTime.split(":").map(Number);
+      const startMinutes = startHour * 60 + startMin;
+      const endMinutes = endHour * 60 + endMin;
+      const diffMinutes = endMinutes - startMinutes;
+      duration = `${diffMinutes} min`;
+    }
+
+    return {
+      id: booking._id || String(index),
+      date: booking.day || booking.createdAt || "",
+      topic: `${student.instrument} Lesson`,
+      notes: `Status: ${booking.status === "approved" ? "Confirmed" : booking.status === "pending" ? "Pending" : "Rejected"}`,
+      duration,
+    };
+  });
+
+  // Mock data for goals and practice (until we have those endpoints)
   const mockGoals = [
     { id: 1, goal: "Master C Major Scale", progress: 80, completed: false },
     { id: 2, goal: "Learn Fur Elise", progress: 40, completed: false },
@@ -73,17 +146,76 @@ export default function StudentPortfolioScreen() {
     { date: "Nov 27", minutes: 40 },
   ];
 
-  const totalLessons = 12;
   const totalPracticeMinutes = mockPractice.reduce((sum, p) => sum + p.minutes, 0);
   const averagePracticeTime = Math.round(totalPracticeMinutes / mockPractice.length);
 
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
+    try {
+      // Check if it's a day name
+      const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+      if (dayNames.includes(dateString)) {
+        // Convert day name to next occurrence date
+        const dayIndex = dayNames.indexOf(dateString);
+        const today = new Date();
+        const currentDay = today.getDay();
+        let daysUntil = dayIndex - currentDay;
+        if (daysUntil <= 0) daysUntil += 7;
+        
+        const nextDate = new Date(today);
+        nextDate.setDate(today.getDate() + daysUntil);
+        return nextDate.toLocaleDateString("en-US", {
+          weekday: "long",
+          month: "long",
+          day: "numeric",
+          year: "numeric",
+        });
+      }
+      
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return dateString;
+      return date.toLocaleDateString("en-US", {
+        weekday: "long",
+        month: "long",
+        day: "numeric",
+        year: "numeric",
+      });
+    } catch {
+      return dateString;
+    }
+  };
+
+  const formatStartDate = (dateString?: string): string => {
+    if (!dateString) return "N/A";
+    try {
+      // Check if it's a day name
+      const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+      if (dayNames.includes(dateString)) {
+        // Convert day name to next occurrence date
+        const dayIndex = dayNames.indexOf(dateString);
+        const today = new Date();
+        const currentDay = today.getDay();
+        let daysUntil = dayIndex - currentDay;
+        if (daysUntil <= 0) daysUntil += 7;
+        
+        const nextDate = new Date(today);
+        nextDate.setDate(today.getDate() + daysUntil);
+        return nextDate.toLocaleDateString("en-US", {
+          month: "long",
+          day: "numeric",
+          year: "numeric",
+        });
+      }
+      
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return "N/A";
+      return date.toLocaleDateString("en-US", {
+        month: "long",
+        day: "numeric",
+        year: "numeric",
+      });
+    } catch {
+      return "N/A";
+    }
   };
 
   return (
@@ -113,9 +245,11 @@ export default function StudentPortfolioScreen() {
             <View style={styles.studentDetails}>
               <Text style={styles.studentName}>{student.name || "Student Name"}</Text>
               <Text style={styles.studentMeta}>
-                {student.instrument || "Piano"} • {totalLessons} lessons
+                {student.instrument || "Piano"} • {totalLessons} {totalLessons === 1 ? "lesson" : "lessons"}
               </Text>
-              <Text style={styles.studentMeta}>Started Nov 2025</Text>
+              <Text style={styles.studentMeta}>
+                Started {formatStartDate(firstLessonDate)}
+              </Text>
             </View>
           </View>
         </LinearGradient>
@@ -192,27 +326,44 @@ export default function StudentPortfolioScreen() {
             {/* Lessons Tab */}
             <TabsContent value="lessons">
               <View style={styles.tabContent}>
-                <View style={styles.lessonsHeader}>
-                  <Text style={styles.sectionTitle}>Lesson History</Text>
-                  <Badge>{mockLessons.length} recent</Badge>
-                </View>
-                {mockLessons.map((lesson) => (
-                  <Card key={lesson.id} style={styles.lessonCard}>
-                    <View style={styles.lessonHeader}>
-                      <View style={styles.lessonInfo}>
-                        <Text style={styles.lessonTopic}>{lesson.topic}</Text>
-                        <Text style={styles.lessonNotes}>{lesson.notes}</Text>
-                      </View>
-                      <Badge>{lesson.duration}</Badge>
+                {loading ? (
+                  <View style={styles.loadingContainer}>
+                    <ActivityIndicator size="large" color="#FF6A5C" />
+                    <Text style={styles.loadingText}>Loading lessons...</Text>
+                  </View>
+                ) : lessons.length === 0 ? (
+                  <View style={styles.emptyContainer}>
+                    <Ionicons name="calendar-outline" size={48} color="#CCC" />
+                    <Text style={styles.emptyText}>No lessons yet</Text>
+                    <Text style={styles.emptySubtext}>
+                      Lesson history will appear here once bookings are confirmed
+                    </Text>
+                  </View>
+                ) : (
+                  <>
+                    <View style={styles.lessonsHeader}>
+                      <Text style={styles.sectionTitle}>Lesson History</Text>
+                      <Badge>{lessons.length} {lessons.length === 1 ? "lesson" : "lessons"}</Badge>
                     </View>
-                    <View style={styles.lessonDate}>
-                      <Ionicons name="calendar-outline" size={14} color="#666" />
-                      <Text style={styles.lessonDateText}>
-                        {formatDate(lesson.date)}
-                      </Text>
-                    </View>
-                  </Card>
-                ))}
+                    {lessons.map((lesson) => (
+                      <Card key={lesson.id} style={styles.lessonCard}>
+                        <View style={styles.lessonHeader}>
+                          <View style={styles.lessonInfo}>
+                            <Text style={styles.lessonTopic}>{lesson.topic}</Text>
+                            <Text style={styles.lessonNotes}>{lesson.notes}</Text>
+                          </View>
+                          <Badge>{lesson.duration}</Badge>
+                        </View>
+                        <View style={styles.lessonDate}>
+                          <Ionicons name="calendar-outline" size={14} color="#666" />
+                          <Text style={styles.lessonDateText}>
+                            {formatDate(lesson.date)}
+                          </Text>
+                        </View>
+                      </Card>
+                    ))}
+                  </>
+                )}
               </View>
             </TabsContent>
 
@@ -465,6 +616,33 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#333",
     fontWeight: "500",
+  },
+  loadingContainer: {
+    padding: 40,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  loadingText: {
+    marginTop: 12,
+    color: "#666",
+    fontSize: 14,
+  },
+  emptyContainer: {
+    padding: 40,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  emptyText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#333",
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  emptySubtext: {
+    fontSize: 14,
+    color: "#666",
+    textAlign: "center",
   },
 });
 

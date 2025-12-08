@@ -125,35 +125,49 @@ export default function BookingConfirmationScreen() {
         endTime24 = addHours(startTime24, 1); // Assume 1-hour lesson duration
       }
       
-      // Determine day name
-      // If selectedDate is already a day name (from availability slot), use it
-      // Otherwise, parse the date string to get the day name
+      // Convert selectedDate to an actual date string
+      // If selectedDate is a day name (from availability slot), convert to next occurrence
+      // Otherwise, use it as-is if it's already a date string
       const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-      let dayName = selectedDate;
+      let actualDate: Date;
       
-      // Check if selectedDate is already a day name
-      if (!dayNames.includes(selectedDate)) {
-        // It's a date string, parse it to get day name
-        const dateObj = new Date(selectedDate);
-        if (!isNaN(dateObj.getTime())) {
-          dayName = dayNames[dateObj.getDay()];
+      if (dayNames.includes(selectedDate)) {
+        // Convert day name to next occurrence date
+        const dayIndex = dayNames.indexOf(selectedDate);
+        const today = new Date();
+        const currentDay = today.getDay();
+        let daysUntil = dayIndex - currentDay;
+        if (daysUntil <= 0) daysUntil += 7; // Next week if today or past
+        
+        actualDate = new Date(today);
+        actualDate.setDate(today.getDate() + daysUntil);
+      } else {
+        // Try to parse as date string
+        actualDate = new Date(selectedDate);
+        if (isNaN(actualDate.getTime())) {
+          Alert.alert("Error", "Invalid date format");
+          setLoading(false);
+          return;
         }
       }
       
+      // Format date as ISO string (YYYY-MM-DD) for backend
+      const dateString = actualDate.toISOString().split('T')[0];
+      
       // Validate all required fields before sending
-      if (!dayName || !startTime24 || !endTime24) {
+      if (!dateString || !startTime24 || !endTime24) {
         Alert.alert("Error", "Invalid date or time selection");
         setLoading(false);
         return;
       }
       
-      // Create booking - backend expects: teacher (ID), day (day name), timeSlot {start, end}
+      // Create booking - backend expects: teacher (ID), day (date string), timeSlot {start, end}
       await api("/api/bookings", {
         method: "POST",
         auth: true,
         body: JSON.stringify({
           teacher: teacherIdValue,
-          day: dayName,
+          day: dateString,
           timeSlot: {
             start: startTime24,
             end: endTime24,
@@ -161,6 +175,14 @@ export default function BookingConfirmationScreen() {
         }),
       });
 
+      // Format date for display
+      const formattedDate = actualDate.toLocaleDateString("en-US", {
+        weekday: "long",
+        month: "long",
+        day: "numeric",
+        year: "numeric",
+      });
+      
       // Navigate to success screen with booking details
       router.push({
         pathname: "/booking/booking-success",
@@ -171,7 +193,7 @@ export default function BookingConfirmationScreen() {
             ? teacher.instruments.join(", ") 
             : teacher.instruments || "",
           teacherLocation: teacher.location || "",
-          date: selectedDate,
+          date: formattedDate,
           time: selectedTime,
           price: teacher.price || "0",
         },

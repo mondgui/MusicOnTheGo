@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   TouchableOpacity,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useFocusEffect } from "expo-router";
 import { Card } from "../../../../components/ui/card";
 import { Badge } from "../../../../components/ui/badge";
 import { Avatar } from "../../../../components/ui/avatar";
@@ -39,6 +40,7 @@ type TransformedBooking = {
   date: string;
   originalDate?: string; // Preserve original date for comparison
   time: string;
+  originalTimeSlot?: { start: string; end: string }; // Preserve original timeSlot for calendar
   location: string;
   status: "Confirmed" | "Pending" | "Completed";
   image?: string;
@@ -54,7 +56,14 @@ export default function LessonsTab() {
     loadBookings();
   }, []);
 
-  const loadBookings = async () => {
+  // Refresh bookings when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      loadBookings();
+    }, [loadBookings])
+  );
+
+  const loadBookings = useCallback(async () => {
     try {
       setLoading(true);
       const data = await api("/api/bookings/student/me", { auth: true });
@@ -66,7 +75,7 @@ export default function LessonsTab() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   const transformBookings = (bookings: BookingData[]): TransformedBooking[] => {
     return bookings.map((booking) => {
@@ -95,6 +104,7 @@ export default function LessonsTab() {
         date: displayDate,
         originalDate: booking.day, // Preserve original for comparison
         time: time,
+        originalTimeSlot: booking.timeSlot, // Preserve original timeSlot for calendar
         location: booking.teacher.location || "Location TBD",
         status: status,
         email: booking.teacher.email,
@@ -102,12 +112,46 @@ export default function LessonsTab() {
     });
   };
 
+  // Convert day name to next occurrence date
+  const dayNameToDate = (dayName: string): Date | null => {
+    const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+    const dayIndex = dayNames.indexOf(dayName);
+    if (dayIndex === -1) return null;
+    
+    const today = new Date();
+    const currentDay = today.getDay();
+    let daysUntil = dayIndex - currentDay;
+    if (daysUntil <= 0) daysUntil += 7; // Next week if today or past
+    
+    const nextDate = new Date(today);
+    nextDate.setDate(today.getDate() + daysUntil);
+    return nextDate;
+  };
+
   const formatDate = (dateString: string): string => {
     try {
+      // Check if it's a day name
+      const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+      if (dayNames.includes(dateString)) {
+        // Convert day name to next occurrence date
+        const date = dayNameToDate(dateString);
+        if (date) {
+          return date.toLocaleDateString("en-US", {
+            weekday: "long",
+            month: "long",
+            day: "numeric",
+            year: "numeric",
+          });
+        }
+        return dateString;
+      }
+      
+      // Try to parse as date
       const date = new Date(dateString);
       if (isNaN(date.getTime())) return dateString;
       return date.toLocaleDateString("en-US", {
-        month: "short",
+        weekday: "long",
+        month: "long",
         day: "numeric",
         year: "numeric",
       });
@@ -116,20 +160,43 @@ export default function LessonsTab() {
     }
   };
 
+  // Convert 24-hour format to 12-hour format with AM/PM
+  const formatTime24To12 = (time24: string): string => {
+    const [hours, minutes] = time24.split(":");
+    const hour = parseInt(hours);
+    const ampm = hour >= 12 ? "PM" : "AM";
+    const hour12 = hour % 12 || 12;
+    return `${hour12}:${minutes} ${ampm}`;
+  };
+
   const formatTimeSlot = (timeSlot: { start: string; end: string }): string => {
     if (!timeSlot) return "";
     if (timeSlot.start && timeSlot.end) {
-      return `${timeSlot.start} - ${timeSlot.end}`;
+      const start = formatTime24To12(timeSlot.start);
+      const end = formatTime24To12(timeSlot.end);
+      return `${start} - ${end}`;
     }
-    return timeSlot.start || "";
+    return timeSlot.start ? formatTime24To12(timeSlot.start) : "";
   };
 
   const isUpcoming = (booking: TransformedBooking): boolean => {
     // Use originalDate if available, otherwise try to parse display date
     const dateString = booking.originalDate || booking.date;
     try {
-      const bookingDate = new Date(dateString);
-      if (isNaN(bookingDate.getTime())) return false;
+      // Check if it's a day name
+      const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+      let bookingDate: Date;
+      
+      if (dayNames.includes(dateString)) {
+        // Convert day name to next occurrence date
+        const date = dayNameToDate(dateString);
+        if (!date) return false;
+        bookingDate = date;
+      } else {
+        // Try to parse as date string
+        bookingDate = new Date(dateString);
+        if (isNaN(bookingDate.getTime())) return false;
+      }
       
       const today = new Date();
       today.setHours(0, 0, 0, 0);
@@ -156,6 +223,77 @@ export default function LessonsTab() {
       Linking.openURL(`tel:${phone}`);
     } else {
       alert("Phone number not available");
+    }
+  };
+
+  const handleAddToCalendar = (booking: TransformedBooking) => {
+    try {
+      // Use original date and timeSlot from backend (24-hour format)
+      const dateString = booking.originalDate || booking.date;
+      const timeSlot = booking.originalTimeSlot;
+      
+      if (!timeSlot || !timeSlot.start) {
+        alert("Time information not available");
+        return;
+      }
+      
+      // Parse the date
+      const bookingDate = new Date(dateString);
+      if (isNaN(bookingDate.getTime())) {
+        alert("Invalid date format");
+        return;
+      }
+      
+      // Parse 24-hour time format (e.g., "14:00")
+      const parseTime24 = (time24: string): { hours: number; minutes: number } => {
+        const [hours, minutes] = time24.split(":").map(Number);
+        return { hours, minutes };
+      };
+      
+      const startTime = parseTime24(timeSlot.start);
+      const endTime = timeSlot.end ? parseTime24(timeSlot.end) : {
+        hours: startTime.hours + 1,
+        minutes: startTime.minutes
+      };
+      
+      // Set the date and time
+      const startDateTime = new Date(bookingDate);
+      startDateTime.setHours(startTime.hours, startTime.minutes, 0, 0);
+      
+      const endDateTime = new Date(bookingDate);
+      endDateTime.setHours(endTime.hours, endTime.minutes, 0, 0);
+      
+      // Format dates for calendar URL (YYYYMMDDTHHmmss)
+      const formatCalendarDate = (date: Date): string => {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, "0");
+        const day = String(date.getDate()).padStart(2, "0");
+        const hours = String(date.getHours()).padStart(2, "0");
+        const minutes = String(date.getMinutes()).padStart(2, "0");
+        const seconds = String(date.getSeconds()).padStart(2, "0");
+        return `${year}${month}${day}T${hours}${minutes}${seconds}`;
+      };
+      
+      const start = formatCalendarDate(startDateTime);
+      const end = formatCalendarDate(endDateTime);
+      
+      // Create calendar event title
+      const title = encodeURIComponent(`Music Lesson with ${booking.name}`);
+      const details = encodeURIComponent(
+        `Lesson: ${booking.instrument}\nLocation: ${booking.location}`
+      );
+      const location = encodeURIComponent(booking.location);
+      
+      // Create Google Calendar URL (works on both iOS and Android)
+      const calendarUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${start}/${end}&details=${details}&location=${location}`;
+      
+      Linking.openURL(calendarUrl).catch((err) => {
+        console.error("Failed to open calendar:", err);
+        alert("Could not open calendar app");
+      });
+    } catch (error) {
+      console.error("Error adding to calendar:", error);
+      alert("Could not add event to calendar");
     }
   };
 
@@ -203,27 +341,38 @@ export default function LessonsTab() {
         </View>
       </View>
 
-      {/* Contact Buttons */}
+      {/* Action Buttons */}
       {booking.status === "Confirmed" && (
-        <View style={styles.contactButtons}>
+        <View style={styles.actionButtonsContainer}>
           <TouchableOpacity
-            style={styles.contactButton}
-            onPress={() => handleContact(booking)}
+            style={styles.addToCalendarButton}
+            onPress={() => handleAddToCalendar(booking)}
             activeOpacity={0.7}
           >
-            <Ionicons name="chatbubble-outline" size={16} color="#FF6A5C" />
-            <Text style={styles.contactButtonText}>Contact</Text>
+            <Ionicons name="calendar-outline" size={18} color="#FF6A5C" />
+            <Text style={styles.addToCalendarText}>Add to Calendar</Text>
           </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.contactButton, styles.callButton]}
-            onPress={() => handleCall(booking.phone)}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="call-outline" size={16} color="#FF9076" />
-            <Text style={[styles.contactButtonText, styles.callButtonText]}>
-              Call
-            </Text>
-          </TouchableOpacity>
+          
+          <View style={styles.contactButtons}>
+            <TouchableOpacity
+              style={styles.contactButton}
+              onPress={() => handleContact(booking)}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="chatbubble-outline" size={16} color="#FF6A5C" />
+              <Text style={styles.contactButtonText}>Contact</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.contactButton, styles.callButton]}
+              onPress={() => handleCall(booking.phone)}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="call-outline" size={16} color="#FF9076" />
+              <Text style={[styles.contactButtonText, styles.callButtonText]}>
+                Call
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
       )}
     </Card>
@@ -340,6 +489,30 @@ const styles = StyleSheet.create({
   detailText: {
     fontSize: 14,
     color: "#555",
+  },
+  actionButtonsContainer: {
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: "#E5E5E5",
+    gap: 12,
+  },
+  addToCalendarButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: "white",
+    borderWidth: 2,
+    borderColor: "#FF6A5C",
+    borderRadius: 10,
+  },
+  addToCalendarText: {
+    color: "#FF6A5C",
+    fontSize: 14,
+    fontWeight: "600",
   },
   contactButtons: {
     flexDirection: "row",
