@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -7,10 +7,12 @@ import {
   TouchableOpacity,
   TextInput,
   Alert,
+  ActivityIndicator,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
+import { api } from "../../lib/api";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,122 +29,58 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 
 interface PracticeEntry {
-  id: number;
-  date: string;
+  _id?: string;
+  id?: number;
+  date: string | Date;
+  startTime?: string | Date;
+  endTime?: string | Date;
   minutes: number;
   focus: string;
   notes: string;
 }
 
 interface Recording {
-  id: number;
-  date: string;
+  _id?: string;
+  id?: number;
+  date?: string;
+  createdAt?: string;
   title: string;
   duration: string;
   hasTeacherFeedback: boolean;
   teacherNotes?: string;
+  teacherFeedback?: string;
 }
 
 interface Goal {
-  id: number;
+  _id?: string;
+  id?: number;
   title: string;
-  targetDate: string;
+  targetDate: string | Date;
   progress: number;
   category: string;
+  completed?: boolean;
+}
+
+interface Stats {
+  thisWeekMinutes: number;
+  weeklyGoal: number;
+  weeklyProgress: number;
+  streak: number;
 }
 
 export default function PracticeLogScreen() {
   const router = useRouter();
 
-  const [practiceEntries, setPracticeEntries] = useState<PracticeEntry[]>([
-    {
-      id: 1,
-      date: "2025-12-01",
-      minutes: 45,
-      focus: "Scales & Arpeggios",
-      notes: "Worked on C major scale",
-    },
-    {
-      id: 2,
-      date: "2025-12-02",
-      minutes: 60,
-      focus: "Song Practice",
-      notes: "Practiced Fur Elise",
-    },
-    {
-      id: 3,
-      date: "2025-11-30",
-      minutes: 30,
-      focus: "Technique",
-      notes: "Finger exercises",
-    },
-    {
-      id: 4,
-      date: "2025-11-29",
-      minutes: 50,
-      focus: "Song Practice",
-      notes: "New piece - Moonlight Sonata",
-    },
-    {
-      id: 5,
-      date: "2025-11-28",
-      minutes: 40,
-      focus: "Scales & Arpeggios",
-      notes: "Minor scales practice",
-    },
-  ]);
-
-  const [recordings, setRecordings] = useState<Recording[]>([
-    {
-      id: 1,
-      date: "2025-12-02",
-      title: "Fur Elise - Practice Run",
-      duration: "2:45",
-      hasTeacherFeedback: true,
-      teacherNotes:
-        "Great improvement on tempo! Work on dynamics in measures 12-16. Keep up the good work! 🎵",
-    },
-    {
-      id: 2,
-      date: "2025-12-01",
-      title: "C Major Scale",
-      duration: "1:20",
-      hasTeacherFeedback: false,
-    },
-    {
-      id: 3,
-      date: "2025-11-29",
-      title: "Moonlight Sonata - Section A",
-      duration: "3:15",
-      hasTeacherFeedback: true,
-      teacherNotes:
-        "Nice start! Focus on the left hand rhythm. Try practicing hands separately first.",
-    },
-  ]);
-
-  const [goals, setGoals] = useState<Goal[]>([
-    {
-      id: 1,
-      title: "Master Fur Elise",
-      targetDate: "2025-12-15",
-      progress: 75,
-      category: "Repertoire",
-    },
-    {
-      id: 2,
-      title: "Learn all major scales",
-      targetDate: "2026-01-01",
-      progress: 60,
-      category: "Technique",
-    },
-    {
-      id: 3,
-      title: "Perform at recital",
-      targetDate: "2025-12-20",
-      progress: 50,
-      category: "Performance",
-    },
-  ]);
+  const [practiceEntries, setPracticeEntries] = useState<PracticeEntry[]>([]);
+  const [recordings, setRecordings] = useState<Recording[]>([]);
+  const [goals, setGoals] = useState<Goal[]>([]);
+  const [stats, setStats] = useState<Stats>({
+    thisWeekMinutes: 0,
+    weeklyGoal: 180,
+    weeklyProgress: 0,
+    streak: 0,
+  });
+  const [loading, setLoading] = useState(true);
 
   const [minutes, setMinutes] = useState("");
   const [focus, setFocus] = useState("");
@@ -153,72 +91,222 @@ export default function PracticeLogScreen() {
   const [newGoalTitle, setNewGoalTitle] = useState("");
   const [newGoalDate, setNewGoalDate] = useState("");
   const [newGoalCategory, setNewGoalCategory] = useState("");
+  const [recordingTitle, setRecordingTitle] = useState("");
+  const [recordingFileUrl, setRecordingFileUrl] = useState("");
+  const [recordingDuration, setRecordingDuration] = useState("");
+  const [recordingNotes, setRecordingNotes] = useState("");
+  const [isGoalSettingDialogOpen, setIsGoalSettingDialogOpen] = useState(false);
+  const [weeklyGoalInput, setWeeklyGoalInput] = useState("");
 
-  // Calculate stats
-  const totalMinutes = practiceEntries.reduce((sum, entry) => sum + entry.minutes, 0);
-  const weeklyGoal = 180; // 3 hours per week
-  const weeklyProgress = Math.min((totalMinutes / weeklyGoal) * 100, 100);
-  const streak = 5; // Mock streak count
+  // Load data from backend
+  const loadData = useCallback(async () => {
+    try {
+      setLoading(true);
+      
+      // Load practice sessions
+      const sessions = await api("/api/practice/sessions/me", { auth: true });
+      const transformedSessions = (Array.isArray(sessions) ? sessions : []).map((s: any) => ({
+        _id: s._id,
+        date: s.date || s.createdAt,
+        startTime: s.startTime || s.date || s.createdAt,
+        endTime: s.endTime,
+        minutes: s.minutes,
+        focus: s.focus,
+        notes: s.notes || "",
+      }));
+      setPracticeEntries(transformedSessions);
 
-  const handleAddEntry = () => {
+      // Load goals
+      const goalsData = await api("/api/practice/goals/me", { auth: true });
+      const transformedGoals = (Array.isArray(goalsData) ? goalsData : []).map((g: any) => ({
+        _id: g._id,
+        title: g.title,
+        targetDate: g.targetDate,
+        progress: g.progress || 0,
+        category: g.category,
+        completed: g.completed || false,
+      }));
+      setGoals(transformedGoals);
+
+      // Load recordings
+      const recordingsData = await api("/api/practice/recordings/me", { auth: true });
+      const transformedRecordings = (Array.isArray(recordingsData) ? recordingsData : []).map((r: any) => ({
+        _id: r._id,
+        date: r.createdAt,
+        title: r.title,
+        duration: r.duration || "",
+        hasTeacherFeedback: r.hasTeacherFeedback || false,
+        teacherNotes: r.teacherFeedback || "",
+      }));
+      setRecordings(transformedRecordings);
+
+      // Load stats
+      const statsData = await api("/api/practice/stats/me", { auth: true });
+      setStats(statsData || {
+        thisWeekMinutes: 0,
+        weeklyGoal: null,
+        weeklyProgress: 0,
+        streak: 0,
+      });
+    } catch (err) {
+      console.error("Failed to load practice data", err);
+      Alert.alert("Error", "Failed to load practice data");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadData();
+    }, [loadData])
+  );
+
+  // Calculate stats from entries (fallback)
+  const totalMinutes = stats.thisWeekMinutes || practiceEntries.reduce((sum, entry) => sum + entry.minutes, 0);
+  const weeklyGoal = stats.weeklyGoal || null;
+  const weeklyProgress = weeklyGoal && weeklyGoal > 0 
+    ? (stats.weeklyProgress || Math.min((totalMinutes / weeklyGoal) * 100, 100))
+    : 0;
+  const streak = stats.streak || 0;
+
+  const handleAddEntry = async () => {
     if (!minutes || !focus) {
       Alert.alert("Error", "Please fill in required fields");
       return;
     }
 
-    const newEntry: PracticeEntry = {
-      id: practiceEntries.length + 1,
-      date: new Date().toISOString().split("T")[0],
-      minutes: parseInt(minutes),
-      focus,
-      notes,
-    };
+    try {
+      const newSession = await api("/api/practice/sessions", {
+        method: "POST",
+        auth: true,
+        body: JSON.stringify({
+          minutes: parseInt(minutes),
+          focus,
+          notes,
+        }),
+      });
 
-    setPracticeEntries([newEntry, ...practiceEntries]);
-    setMinutes("");
-    setFocus("");
-    setNotes("");
-    setIsDialogOpen(false);
-    Alert.alert("Success", `Logged ${minutes} minutes of practice!`);
+      setMinutes("");
+      setFocus("");
+      setNotes("");
+      setIsDialogOpen(false);
+      Alert.alert("Success", `Logged ${minutes} minutes of practice!`);
+      loadData(); // Reload data
+    } catch (err: any) {
+      Alert.alert("Error", err.message || "Failed to log practice session");
+    }
   };
 
-  const handleAddGoal = () => {
+  const handleAddGoal = async () => {
     if (!newGoalTitle || !newGoalDate || !newGoalCategory) {
       Alert.alert("Error", "Please fill in all goal fields");
       return;
     }
 
-    const newGoal: Goal = {
-      id: goals.length + 1,
-      title: newGoalTitle,
-      targetDate: newGoalDate,
-      progress: 0,
-      category: newGoalCategory,
-    };
-
-    setGoals([...goals, newGoal]);
-    setNewGoalTitle("");
-    setNewGoalDate("");
-    setNewGoalCategory("");
-    setIsGoalDialogOpen(false);
-    Alert.alert("Success", "Goal added successfully!");
-  };
-
-  const handleUploadRecording = () => {
-    Alert.alert("Success", "Recording uploaded! Your teacher will review it soon.");
-    setIsUploadDialogOpen(false);
-  };
-
-  const formatDate = (dateString: string): string => {
     try {
-      const date = new Date(dateString);
+      await api("/api/practice/goals", {
+        method: "POST",
+        auth: true,
+        body: JSON.stringify({
+          title: newGoalTitle,
+          targetDate: newGoalDate,
+          category: newGoalCategory,
+          progress: 0,
+        }),
+      });
+
+      setNewGoalTitle("");
+      setNewGoalDate("");
+      setNewGoalCategory("");
+      setIsGoalDialogOpen(false);
+      Alert.alert("Success", "Goal added successfully!");
+      loadData(); // Reload data
+    } catch (err: any) {
+      Alert.alert("Error", err.message || "Failed to add goal");
+    }
+  };
+
+  const handleUploadRecording = async () => {
+    if (!recordingTitle) {
+      Alert.alert("Error", "Please enter a recording title");
+      return;
+    }
+
+    try {
+      await api("/api/practice/recordings", {
+        method: "POST",
+        auth: true,
+        body: JSON.stringify({
+          title: recordingTitle,
+          fileUrl: recordingFileUrl,
+          duration: recordingDuration,
+          studentNotes: recordingNotes,
+        }),
+      });
+
+      setRecordingTitle("");
+      setRecordingFileUrl("");
+      setRecordingDuration("");
+      setRecordingNotes("");
+      setIsUploadDialogOpen(false);
+      Alert.alert("Success", "Recording uploaded! Your teacher will review it soon.");
+      loadData(); // Reload data
+    } catch (err: any) {
+      Alert.alert("Error", err.message || "Failed to upload recording");
+    }
+  };
+
+  const formatDate = (dateString: string | Date): string => {
+    try {
+      const date = typeof dateString === "string" ? new Date(dateString) : dateString;
       return date.toLocaleDateString("en-US", {
         month: "short",
         day: "numeric",
         year: "numeric",
       });
     } catch {
-      return dateString;
+      return String(dateString);
+    }
+  };
+
+  const formatDateWithDay = (dateString: string | Date): string => {
+    try {
+      const date = typeof dateString === "string" ? new Date(dateString) : dateString;
+      return date.toLocaleDateString("en-US", {
+        weekday: "long",
+        month: "long",
+        day: "numeric",
+        year: "numeric",
+      });
+    } catch {
+      return String(dateString);
+    }
+  };
+
+  const formatTimeRange = (startTime: string | Date, minutes: number): string => {
+    try {
+      const start = typeof startTime === "string" ? new Date(startTime) : startTime;
+      const end = new Date(start.getTime() + minutes * 60 * 1000);
+      
+      const startTimeStr = start.toLocaleTimeString("en-US", {
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
+      });
+      const endTimeStr = end.toLocaleTimeString("en-US", {
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
+      });
+      
+      return `${startTimeStr} - ${endTimeStr}`;
+    } catch {
+      return "";
     }
   };
 
@@ -243,32 +331,42 @@ export default function PracticeLogScreen() {
       </LinearGradient>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Stats Cards */}
-        <View style={styles.statsRow}>
-          <Card style={styles.statCard}>
-            <View style={styles.statHeader}>
-              <Ionicons name="time-outline" size={16} color="#FF6A5C" />
-              <Text style={styles.statLabel}>This Week</Text>
-            </View>
-            <Text style={styles.statValue}>{totalMinutes} min</Text>
-            <Text style={styles.statSubtext}>Goal: {weeklyGoal} min</Text>
-          </Card>
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#FF6A5C" />
+            <Text style={styles.loadingText}>Loading practice data...</Text>
+          </View>
+        ) : (
+          <>
+            {/* Stats Cards */}
+            <View style={styles.statsRow}>
+              <Card style={styles.statCard}>
+                <View style={styles.statHeader}>
+                  <Ionicons name="time-outline" size={16} color="#FF6A5C" />
+                  <Text style={styles.statLabel}>This Week</Text>
+                </View>
+                <Text style={styles.statValue}>{totalMinutes} min</Text>
+                <Text style={styles.statSubtext}>
+                  Goal: {weeklyGoal && weeklyGoal > 0 ? `${weeklyGoal} min` : "Not set"}
+                </Text>
+              </Card>
 
-          <Card style={styles.statCard}>
-            <View style={styles.statHeader}>
-              <Ionicons name="trophy-outline" size={16} color="#FFB800" />
-              <Text style={styles.statLabel}>Streak</Text>
+              <Card style={styles.statCard}>
+                <View style={styles.statHeader}>
+                  <Ionicons name="trophy-outline" size={16} color="#FFB800" />
+                  <Text style={styles.statLabel}>Streak</Text>
+                </View>
+                <Text style={styles.statValue}>{streak} days</Text>
+                <Text style={styles.statSubtext}>Keep it up!</Text>
+              </Card>
             </View>
-            <Text style={styles.statValue}>{streak} days</Text>
-            <Text style={styles.statSubtext}>Keep it up!</Text>
-          </Card>
-        </View>
 
         {/* Tabs */}
         <Tabs defaultValue="practice">
           <TabsList style={styles.tabsList}>
             <TabsTrigger value="practice">Practice</TabsTrigger>
             <TabsTrigger value="goals">Goals</TabsTrigger>
+            <TabsTrigger value="history">History</TabsTrigger>
             <TabsTrigger value="recordings">Recordings</TabsTrigger>
           </TabsList>
 
@@ -281,29 +379,132 @@ export default function PracticeLogScreen() {
                   <Ionicons name="flag-outline" size={20} color="#FF6A5C" />
                   <Text style={styles.progressTitle}>Weekly Goal</Text>
                 </View>
-                <Text style={styles.progressPercent}>
-                  {Math.round(weeklyProgress)}%
+                <TouchableOpacity
+                  onPress={() => {
+                    setWeeklyGoalInput(weeklyGoal?.toString() || "180");
+                    setIsGoalSettingDialogOpen(true);
+                  }}
+                >
+                  <Ionicons name="create-outline" size={18} color="#FF6A5C" />
+                </TouchableOpacity>
+              </View>
+              <View style={styles.progressHeader}>
+                <View style={styles.progressTitleRow}>
+                  <Text style={styles.progressPercent}>
+                    {weeklyGoal && weeklyGoal > 0 ? `${Math.round(weeklyProgress)}%` : "—"}
+                  </Text>
+                </View>
+                <Text style={styles.goalText}>
+                  {weeklyGoal && weeklyGoal > 0 ? `${weeklyGoal} min/week` : "Not set"}
                 </Text>
               </View>
-              <Progress value={weeklyProgress} style={styles.progressBar} />
-              <Text style={styles.progressText}>
-                {weeklyGoal - totalMinutes > 0
-                  ? `${weeklyGoal - totalMinutes} minutes to go!`
-                  : "Goal achieved! 🎉"}
-              </Text>
+              {weeklyGoal && weeklyGoal > 0 ? (
+                <>
+                  <Progress value={weeklyProgress} style={styles.progressBar} />
+                  <Text style={styles.progressText}>
+                    {weeklyGoal - totalMinutes > 0
+                      ? `${weeklyGoal - totalMinutes} minutes to go!`
+                      : "Goal achieved! 🎉"}
+                  </Text>
+                </>
+              ) : (
+                <Text style={styles.progressText}>
+                  Set a weekly goal to track your progress!
+                </Text>
+              )}
             </Card>
 
-            {/* Add Practice Button */}
+            {/* Weekly Goal Setting Dialog */}
+            <Dialog open={isGoalSettingDialogOpen} onOpenChange={setIsGoalSettingDialogOpen}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Set Weekly Goal</DialogTitle>
+                </DialogHeader>
+                <View style={styles.dialogForm}>
+                  <View style={styles.formGroup}>
+                    <Label>Weekly Practice Goal (minutes) *</Label>
+                    <Input
+                      keyboardType="numeric"
+                      placeholder="180"
+                      value={weeklyGoalInput}
+                      onChangeText={setWeeklyGoalInput}
+                    />
+                    <Text style={styles.helperText}>
+                      Example: 180 minutes = 3 hours per week
+                    </Text>
+                  </View>
+                  <Button
+                    onPress={async () => {
+                      if (!weeklyGoalInput || isNaN(parseInt(weeklyGoalInput))) {
+                        Alert.alert("Error", "Please enter a valid number");
+                        return;
+                      }
+                      try {
+                        await api("/api/users/me", {
+                          method: "PUT",
+                          auth: true,
+                          body: JSON.stringify({
+                            weeklyGoal: parseInt(weeklyGoalInput),
+                          }),
+                        });
+                        loadData();
+                        setIsGoalSettingDialogOpen(false);
+                        Alert.alert("Success", "Weekly goal updated!");
+                      } catch (err: any) {
+                        Alert.alert("Error", err.message || "Failed to update goal");
+                      }
+                    }}
+                    style={styles.saveButton}
+                  >
+                    <Text style={styles.saveButtonText}>Save Goal</Text>
+                  </Button>
+                </View>
+              </DialogContent>
+            </Dialog>
+
+            {/* Start Practice Timer Button */}
+            <Button
+              style={styles.addButton}
+              onPress={async () => {
+                // Check if weekly goal is set before navigating
+                if (!weeklyGoal || weeklyGoal === 0 || weeklyGoal === null) {
+                  Alert.alert(
+                    "Weekly Goal Required",
+                    "Please set your weekly practice goal before starting the timer.",
+                    [
+                      { text: "Cancel", style: "cancel" },
+                      {
+                        text: "Set Goal",
+                        onPress: () => {
+                          setWeeklyGoalInput("180");
+                          setIsGoalSettingDialogOpen(true);
+                        },
+                      },
+                    ]
+                  );
+                  return;
+                }
+                router.push("/(student)/practice-timer");
+              }}
+            >
+              <Ionicons name="play-circle" size={20} color="white" />
+              <Text style={styles.addButtonText}>Start Practice Timer</Text>
+            </Button>
+
+            {/* Manual Entry Option (Optional) */}
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
               <DialogTrigger asChild>
-                <Button style={styles.addButton}>
-                  <Ionicons name="add" size={18} color="white" />
-                  <Text style={styles.addButtonText}>Log Practice Session</Text>
-                </Button>
+                <TouchableOpacity
+                  style={styles.manualEntryButton}
+                  onPress={() => setIsDialogOpen(true)}
+                >
+                  <Ionicons name="time-outline" size={16} color="#666" />
+                  <Text style={styles.manualEntryText}>Or log manually</Text>
+                </TouchableOpacity>
               </DialogTrigger>
               <DialogContent>
                 <DialogHeader>
-                  <DialogTitle>Add Practice Session</DialogTitle>
+                  <DialogTitle>Log Practice Session</DialogTitle>
                 </DialogHeader>
                 <View style={styles.dialogForm}>
                   <View style={styles.formGroup}>
@@ -344,23 +545,43 @@ export default function PracticeLogScreen() {
             {/* Practice History */}
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Recent Sessions</Text>
-              {practiceEntries.map((entry) => (
-                <Card key={entry.id} style={styles.entryCard}>
+              {practiceEntries.length === 0 ? (
+                <Card style={styles.emptyCard}>
+                  <Ionicons name="calendar-outline" size={48} color="#999" />
+                  <Text style={styles.emptyText}>No practice sessions yet</Text>
+                  <Text style={styles.emptySubtext}>
+                    Start logging your practice to track your progress!
+                  </Text>
+                </Card>
+              ) : (
+                practiceEntries.slice(0, 5).map((entry) => (
+                  <Card key={entry._id || entry.id} style={styles.entryCard}>
                   <View style={styles.entryHeader}>
                     <View style={styles.entryInfo}>
                       <Text style={styles.entryFocus}>{entry.focus}</Text>
-                      <Text style={styles.entryNotes}>{entry.notes}</Text>
+                      {entry.notes && (
+                        <Text style={styles.entryNotes}>{entry.notes}</Text>
+                      )}
                     </View>
                     <Badge variant="default">{entry.minutes} min</Badge>
                   </View>
                   <View style={styles.entryDateRow}>
                     <Ionicons name="calendar-outline" size={14} color="#666" />
                     <Text style={styles.entryDate}>
-                      {formatDate(entry.date)}
+                      {formatDateWithDay(entry.date)}
                     </Text>
                   </View>
+                  {entry.startTime && (
+                    <View style={styles.entryTimeRow}>
+                      <Ionicons name="time-outline" size={14} color="#666" />
+                      <Text style={styles.entryTime}>
+                        {formatTimeRange(entry.startTime, entry.minutes)}
+                      </Text>
+                    </View>
+                  )}
                 </Card>
-              ))}
+                ))
+              )}
             </View>
 
             {/* Achievements */}
@@ -424,8 +645,17 @@ export default function PracticeLogScreen() {
 
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>My Goals</Text>
-              {goals.map((goal) => (
-                <Card key={goal.id} style={styles.goalCard}>
+              {goals.length === 0 ? (
+                <Card style={styles.emptyCard}>
+                  <Ionicons name="flag-outline" size={48} color="#999" />
+                  <Text style={styles.emptyText}>No goals yet</Text>
+                  <Text style={styles.emptySubtext}>
+                    Set goals to stay motivated and track your progress!
+                  </Text>
+                </Card>
+              ) : (
+                goals.map((goal) => (
+                  <Card key={goal._id || goal.id} style={styles.goalCard}>
                   <View style={styles.goalHeader}>
                     <View style={styles.goalInfo}>
                       <Text style={styles.goalTitle}>{goal.title}</Text>
@@ -440,7 +670,7 @@ export default function PracticeLogScreen() {
                     <Text style={styles.goalDate}>
                       Target: {formatDate(goal.targetDate)}
                     </Text>
-                    {goal.progress === 100 && (
+                    {(goal.progress === 100 || goal.completed) && (
                       <Badge variant="success">
                         <Ionicons name="checkmark-circle" size={12} color="#059669" />
                         <Text style={styles.completedText}> Completed</Text>
@@ -448,7 +678,86 @@ export default function PracticeLogScreen() {
                     )}
                   </View>
                 </Card>
-              ))}
+                ))
+              )}
+            </View>
+          </TabsContent>
+
+          {/* History Tab */}
+          <TabsContent value="history">
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Practice History</Text>
+              {practiceEntries.length === 0 ? (
+                <Card style={styles.emptyCard}>
+                  <Ionicons name="calendar-outline" size={48} color="#999" />
+                  <Text style={styles.emptyText}>No practice sessions yet</Text>
+                  <Text style={styles.emptySubtext}>
+                    Start logging your practice to track your progress!
+                  </Text>
+                </Card>
+              ) : (
+                (() => {
+                  // Group entries by month
+                  const groupedByMonth: { [key: string]: PracticeEntry[] } = {};
+                  practiceEntries.forEach((entry) => {
+                    const date = typeof entry.date === "string" ? new Date(entry.date) : entry.date;
+                    const monthKey = date.toLocaleDateString("en-US", {
+                      month: "long",
+                      year: "numeric",
+                    });
+                    if (!groupedByMonth[monthKey]) {
+                      groupedByMonth[monthKey] = [];
+                    }
+                    groupedByMonth[monthKey].push(entry);
+                  });
+
+                  // Sort months (newest first)
+                  const sortedMonths = Object.keys(groupedByMonth).sort((a, b) => {
+                    const dateA = new Date(a + " 1");
+                    const dateB = new Date(b + " 1");
+                    return dateB.getTime() - dateA.getTime();
+                  });
+
+                  return sortedMonths.map((month) => (
+                    <View key={month} style={styles.monthSection}>
+                      <Text style={styles.monthTitle}>{month}</Text>
+                      {groupedByMonth[month]
+                        .sort((a, b) => {
+                          const dateA = typeof a.date === "string" ? new Date(a.date) : a.date;
+                          const dateB = typeof b.date === "string" ? new Date(b.date) : b.date;
+                          return dateB.getTime() - dateA.getTime();
+                        })
+                        .map((entry) => (
+                          <Card key={entry._id || entry.id} style={styles.entryCard}>
+                            <View style={styles.entryHeader}>
+                              <View style={styles.entryInfo}>
+                                <Text style={styles.entryFocus}>{entry.focus}</Text>
+                                {entry.notes && (
+                                  <Text style={styles.entryNotes}>{entry.notes}</Text>
+                                )}
+                              </View>
+                              <Badge variant="default">{entry.minutes} min</Badge>
+                            </View>
+                            <View style={styles.entryDateRow}>
+                              <Ionicons name="calendar-outline" size={14} color="#666" />
+                              <Text style={styles.entryDate}>
+                                {formatDateWithDay(entry.date)}
+                              </Text>
+                            </View>
+                            {entry.startTime && (
+                              <View style={styles.entryTimeRow}>
+                                <Ionicons name="time-outline" size={14} color="#666" />
+                                <Text style={styles.entryTime}>
+                                  {formatTimeRange(entry.startTime, entry.minutes)}
+                                </Text>
+                              </View>
+                            )}
+                          </Card>
+                        ))}
+                    </View>
+                  ));
+                })()
+              )}
             </View>
           </TabsContent>
 
@@ -468,19 +777,27 @@ export default function PracticeLogScreen() {
                 <View style={styles.dialogForm}>
                   <View style={styles.formGroup}>
                     <Label>Recording Title *</Label>
-                    <Input placeholder="e.g., Fur Elise - Practice Run" />
+                    <Input
+                      placeholder="e.g., Fur Elise - Practice Run"
+                      value={recordingTitle}
+                      onChangeText={setRecordingTitle}
+                    />
                   </View>
                   <View style={styles.formGroup}>
-                    <Label>Upload File *</Label>
-                    <TouchableOpacity style={styles.uploadArea}>
-                      <Ionicons name="cloud-upload-outline" size={32} color="#999" />
-                      <Text style={styles.uploadText}>
-                        Click to upload or drag and drop
-                      </Text>
-                      <Text style={styles.uploadSubtext}>
-                        MP3, WAV, or MP4 (Max 50MB)
-                      </Text>
-                    </TouchableOpacity>
+                    <Label>File URL (Optional)</Label>
+                    <Input
+                      placeholder="Paste file URL or leave empty for now"
+                      value={recordingFileUrl}
+                      onChangeText={setRecordingFileUrl}
+                    />
+                  </View>
+                  <View style={styles.formGroup}>
+                    <Label>Duration (Optional)</Label>
+                    <Input
+                      placeholder="e.g., 2:45"
+                      value={recordingDuration}
+                      onChangeText={setRecordingDuration}
+                    />
                   </View>
                   <View style={styles.formGroup}>
                     <Label>Notes for Teacher (Optional)</Label>
@@ -489,6 +806,8 @@ export default function PracticeLogScreen() {
                       multiline
                       numberOfLines={4}
                       placeholder="Any specific feedback you're looking for?"
+                      value={recordingNotes}
+                      onChangeText={setRecordingNotes}
                     />
                   </View>
                   <Button
@@ -503,8 +822,17 @@ export default function PracticeLogScreen() {
 
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>My Recordings</Text>
-              {recordings.map((recording) => (
-                <Card key={recording.id} style={styles.recordingCard}>
+              {recordings.length === 0 ? (
+                <Card style={styles.emptyCard}>
+                  <Ionicons name="musical-notes-outline" size={48} color="#999" />
+                  <Text style={styles.emptyText}>No recordings yet</Text>
+                  <Text style={styles.emptySubtext}>
+                    Upload recordings to get feedback from your teacher!
+                  </Text>
+                </Card>
+              ) : (
+                recordings.map((recording) => (
+                  <Card key={recording._id || recording.id} style={styles.recordingCard}>
                   <View style={styles.recordingRow}>
                     <View style={styles.recordingIcon}>
                       <Ionicons name="play" size={20} color="#FF6A5C" />
@@ -512,12 +840,16 @@ export default function PracticeLogScreen() {
                     <View style={styles.recordingInfo}>
                       <Text style={styles.recordingTitle}>{recording.title}</Text>
                       <View style={styles.recordingMeta}>
+                        {recording.duration && (
+                          <>
+                            <Text style={styles.recordingMetaText}>
+                              {recording.duration}
+                            </Text>
+                            <Text style={styles.recordingMetaText}>•</Text>
+                          </>
+                        )}
                         <Text style={styles.recordingMetaText}>
-                          {recording.duration}
-                        </Text>
-                        <Text style={styles.recordingMetaText}>•</Text>
-                        <Text style={styles.recordingMetaText}>
-                          {formatDate(recording.date)}
+                          {formatDate(recording.date || recording.createdAt || new Date())}
                         </Text>
                       </View>
                       {recording.hasTeacherFeedback && (
@@ -527,7 +859,7 @@ export default function PracticeLogScreen() {
                             <Text style={styles.feedbackTitle}>Teacher Feedback</Text>
                           </View>
                           <Text style={styles.feedbackText}>
-                            {recording.teacherNotes}
+                            {recording.teacherNotes || recording.teacherFeedback}
                           </Text>
                         </View>
                       )}
@@ -539,10 +871,13 @@ export default function PracticeLogScreen() {
                     </View>
                   </View>
                 </Card>
-              ))}
+                ))
+              )}
             </View>
           </TabsContent>
         </Tabs>
+          </>
+        )}
       </ScrollView>
     </View>
   );
@@ -652,12 +987,24 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
-    marginBottom: 16,
+    marginBottom: 12,
   },
   addButtonText: {
     color: "white",
     fontSize: 16,
     fontWeight: "600",
+  },
+  manualEntryButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: 12,
+    marginBottom: 16,
+  },
+  manualEntryText: {
+    color: "#666",
+    fontSize: 14,
   },
   section: {
     marginBottom: 24,
@@ -699,6 +1046,35 @@ const styles = StyleSheet.create({
   entryDate: {
     fontSize: 12,
     color: "#666",
+  },
+  entryTimeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginTop: 4,
+  },
+  entryTime: {
+    fontSize: 12,
+    color: "#666",
+  },
+  monthSection: {
+    marginBottom: 24,
+  },
+  monthTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#333",
+    marginBottom: 12,
+    marginTop: 8,
+  },
+  goalText: {
+    fontSize: 14,
+    color: "#666",
+  },
+  helperText: {
+    fontSize: 12,
+    color: "#999",
+    marginTop: 4,
   },
   achievementsCard: {
     padding: 16,
@@ -868,6 +1244,33 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "#999",
     marginTop: 4,
+  },
+  loadingContainer: {
+    padding: 40,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 14,
+    color: "#666",
+  },
+  emptyCard: {
+    padding: 32,
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  emptyText: {
+    fontSize: 14,
+    color: "#666",
+    marginTop: 12,
+    fontWeight: "600",
+  },
+  emptySubtext: {
+    fontSize: 12,
+    color: "#999",
+    marginTop: 4,
+    textAlign: "center",
   },
 });
 

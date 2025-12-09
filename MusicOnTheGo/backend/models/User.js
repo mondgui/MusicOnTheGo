@@ -90,6 +90,13 @@ const userSchema = new mongoose.Schema(
       type: Date,
     },
     
+    // Student-specific: Weekly practice goal in minutes
+    weeklyGoal: {
+      type: Number,
+      default: null, // null means not set yet
+      min: 1,
+    },
+    
   },
   { timestamps: true }
 );

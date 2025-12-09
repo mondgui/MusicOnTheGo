@@ -14,15 +14,6 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 
 interface Resource {
@@ -143,9 +134,6 @@ export default function ResourcesScreen() {
     },
   ]);
 
-  const [fileName, setFileName] = useState("");
-  const [category, setCategory] = useState("");
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
 
   const getIcon = (type: string) => {
     switch (type) {
@@ -174,28 +162,6 @@ export default function ResourcesScreen() {
     }
   };
 
-  const handleUpload = () => {
-    if (!fileName || !category) {
-      Alert.alert("Error", "Please fill in all fields");
-      return;
-    }
-
-    const newResource: Resource = {
-      id: resources.length + 1,
-      name: fileName,
-      type: "pdf",
-      uploadedBy: "You",
-      uploadDate: new Date().toISOString().split("T")[0],
-      size: "1.5 MB",
-      category,
-    };
-
-    setResources([newResource, ...resources]);
-    setFileName("");
-    setCategory("");
-    setIsDialogOpen(false);
-    Alert.alert("Success", "Resource uploaded successfully!");
-  };
 
   const handleDelete = (id: number) => {
     setResources(resources.filter((r) => r.id !== id));
@@ -248,47 +214,6 @@ export default function ResourcesScreen() {
       </LinearGradient>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Upload Button */}
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button style={styles.uploadButton}>
-              <Ionicons name="cloud-upload-outline" size={18} color="white" />
-              <Text style={styles.uploadButtonText}>Upload Recording</Text>
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Upload Resource</DialogTitle>
-            </DialogHeader>
-            <View style={styles.dialogForm}>
-              <View style={styles.formGroup}>
-                <Label>File Name *</Label>
-                <Input
-                  placeholder="e.g., Scale Practice Sheet"
-                  value={fileName}
-                  onChangeText={setFileName}
-                />
-              </View>
-              <View style={styles.formGroup}>
-                <Label>Category *</Label>
-                <Input
-                  placeholder="e.g., Scales, Theory, Recordings"
-                  value={category}
-                  onChangeText={setCategory}
-                />
-              </View>
-              <TouchableOpacity style={styles.uploadArea}>
-                <Ionicons name="cloud-upload-outline" size={32} color="#999" />
-                <Text style={styles.uploadText}>Click to browse files</Text>
-                <Text style={styles.uploadSubtext}>PDF, MP3, MP4, or images</Text>
-              </TouchableOpacity>
-              <Button onPress={handleUpload} style={styles.saveButton}>
-                <Text style={styles.saveButtonText}>Upload</Text>
-              </Button>
-            </View>
-          </DialogContent>
-        </Dialog>
-
         {/* Main Tabs */}
         <Tabs defaultValue="resources">
           <TabsList style={styles.tabsList}>
@@ -585,56 +510,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingTop: 24,
   },
-  uploadButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    marginBottom: 24,
-  },
-  uploadButtonText: {
-    color: "white",
-    fontSize: 16,
-    fontWeight: "600",
-  },
   tabsList: {
     marginBottom: 16,
   },
   nestedTabsList: {
     marginBottom: 16,
-  },
-  dialogForm: {
-    gap: 16,
-  },
-  formGroup: {
-    gap: 8,
-  },
-  uploadArea: {
-    borderWidth: 2,
-    borderStyle: "dashed",
-    borderColor: "#D1D5DB",
-    borderRadius: 10,
-    padding: 24,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  uploadText: {
-    fontSize: 14,
-    color: "#666",
-    marginTop: 8,
-  },
-  uploadSubtext: {
-    fontSize: 12,
-    color: "#999",
-    marginTop: 4,
-  },
-  saveButton: {
-    marginTop: 8,
-  },
-  saveButtonText: {
-    color: "white",
-    fontSize: 16,
-    fontWeight: "600",
   },
   resourceCard: {
     padding: 16,

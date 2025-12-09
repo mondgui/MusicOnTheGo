@@ -66,6 +66,9 @@ router.put("/me", authMiddleware, async (req, res) => {
     if (req.body.location !== undefined) updates.location = req.body.location;
     if (req.body.profileImage !== undefined) updates.profileImage = req.body.profileImage;
 
+    // student fields
+    if (req.body.weeklyGoal !== undefined) updates.weeklyGoal = req.body.weeklyGoal;
+
     // teacher fields
     if (req.body.experience !== undefined) updates.experience = req.body.experience;
     if (req.body.rate !== undefined) updates.rate = req.body.rate;

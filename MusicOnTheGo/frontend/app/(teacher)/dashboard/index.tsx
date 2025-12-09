@@ -18,7 +18,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import ScheduleTab from "./_tabs/ScheduleTab";
 import BookingsTab from "./_tabs/BookingsTab";
 import TimesTab from "./_tabs/TimesTab";
-import TeacherProfileTab from "./_tabs/TeacherProfileTab";
+import AnalyticsTab from "./_tabs/AnalyticsTab";
 import SettingsTab from "./_tabs/SettingsTab";
 
 type TabKey = "home" | "bookings" | "settings";
@@ -96,12 +96,12 @@ export default function TeacherDashboard() {
     return tab || "schedule";
   };
   
-  // Set active tab to "home" and inner tab to "profile" if profile tab is requested
+  // Set active tab to "home" and inner tab based on param
   useEffect(() => {
     const tabParam = getTabParam();
-    if (tabParam === "profile") {
+    if (tabParam === "analytics" || tabParam === "profile") {
       setActiveTab("home");
-      setInnerTab("profile");
+      setInnerTab("analytics");
     }
   }, [params.tab]);
 
@@ -406,7 +406,7 @@ function HomeTabContent({
             <TabsTrigger value="schedule">Schedule</TabsTrigger>
             <TabsTrigger value="bookings">Bookings</TabsTrigger>
             <TabsTrigger value="times">Times</TabsTrigger>
-            <TabsTrigger value="profile">Profile</TabsTrigger>
+            <TabsTrigger value="analytics">Analytics</TabsTrigger>
           </TabsList>
 
           <TabsContent value="schedule">
@@ -426,13 +426,10 @@ function HomeTabContent({
             <TimesTab availability={availabilityData} />
           </TabsContent>
 
-          <TabsContent value="profile">
-            <TeacherProfileTab
-              name={user?.name}
-              email={user?.email}
-              instruments={user?.instruments}
-              rate={user?.rate}
-              bio={user?.about}
+          <TabsContent value="analytics">
+            <AnalyticsTab
+              bookings={bookings}
+              user={user}
             />
           </TabsContent>
         </Tabs>

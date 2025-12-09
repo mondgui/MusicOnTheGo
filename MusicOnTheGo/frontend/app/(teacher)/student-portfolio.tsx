@@ -29,6 +29,10 @@ export default function StudentPortfolioScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const [bookings, setBookings] = useState<any[]>([]);
+  const [practiceSessions, setPracticeSessions] = useState<any[]>([]);
+  const [practiceStats, setPracticeStats] = useState<any>(null);
+  const [goals, setGoals] = useState<any[]>([]);
+  const [recordings, setRecordings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   
   // Helper to safely get string from params (can be string | string[])
@@ -93,10 +97,40 @@ export default function StudentPortfolioScreen() {
     loadBookings();
   }, [loadBookings]);
 
+  // Load practice data for this student
+  const loadPracticeData = useCallback(async () => {
+    if (!studentId) return;
+
+    try {
+      // Load practice sessions
+      const sessions = await api(`/api/practice/sessions/student/${studentId}`, { auth: true });
+      setPracticeSessions(Array.isArray(sessions) ? sessions : []);
+
+      // Load practice stats
+      const stats = await api(`/api/practice/stats/student/${studentId}`, { auth: true });
+      setPracticeStats(stats);
+
+      // Load goals
+      const goalsData = await api(`/api/practice/goals/student/${studentId}`, { auth: true });
+      setGoals(Array.isArray(goalsData) ? goalsData : []);
+
+      // Load recordings
+      const recordingsData = await api(`/api/practice/recordings/student/${studentId}`, { auth: true });
+      setRecordings(Array.isArray(recordingsData) ? recordingsData : []);
+    } catch (err) {
+      console.error("Failed to load practice data", err);
+    }
+  }, [studentId]);
+
+  useEffect(() => {
+    loadPracticeData();
+  }, [loadPracticeData]);
+
   useFocusEffect(
     useCallback(() => {
       loadBookings();
-    }, [loadBookings])
+      loadPracticeData();
+    }, [loadBookings, loadPracticeData])
   );
 
   // Calculate stats from bookings
@@ -130,24 +164,15 @@ export default function StudentPortfolioScreen() {
     };
   });
 
-  // Mock data for goals and practice (until we have those endpoints)
-  const mockGoals = [
-    { id: 1, goal: "Master C Major Scale", progress: 80, completed: false },
-    { id: 2, goal: "Learn Fur Elise", progress: 40, completed: false },
-    { id: 3, goal: "Practice 5 days/week", progress: 100, completed: true },
-    { id: 4, goal: "Understand basic music theory", progress: 65, completed: false },
-  ];
-
-  const mockPractice = [
-    { date: "Dec 1", minutes: 45 },
-    { date: "Nov 30", minutes: 60 },
-    { date: "Nov 29", minutes: 30 },
-    { date: "Nov 28", minutes: 50 },
-    { date: "Nov 27", minutes: 40 },
-  ];
-
-  const totalPracticeMinutes = mockPractice.reduce((sum, p) => sum + p.minutes, 0);
-  const averagePracticeTime = Math.round(totalPracticeMinutes / mockPractice.length);
+  // Calculate practice stats from real data
+  const totalPracticeMinutes = practiceStats?.thisWeekMinutes || 0;
+  const weeklyGoal = practiceStats?.weeklyGoal || 180;
+  const weeklyProgress = practiceStats?.weeklyProgress || 0;
+  const streak = practiceStats?.streak || 0;
+  
+  const averagePracticeTime = practiceSessions.length > 0
+    ? Math.round(practiceSessions.reduce((sum, s) => sum + (s.minutes || 0), 0) / practiceSessions.length)
+    : 0;
 
   const formatDate = (dateString: string) => {
     try {
@@ -269,8 +294,8 @@ export default function StudentPortfolioScreen() {
             </Card>
             <Card style={styles.statCard}>
               <Ionicons name="trophy-outline" size={20} color="#FFD700" style={styles.statIcon} />
-              <Text style={styles.statValue}>5</Text>
-              <Text style={styles.statLabel}>Badges</Text>
+              <Text style={styles.statValue}>{streak}</Text>
+              <Text style={styles.statLabel}>Day Streak</Text>
             </Card>
           </View>
 
@@ -291,19 +316,31 @@ export default function StudentPortfolioScreen() {
                     <Text style={styles.cardTitle}>Learning Goals</Text>
                   </View>
                   <View style={styles.goalsList}>
-                    {mockGoals.map((goal) => (
-                      <View key={goal.id} style={styles.goalItem}>
-                        <View style={styles.goalHeader}>
-                          <Text style={styles.goalText}>{goal.goal}</Text>
-                          <Badge
-                            variant={goal.completed ? "success" : "default"}
-                          >
-                            {goal.progress}%
-                          </Badge>
+                    {goals.length === 0 ? (
+                      <Text style={styles.emptyText}>No goals set yet</Text>
+                    ) : (
+                      goals.map((goal) => (
+                        <View key={goal._id} style={styles.goalItem}>
+                          <View style={styles.goalHeader}>
+                            <View style={styles.goalInfo}>
+                              <Text style={styles.goalText}>{goal.title}</Text>
+                              <Badge variant="default" style={styles.goalCategoryBadge}>
+                                {goal.category}
+                              </Badge>
+                            </View>
+                            <Badge
+                              variant={goal.completed || goal.progress === 100 ? "success" : "default"}
+                            >
+                              {goal.progress}%
+                            </Badge>
+                          </View>
+                          <Progress value={goal.progress} style={styles.goalProgress} />
+                          <Text style={styles.goalTargetDate}>
+                            Target: {formatDate(goal.targetDate)}
+                          </Text>
                         </View>
-                        <Progress value={goal.progress} style={styles.goalProgress} />
-                      </View>
-                    ))}
+                      ))
+                    )}
                   </View>
                 </Card>
 
@@ -379,27 +416,59 @@ export default function StudentPortfolioScreen() {
                     <View style={styles.practiceStat}>
                       <Text style={styles.practiceStatLabel}>Total This Week</Text>
                       <Text style={styles.practiceStatValue}>{totalPracticeMinutes} min</Text>
+                      <Text style={styles.practiceStatSubtext}>Goal: {weeklyGoal} min</Text>
+                    </View>
+                    <View style={styles.practiceStat}>
+                      <Text style={styles.practiceStatLabel}>Streak</Text>
+                      <Text style={styles.practiceStatValue}>{streak} days</Text>
+                      <Text style={styles.practiceStatSubtext}>Keep it up!</Text>
                     </View>
                     <View style={styles.practiceStat}>
                       <Text style={styles.practiceStatLabel}>Average Per Day</Text>
                       <Text style={styles.practiceStatValue}>{averagePracticeTime} min</Text>
                     </View>
                   </View>
+                  {weeklyProgress > 0 && (
+                    <View style={styles.weeklyProgressSection}>
+                      <View style={styles.progressHeader}>
+                        <Text style={styles.progressLabel}>Weekly Progress</Text>
+                        <Text style={styles.progressPercent}>{Math.round(weeklyProgress)}%</Text>
+                      </View>
+                      <Progress value={weeklyProgress} style={styles.progressBar} />
+                    </View>
+                  )}
                 </Card>
 
                 <View style={styles.practiceSessions}>
                   <Text style={styles.sectionTitle}>Recent Practice Sessions</Text>
-                  {mockPractice.map((session, index) => (
-                    <Card key={index} style={styles.practiceSessionCard}>
-                      <View style={styles.practiceSessionRow}>
-                        <View style={styles.practiceSessionInfo}>
-                          <Ionicons name="time-outline" size={16} color="#FF6A5C" />
-                          <Text style={styles.practiceSessionDate}>{session.date}</Text>
-                        </View>
-                        <Badge>{session.minutes} min</Badge>
-                      </View>
+                  {practiceSessions.length === 0 ? (
+                    <Card style={styles.emptyCard}>
+                      <Ionicons name="calendar-outline" size={48} color="#999" />
+                      <Text style={styles.emptyText}>No practice sessions yet</Text>
                     </Card>
-                  ))}
+                  ) : (
+                    practiceSessions.slice(0, 10).map((session) => (
+                      <Card key={session._id} style={styles.practiceSessionCard}>
+                        <View style={styles.practiceSessionRow}>
+                          <View style={styles.practiceSessionInfo}>
+                            <Ionicons name="time-outline" size={16} color="#FF6A5C" />
+                            <View style={styles.practiceSessionDetails}>
+                              <Text style={styles.practiceSessionDate}>
+                                {formatDate(session.date || session.createdAt)}
+                              </Text>
+                              {session.focus && (
+                                <Text style={styles.practiceSessionFocus}>{session.focus}</Text>
+                              )}
+                              {session.notes && (
+                                <Text style={styles.practiceSessionNotes}>{session.notes}</Text>
+                              )}
+                            </View>
+                          </View>
+                          <Badge>{session.minutes} min</Badge>
+                        </View>
+                      </Card>
+                    ))
+                  )}
                 </View>
               </View>
             </TabsContent>
@@ -523,6 +592,19 @@ const styles = StyleSheet.create({
   goalProgress: {
     marginTop: 4,
   },
+  goalInfo: {
+    flex: 1,
+    gap: 8,
+  },
+  goalCategoryBadge: {
+    alignSelf: "flex-start",
+    marginTop: 4,
+  },
+  goalTargetDate: {
+    fontSize: 12,
+    color: "#666",
+    marginTop: 4,
+  },
   achievementsCard: {
     padding: 16,
   },
@@ -595,6 +677,52 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: "700",
     color: "#333",
+  },
+  practiceStatSubtext: {
+    fontSize: 11,
+    color: "#666",
+    marginTop: 4,
+  },
+  weeklyProgressSection: {
+    marginTop: 16,
+  },
+  progressHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  progressLabel: {
+    fontSize: 14,
+    color: "#666",
+  },
+  progressPercent: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#FF6A5C",
+  },
+  progressBar: {
+    marginBottom: 0,
+  },
+  practiceSessionDetails: {
+    marginLeft: 8,
+    flex: 1,
+  },
+  practiceSessionFocus: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#333",
+    marginTop: 2,
+  },
+  practiceSessionNotes: {
+    fontSize: 12,
+    color: "#666",
+    marginTop: 2,
+  },
+  emptyCard: {
+    padding: 32,
+    alignItems: "center",
+    marginBottom: 12,
   },
   practiceSessions: {
     gap: 12,
