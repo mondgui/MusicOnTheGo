@@ -272,9 +272,6 @@ export default function TeacherProfileScreen() {
 
           {/* Action Buttons */}
           <View style={styles.actionsRow}>
-            <Button onPress={handleBookLesson} style={styles.bookButton}>
-              <Text style={styles.bookButtonText}>Book a Lesson</Text>
-            </Button>
             <Button
               variant="outline"
               onPress={handleContact}
@@ -453,15 +450,6 @@ const styles = StyleSheet.create({
   actionsRow: {
     gap: 12,
     marginTop: 8,
-  },
-  bookButton: {
-    width: "100%",
-    paddingVertical: 20,
-  },
-  bookButtonText: {
-    color: "white",
-    fontSize: 18,
-    fontWeight: "700",
   },
   contactButton: {
     width: "100%",

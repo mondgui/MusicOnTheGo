@@ -9,6 +9,67 @@ import roleMiddleware from "../middleware/roleMiddleware.js";
 
 const router = express.Router();
 
+/**
+ * Calculate badges based on student achievements
+ */
+function calculateBadges(streak, totalMinutes, totalSessions) {
+  const badges = [];
+
+  // Streak badges
+  if (streak >= 30) {
+    badges.push({ emoji: "🔥", text: `${streak}-Day Streak`, variant: "warning" });
+  } else if (streak >= 14) {
+    badges.push({ emoji: "🎯", text: `${streak}-Day Streak`, variant: "warning" });
+  } else if (streak >= 7) {
+    badges.push({ emoji: "🎯", text: `${streak}-Day Streak`, variant: "warning" });
+  } else if (streak >= 5) {
+    badges.push({ emoji: "🎯", text: `${streak}-Day Streak`, variant: "warning" });
+  } else if (streak >= 3) {
+    badges.push({ emoji: "🎯", text: `${streak}-Day Streak`, variant: "warning" });
+  }
+
+  // Total minutes milestones
+  if (totalMinutes >= 10000) {
+    badges.push({ emoji: "🏆", text: "10K Minutes", variant: "success" });
+  } else if (totalMinutes >= 5000) {
+    badges.push({ emoji: "⭐", text: "5K Minutes", variant: "success" });
+  } else if (totalMinutes >= 2500) {
+    badges.push({ emoji: "⭐", text: "2.5K Minutes", variant: "success" });
+  } else if (totalMinutes >= 1000) {
+    badges.push({ emoji: "⏰", text: "1K Minutes", variant: "success" });
+  } else if (totalMinutes >= 500) {
+    badges.push({ emoji: "⏰", text: "500 Minutes", variant: "success" });
+  } else if (totalMinutes >= 100) {
+    badges.push({ emoji: "⏰", text: "100 Minutes", variant: "success" });
+  }
+
+  // Encouraging titles based on activity patterns
+  const encouragingTitles = [
+    { condition: totalSessions >= 50 && streak >= 7, emoji: "🌟", text: "Dedicated Learner", variant: "default" },
+    { condition: totalSessions >= 30 && streak >= 5, emoji: "🎵", text: "Consistent Performer", variant: "default" },
+    { condition: totalSessions >= 20, emoji: "🎼", text: "Music Enthusiast", variant: "default" },
+    { condition: totalSessions >= 10 && streak >= 3, emoji: "🎸", text: "Rising Star", variant: "default" },
+    { condition: totalSessions >= 5, emoji: "🎹", text: "Getting Started", variant: "default" },
+    { condition: totalMinutes >= 500 && streak >= 5, emoji: "🎵", text: "Dedicated Learner", variant: "default" },
+    { condition: totalMinutes >= 200 && streak >= 3, emoji: "🎵", text: "Committed Student", variant: "default" },
+    { condition: totalSessions >= 15, emoji: "🎵", text: "Regular Practitioner", variant: "default" },
+  ];
+
+  // Add the first matching encouraging title (most impressive first)
+  for (const title of encouragingTitles) {
+    if (title.condition) {
+      // Check if we already have this badge
+      const exists = badges.some(b => b.text === title.text);
+      if (!exists) {
+        badges.push(title);
+        break; // Only add one encouraging title
+      }
+    }
+  }
+
+  return badges;
+}
+
 // ========== PRACTICE SESSIONS ==========
 
 /**
@@ -101,10 +162,10 @@ router.get(
 
       const totalMinutes = sessions.reduce((sum, s) => sum + s.minutes, 0);
       
-      // Get weekly goal from user profile (null if not set)
-      const user = await User.findById(req.user.id);
-      const weeklyGoal = user?.weeklyGoal || null;
-      const weeklyProgress = weeklyGoal && weeklyGoal > 0 ? Math.min((totalMinutes / weeklyGoal) * 100, 100) : 0;
+      // Calculate total weekly goal from all goals (sum of weeklyMinutes)
+      const goals = await Goal.find({ student: req.user.id });
+      const weeklyGoal = goals.reduce((sum, g) => sum + (g.weeklyMinutes || 0), 0);
+      const weeklyProgress = weeklyGoal > 0 ? Math.min((totalMinutes / weeklyGoal) * 100, 100) : 0;
 
       // Calculate streak (consecutive days with practice)
       const allSessions = await PracticeSession.find({ student: req.user.id })
@@ -135,11 +196,18 @@ router.get(
         }
       }
 
+      // Calculate total lifetime minutes
+      const totalLifetimeMinutes = allSessions.reduce((sum, s) => sum + s.minutes, 0);
+
+      // Calculate badges based on achievements
+      const badges = calculateBadges(streak, totalLifetimeMinutes, allSessions.length);
+
       res.json({
         thisWeekMinutes: totalMinutes,
         weeklyGoal,
         weeklyProgress,
         streak,
+        badges,
       });
     } catch (err) {
       res.status(500).json({ message: err.message });
@@ -168,9 +236,9 @@ router.get(
 
       const totalMinutes = sessions.reduce((sum, s) => sum + s.minutes, 0);
       
-      // Get weekly goal from user profile, default to 180 if not set
-      const user = await User.findById(req.params.studentId);
-      const weeklyGoal = user?.weeklyGoal || 180;
+      // Calculate total weekly goal from all goals (sum of weeklyMinutes)
+      const goals = await Goal.find({ student: req.params.studentId });
+      const weeklyGoal = goals.reduce((sum, g) => sum + (g.weeklyMinutes || 0), 0);
       const weeklyProgress = weeklyGoal > 0 ? Math.min((totalMinutes / weeklyGoal) * 100, 100) : 0;
 
       const allSessions = await PracticeSession.find({ student: req.params.studentId })
@@ -201,11 +269,18 @@ router.get(
         }
       }
 
+      // Calculate total lifetime minutes
+      const totalLifetimeMinutes = allSessions.reduce((sum, s) => sum + s.minutes, 0);
+
+      // Calculate badges based on achievements
+      const badges = calculateBadges(streak, totalLifetimeMinutes, allSessions.length);
+
       res.json({
         thisWeekMinutes: totalMinutes,
         weeklyGoal,
         weeklyProgress,
         streak,
+        badges,
       });
     } catch (err) {
       res.status(500).json({ message: err.message });
@@ -224,7 +299,7 @@ router.post(
   roleMiddleware("student"),
   async (req, res) => {
     try {
-      const { title, category, targetDate, progress } = req.body;
+      const { title, category, targetDate, progress, weeklyMinutes } = req.body;
 
       if (!title || !category || !targetDate) {
         return res.status(400).json({ message: "Title, category, and target date are required." });
@@ -236,6 +311,7 @@ router.post(
         category,
         targetDate: new Date(targetDate),
         progress: progress || 0,
+        weeklyMinutes: weeklyMinutes || 0,
       });
 
       await goal.save();
@@ -288,9 +364,37 @@ router.put(
       if (req.body.title !== undefined) goal.title = req.body.title;
       if (req.body.category !== undefined) goal.category = req.body.category;
       if (req.body.targetDate !== undefined) goal.targetDate = new Date(req.body.targetDate);
+      if (req.body.weeklyMinutes !== undefined) goal.weeklyMinutes = req.body.weeklyMinutes;
 
       await goal.save();
       res.json(goal);
+    } catch (err) {
+      res.status(500).json({ message: err.message });
+    }
+  }
+);
+
+/**
+ * STUDENT: Delete a goal
+ */
+router.delete(
+  "/goals/:id",
+  authMiddleware,
+  roleMiddleware("student"),
+  async (req, res) => {
+    try {
+      const goal = await Goal.findById(req.params.id);
+
+      if (!goal) {
+        return res.status(404).json({ message: "Goal not found." });
+      }
+
+      if (goal.student.toString() !== req.user.id) {
+        return res.status(403).json({ message: "Unauthorized." });
+      }
+
+      await Goal.findByIdAndDelete(req.params.id);
+      res.json({ message: "Goal deleted successfully." });
     } catch (err) {
       res.status(500).json({ message: err.message });
     }

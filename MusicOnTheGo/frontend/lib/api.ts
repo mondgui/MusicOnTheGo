@@ -48,13 +48,13 @@ function normalizeHeaders(h: ApiInit["headers"]): Record<string, string> {
 }
 
 // --------------------------------------------
-// Load JWT token from SecureStore (correct)
+// Load JWT token from storage (platform-aware)
 // --------------------------------------------
-import * as SecureStore from "expo-secure-store";
+import { storage } from "./storage";
 
 async function getToken() {
   try {
-    return await SecureStore.getItemAsync("token");
+    return await storage.getItem("token");
   } catch {
     return null;
   }

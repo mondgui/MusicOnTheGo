@@ -27,6 +27,8 @@ import {
 } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
+import { Slider } from "@/components/ui/slider";
+import { Switch } from "@/components/ui/switch";
 
 interface PracticeEntry {
   _id?: string;
@@ -58,7 +60,14 @@ interface Goal {
   targetDate: string | Date;
   progress: number;
   category: string;
+  weeklyMinutes?: number;
   completed?: boolean;
+}
+
+interface Badge {
+  emoji: string;
+  text: string;
+  variant: "default" | "secondary" | "success" | "warning";
 }
 
 interface Stats {
@@ -66,6 +75,7 @@ interface Stats {
   weeklyGoal: number;
   weeklyProgress: number;
   streak: number;
+  badges?: Badge[];
 }
 
 export default function PracticeLogScreen() {
@@ -79,6 +89,7 @@ export default function PracticeLogScreen() {
     weeklyGoal: 180,
     weeklyProgress: 0,
     streak: 0,
+    badges: [],
   });
   const [loading, setLoading] = useState(true);
 
@@ -87,10 +98,13 @@ export default function PracticeLogScreen() {
   const [notes, setNotes] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isGoalDialogOpen, setIsGoalDialogOpen] = useState(false);
+  const [isEditGoalDialogOpen, setIsEditGoalDialogOpen] = useState(false);
+  const [editingGoalId, setEditingGoalId] = useState<string | null>(null);
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
   const [newGoalTitle, setNewGoalTitle] = useState("");
-  const [newGoalDate, setNewGoalDate] = useState("");
   const [newGoalCategory, setNewGoalCategory] = useState("");
+  const [weeklyGoalSliderValue, setWeeklyGoalSliderValue] = useState([180]);
+  const [remindDaily, setRemindDaily] = useState(false);
   const [recordingTitle, setRecordingTitle] = useState("");
   const [recordingFileUrl, setRecordingFileUrl] = useState("");
   const [recordingDuration, setRecordingDuration] = useState("");
@@ -124,6 +138,7 @@ export default function PracticeLogScreen() {
         targetDate: g.targetDate,
         progress: g.progress || 0,
         category: g.category,
+        weeklyMinutes: g.weeklyMinutes || 0,
         completed: g.completed || false,
       }));
       setGoals(transformedGoals);
@@ -142,11 +157,12 @@ export default function PracticeLogScreen() {
 
       // Load stats
       const statsData = await api("/api/practice/stats/me", { auth: true });
-      setStats(statsData || {
-        thisWeekMinutes: 0,
-        weeklyGoal: null,
-        weeklyProgress: 0,
-        streak: 0,
+      setStats({
+        thisWeekMinutes: statsData?.thisWeekMinutes || 0,
+        weeklyGoal: statsData?.weeklyGoal || null,
+        weeklyProgress: statsData?.weeklyProgress || 0,
+        streak: statsData?.streak || 0,
+        badges: statsData?.badges || [],
       });
     } catch (err) {
       console.error("Failed to load practice data", err);
@@ -203,32 +219,120 @@ export default function PracticeLogScreen() {
   };
 
   const handleAddGoal = async () => {
-    if (!newGoalTitle || !newGoalDate || !newGoalCategory) {
-      Alert.alert("Error", "Please fill in all goal fields");
+    if (!newGoalTitle || !newGoalCategory) {
+      Alert.alert("Error", "Please fill in goal title and category");
+      return;
+    }
+
+    const goalMinutes = weeklyGoalSliderValue[0];
+    
+    if (goalMinutes === 0) {
+      Alert.alert("Error", "Please set a weekly goal greater than 0 minutes");
       return;
     }
 
     try {
+      // Create the goal with weeklyMinutes (targetDate is required by backend, so we set a default: 3 months from now)
+      const defaultTargetDate = new Date();
+      defaultTargetDate.setMonth(defaultTargetDate.getMonth() + 3);
+      
       await api("/api/practice/goals", {
         method: "POST",
         auth: true,
         body: JSON.stringify({
           title: newGoalTitle,
-          targetDate: newGoalDate,
           category: newGoalCategory,
+          targetDate: defaultTargetDate.toISOString(),
           progress: 0,
+          weeklyMinutes: goalMinutes,
         }),
       });
 
+      // Reset form
       setNewGoalTitle("");
-      setNewGoalDate("");
       setNewGoalCategory("");
+      setWeeklyGoalSliderValue([180]);
+      setRemindDaily(false);
       setIsGoalDialogOpen(false);
-      Alert.alert("Success", "Goal added successfully!");
+      
+      Alert.alert("Success", "Goal created and weekly goal set successfully!");
       loadData(); // Reload data
     } catch (err: any) {
-      Alert.alert("Error", err.message || "Failed to add goal");
+      Alert.alert("Error", err.message || "Failed to create goal");
     }
+  };
+
+  const handleEditGoal = (goal: Goal) => {
+    setEditingGoalId(goal._id || null);
+    setNewGoalTitle(goal.title);
+    setNewGoalCategory(goal.category);
+    setWeeklyGoalSliderValue([goal.weeklyMinutes || 180]);
+    setIsEditGoalDialogOpen(true);
+  };
+
+  const handleUpdateGoal = async () => {
+    if (!newGoalTitle || !newGoalCategory || !editingGoalId) {
+      Alert.alert("Error", "Please fill in goal title and category");
+      return;
+    }
+
+    const goalMinutes = weeklyGoalSliderValue[0];
+    
+    if (goalMinutes === 0) {
+      Alert.alert("Error", "Please set a weekly goal greater than 0 minutes");
+      return;
+    }
+
+    try {
+      await api(`/api/practice/goals/${editingGoalId}`, {
+        method: "PUT",
+        auth: true,
+        body: JSON.stringify({
+          title: newGoalTitle,
+          category: newGoalCategory,
+          weeklyMinutes: goalMinutes,
+        }),
+      });
+
+      // Reset form
+      setNewGoalTitle("");
+      setNewGoalCategory("");
+      setWeeklyGoalSliderValue([180]);
+      setRemindDaily(false);
+      setEditingGoalId(null);
+      setIsEditGoalDialogOpen(false);
+      
+      Alert.alert("Success", "Goal updated successfully!");
+      loadData(); // Reload data
+    } catch (err: any) {
+      Alert.alert("Error", err.message || "Failed to update goal");
+    }
+  };
+
+  const handleDeleteGoal = async (goalId: string) => {
+    Alert.alert(
+      "Delete Goal",
+      "Are you sure you want to delete this goal?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await api(`/api/practice/goals/${goalId}`, {
+                method: "DELETE",
+                auth: true,
+              });
+              Alert.alert("Success", "Goal deleted successfully!");
+              loadData(); // Reload data
+            } catch (err: any) {
+              Alert.alert("Error", err.message || "Failed to delete goal");
+            }
+          },
+        },
+      ]
+    );
   };
 
   const handleUploadRecording = async () => {
@@ -554,33 +658,44 @@ export default function PracticeLogScreen() {
                   </Text>
                 </Card>
               ) : (
-                practiceEntries.slice(0, 5).map((entry) => (
-                  <Card key={entry._id || entry.id} style={styles.entryCard}>
-                  <View style={styles.entryHeader}>
-                    <View style={styles.entryInfo}>
-                      <Text style={styles.entryFocus}>{entry.focus}</Text>
-                      {entry.notes && (
-                        <Text style={styles.entryNotes}>{entry.notes}</Text>
-                      )}
+                <>
+                  {practiceEntries.slice(0, 5).map((entry) => (
+                    <Card key={entry._id || entry.id} style={styles.entryCard}>
+                    <View style={styles.entryHeader}>
+                      <View style={styles.entryInfo}>
+                        <Text style={styles.entryFocus}>{entry.focus}</Text>
+                        {entry.notes && (
+                          <Text style={styles.entryNotes}>{entry.notes}</Text>
+                        )}
+                      </View>
+                      <Badge variant="default">{entry.minutes} min</Badge>
                     </View>
-                    <Badge variant="default">{entry.minutes} min</Badge>
-                  </View>
-                  <View style={styles.entryDateRow}>
-                    <Ionicons name="calendar-outline" size={14} color="#666" />
-                    <Text style={styles.entryDate}>
-                      {formatDateWithDay(entry.date)}
-                    </Text>
-                  </View>
-                  {entry.startTime && (
-                    <View style={styles.entryTimeRow}>
-                      <Ionicons name="time-outline" size={14} color="#666" />
-                      <Text style={styles.entryTime}>
-                        {formatTimeRange(entry.startTime, entry.minutes)}
+                    <View style={styles.entryDateRow}>
+                      <Ionicons name="calendar-outline" size={14} color="#666" />
+                      <Text style={styles.entryDate}>
+                        {formatDateWithDay(entry.date)}
                       </Text>
                     </View>
-                  )}
-                </Card>
-                ))
+                    {entry.startTime && (
+                      <View style={styles.entryTimeRow}>
+                        <Ionicons name="time-outline" size={14} color="#666" />
+                        <Text style={styles.entryTime}>
+                          {formatTimeRange(entry.startTime, entry.minutes)}
+                        </Text>
+                      </View>
+                    )}
+                  </Card>
+                  ))}
+                  {/* Total minutes for recent sessions */}
+                  <Card style={styles.totalCard}>
+                    <View style={styles.totalRow}>
+                      <Text style={styles.totalLabel}>Total</Text>
+                      <Badge variant="success" style={styles.totalBadge}>
+                        {practiceEntries.slice(0, 5).reduce((sum, entry) => sum + entry.minutes, 0)} min
+                      </Badge>
+                    </View>
+                  </Card>
+                </>
               )}
             </View>
 
@@ -590,17 +705,44 @@ export default function PracticeLogScreen() {
                 <Ionicons name="trophy-outline" size={20} color="#FFB800" />
                 <Text style={styles.achievementsTitle}>Badges Earned</Text>
               </View>
-              <View style={styles.badgesRow}>
-                <Badge variant="warning">🎯 5-Day Streak</Badge>
-                <Badge variant="success">⏰ 100 Minutes</Badge>
-                <Badge variant="default">🎵 Dedicated Learner</Badge>
-              </View>
+              {stats.badges && stats.badges.length > 0 ? (
+                <View style={styles.badgesRow}>
+                  {stats.badges.map((badge, index) => (
+                    <Badge key={index} variant={badge.variant}>
+                      {badge.emoji} {badge.text}
+                    </Badge>
+                  ))}
+                </View>
+              ) : (
+                <View style={styles.emptyBadgesContainer}>
+                  <Text style={styles.emptyBadgesText}>
+                    Keep practicing to earn badges! 🎯
+                  </Text>
+                </View>
+              )}
             </Card>
           </TabsContent>
 
           {/* Goals Tab */}
           <TabsContent value="goals">
-            <Dialog open={isGoalDialogOpen} onOpenChange={setIsGoalDialogOpen}>
+            <Dialog 
+              open={isGoalDialogOpen} 
+              onOpenChange={(open) => {
+                setIsGoalDialogOpen(open);
+                // Initialize slider with current weekly goal when dialog opens
+                if (open && stats.weeklyGoal) {
+                  setWeeklyGoalSliderValue([stats.weeklyGoal]);
+                } else if (open && !stats.weeklyGoal) {
+                  setWeeklyGoalSliderValue([180]); // Default to 180 if not set
+                }
+                // Reset form when closing
+                if (!open) {
+                  setNewGoalTitle("");
+                  setNewGoalCategory("");
+                  setRemindDaily(false);
+                }
+              }}
+            >
               <DialogTrigger asChild>
                 <Button style={styles.addButton}>
                   <Ionicons name="add" size={18} color="white" />
@@ -609,7 +751,7 @@ export default function PracticeLogScreen() {
               </DialogTrigger>
               <DialogContent>
                 <DialogHeader>
-                  <DialogTitle>Set a New Goal</DialogTitle>
+                  <DialogTitle>Set a new Weekly Goal</DialogTitle>
                 </DialogHeader>
                 <View style={styles.dialogForm}>
                   <View style={styles.formGroup}>
@@ -629,15 +771,96 @@ export default function PracticeLogScreen() {
                     />
                   </View>
                   <View style={styles.formGroup}>
-                    <Label>Target Date *</Label>
-                    <Input
-                      placeholder="YYYY-MM-DD"
-                      value={newGoalDate}
-                      onChangeText={setNewGoalDate}
+                    <Label>How many minutes do you want to practice this week FOR THIS GOAL?</Label>
+                    <View style={styles.sliderContainer}>
+                      <Slider
+                        value={weeklyGoalSliderValue}
+                        onValueChange={setWeeklyGoalSliderValue}
+                        min={0}
+                        max={300}
+                        step={5}
+                        style={styles.slider}
+                      />
+                      <Text style={styles.sliderValue}>
+                        {weeklyGoalSliderValue[0]} min
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={styles.toggleContainer}>
+                    <Text style={styles.toggleLabel}>Remind me daily</Text>
+                    <Switch
+                      value={remindDaily}
+                      onValueChange={setRemindDaily}
                     />
                   </View>
                   <Button onPress={handleAddGoal} style={styles.saveButton}>
                     <Text style={styles.saveButtonText}>Create Goal</Text>
+                  </Button>
+                </View>
+              </DialogContent>
+            </Dialog>
+
+            {/* Edit Goal Dialog */}
+            <Dialog 
+              open={isEditGoalDialogOpen} 
+              onOpenChange={(open) => {
+                setIsEditGoalDialogOpen(open);
+                // Reset form when closing
+                if (!open) {
+                  setNewGoalTitle("");
+                  setNewGoalCategory("");
+                  setWeeklyGoalSliderValue([180]);
+                  setRemindDaily(false);
+                  setEditingGoalId(null);
+                }
+              }}
+            >
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Edit Goal</DialogTitle>
+                </DialogHeader>
+                <View style={styles.dialogForm}>
+                  <View style={styles.formGroup}>
+                    <Label>Goal Title *</Label>
+                    <Input
+                      placeholder="e.g., Master Moonlight Sonata"
+                      value={newGoalTitle}
+                      onChangeText={setNewGoalTitle}
+                    />
+                  </View>
+                  <View style={styles.formGroup}>
+                    <Label>Category *</Label>
+                    <Input
+                      placeholder="e.g., Repertoire, Technique, Performance"
+                      value={newGoalCategory}
+                      onChangeText={setNewGoalCategory}
+                    />
+                  </View>
+                  <View style={styles.formGroup}>
+                    <Label>How many minutes do you want to practice this week FOR THIS GOAL?</Label>
+                    <View style={styles.sliderContainer}>
+                      <Slider
+                        value={weeklyGoalSliderValue}
+                        onValueChange={setWeeklyGoalSliderValue}
+                        min={0}
+                        max={300}
+                        step={5}
+                        style={styles.slider}
+                      />
+                      <Text style={styles.sliderValue}>
+                        {weeklyGoalSliderValue[0]} min
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={styles.toggleContainer}>
+                    <Text style={styles.toggleLabel}>Remind me daily</Text>
+                    <Switch
+                      value={remindDaily}
+                      onValueChange={setRemindDaily}
+                    />
+                  </View>
+                  <Button onPress={handleUpdateGoal} style={styles.saveButton}>
+                    <Text style={styles.saveButtonText}>Update Goal</Text>
                   </Button>
                 </View>
               </DialogContent>
@@ -663,13 +886,34 @@ export default function PracticeLogScreen() {
                         {goal.category}
                       </Badge>
                     </View>
-                    <Text style={styles.goalProgress}>{goal.progress}%</Text>
+                    <View style={styles.goalActions}>
+                      <Text style={styles.goalProgress}>{goal.progress}%</Text>
+                      <TouchableOpacity
+                        onPress={() => handleEditGoal(goal)}
+                        style={styles.goalActionButton}
+                      >
+                        <Ionicons name="pencil-outline" size={18} color="#FF6A5C" />
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={() => goal._id && handleDeleteGoal(goal._id)}
+                        style={styles.goalActionButton}
+                      >
+                        <Ionicons name="trash-outline" size={18} color="#FF6A5C" />
+                      </TouchableOpacity>
+                    </View>
                   </View>
                   <Progress value={goal.progress} style={styles.goalProgressBar} />
                   <View style={styles.goalFooter}>
-                    <Text style={styles.goalDate}>
-                      Target: {formatDate(goal.targetDate)}
-                    </Text>
+                    <View>
+                      <Text style={styles.goalDate}>
+                        Target: {formatDate(goal.targetDate)}
+                      </Text>
+                      {goal.weeklyMinutes > 0 && (
+                        <Text style={styles.goalWeeklyMinutes}>
+                          Weekly: {goal.weeklyMinutes} min
+                        </Text>
+                      )}
+                    </View>
                     {(goal.progress === 100 || goal.completed) && (
                       <Badge variant="success">
                         <Ionicons name="checkmark-circle" size={12} color="#059669" />
@@ -1057,6 +1301,24 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "#666",
   },
+  totalCard: {
+    padding: 16,
+    marginTop: 8,
+    backgroundColor: "#FFF5F3",
+  },
+  totalRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  totalLabel: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#333",
+  },
+  totalBadge: {
+    fontSize: 16,
+  },
   monthSection: {
     marginBottom: 24,
   },
@@ -1095,6 +1357,15 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 8,
+  },
+  emptyBadgesContainer: {
+    paddingVertical: 16,
+    alignItems: "center",
+  },
+  emptyBadgesText: {
+    fontSize: 14,
+    color: "#999",
+    fontStyle: "italic",
   },
   dialogForm: {
     gap: 16,
@@ -1143,6 +1414,14 @@ const styles = StyleSheet.create({
   goalBadge: {
     alignSelf: "flex-start",
   },
+  goalActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  goalActionButton: {
+    padding: 4,
+  },
   goalProgress: {
     fontSize: 16,
     fontWeight: "700",
@@ -1159,6 +1438,12 @@ const styles = StyleSheet.create({
   goalDate: {
     fontSize: 12,
     color: "#666",
+  },
+  goalWeeklyMinutes: {
+    fontSize: 12,
+    color: "#FF6A5C",
+    fontWeight: "600",
+    marginTop: 4,
   },
   completedText: {
     fontSize: 12,
@@ -1271,6 +1556,32 @@ const styles = StyleSheet.create({
     color: "#999",
     marginTop: 4,
     textAlign: "center",
+  },
+  sliderContainer: {
+    marginTop: 8,
+    marginBottom: 8,
+  },
+  slider: {
+    marginBottom: 12,
+  },
+  sliderValue: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#FF6A5C",
+    textAlign: "center",
+    marginTop: 8,
+  },
+  toggleContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: 8,
+    marginBottom: 8,
+  },
+  toggleLabel: {
+    fontSize: 16,
+    color: "#333",
+    fontWeight: "500",
   },
 });
 

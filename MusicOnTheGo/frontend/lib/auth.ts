@@ -1,7 +1,7 @@
 // // frontend/lib/auth.ts
 
 // frontend/lib/auth.ts
-import * as SecureStore from "expo-secure-store";
+import { storage } from "./storage";
 
 const TOKEN_KEY = "token";
 const USER_KEY = "user";
@@ -15,18 +15,18 @@ export type AuthUser = {
 
 // Save token + user after login / register
 export async function saveAuth(token: string, user: AuthUser) {
-  await SecureStore.setItemAsync(TOKEN_KEY, token);
-  await SecureStore.setItemAsync(USER_KEY, JSON.stringify(user));
+  await storage.setItem(TOKEN_KEY, token);
+  await storage.setItem(USER_KEY, JSON.stringify(user));
 }
 
-// Read token (api.ts already uses SecureStore directly, but this keeps it DRY)
+// Read token (api.ts already uses storage directly, but this keeps it DRY)
 export async function getTokenFromStorage() {
-  return SecureStore.getItemAsync(TOKEN_KEY);
+  return storage.getItem(TOKEN_KEY);
 }
 
 // Read current user (optional helper)
 export async function getStoredUser(): Promise<AuthUser | null> {
-  const raw = await SecureStore.getItemAsync(USER_KEY);
+  const raw = await storage.getItem(USER_KEY);
   if (!raw) return null;
   try {
     return JSON.parse(raw) as AuthUser;
@@ -37,8 +37,8 @@ export async function getStoredUser(): Promise<AuthUser | null> {
 
 // Clear everything on logout
 export async function clearAuth() {
-  await SecureStore.deleteItemAsync(TOKEN_KEY);
-  await SecureStore.deleteItemAsync(USER_KEY);
+  await storage.removeItem(TOKEN_KEY);
+  await storage.removeItem(USER_KEY);
 }
 
 

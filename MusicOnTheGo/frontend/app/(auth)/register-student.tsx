@@ -15,7 +15,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { api } from "../../lib/api";
-import * as SecureStore from "expo-secure-store";
+import { storage } from "../../lib/storage";
 
 const INSTRUMENT_OPTIONS = [
   { label: "Piano", value: "piano" },
@@ -95,7 +95,7 @@ export default function RegisterStudent() {
       });
 
       if (response?.token) {
-        await SecureStore.setItemAsync("token", response.token);
+        await storage.setItem("token", response.token);
       }
 
       router.push({
