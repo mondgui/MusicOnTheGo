@@ -14,21 +14,28 @@ export default function ScheduleTab({ schedule }: Props) {
     <View style={styles.section}>
       <Card style={styles.scheduleCard}>
         <Text style={styles.sectionTitle}>Today's Schedule</Text>
-        <View style={styles.scheduleList}>
-          {schedule.map((item) => (
-            <View key={item.id} style={styles.scheduleItem}>
-              <View style={styles.timeIcon}>
-                <Ionicons name="time-outline" size={20} color="white" />
+        {schedule.length === 0 ? (
+          <View style={styles.emptyState}>
+            <Ionicons name="calendar-outline" size={48} color="#CCC" />
+            <Text style={styles.emptyText}>No lessons scheduled for today</Text>
+          </View>
+        ) : (
+          <View style={styles.scheduleList}>
+            {schedule.map((item) => (
+              <View key={item.id} style={styles.scheduleItem}>
+                <View style={styles.timeIcon}>
+                  <Ionicons name="time-outline" size={20} color="white" />
+                </View>
+                <View style={styles.scheduleInfo}>
+                  <Text style={styles.studentName}>{item.student}</Text>
+                  <Text style={styles.scheduleDetails}>
+                    {item.instrument} • {item.time}
+                  </Text>
+                </View>
               </View>
-              <View style={styles.scheduleInfo}>
-                <Text style={styles.studentName}>{item.student}</Text>
-                <Text style={styles.scheduleDetails}>
-                  {item.instrument} • {item.time}
-                </Text>
-              </View>
-            </View>
-          ))}
-        </View>
+            ))}
+          </View>
+        )}
       </Card>
     </View>
   );
@@ -78,5 +85,15 @@ const styles = StyleSheet.create({
   scheduleDetails: {
     fontSize: 14,
     color: "#666",
+  },
+  emptyState: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 40,
+  },
+  emptyText: {
+    fontSize: 14,
+    color: "#999",
+    marginTop: 12,
   },
 });

@@ -31,7 +31,8 @@ export default function BookingConfirmationScreen() {
     selectedDay, 
     selectedTime: preSelectedTime,
     selectedTimeRange,
-    selectedEndTime 
+    selectedEndTime,
+    selectedDateISO // ISO format date string (YYYY-MM-DD)
   } = params;
   
   const [teacher, setTeacher] = useState<any>(null);
@@ -126,12 +127,21 @@ export default function BookingConfirmationScreen() {
       }
       
       // Convert selectedDate to an actual date string
-      // If selectedDate is a day name (from availability slot), convert to next occurrence
-      // Otherwise, use it as-is if it's already a date string
+      // Priority: Use ISO date if available, then check if it's a day name, then try parsing
       const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
       let actualDate: Date;
+      let dateString: string;
       
-      if (dayNames.includes(selectedDate)) {
+      // If we have an ISO date string, use it directly
+      if (selectedDateISO) {
+        dateString = String(selectedDateISO);
+        actualDate = new Date(dateString);
+        if (isNaN(actualDate.getTime())) {
+          Alert.alert("Error", "Invalid date format");
+          setLoading(false);
+          return;
+        }
+      } else if (dayNames.includes(selectedDate)) {
         // Convert day name to next occurrence date
         const dayIndex = dayNames.indexOf(selectedDate);
         const today = new Date();
@@ -141,18 +151,17 @@ export default function BookingConfirmationScreen() {
         
         actualDate = new Date(today);
         actualDate.setDate(today.getDate() + daysUntil);
+        dateString = actualDate.toISOString().split('T')[0];
       } else {
-        // Try to parse as date string
+        // Try to parse as date string (handles formatted dates like "Wednesday, December 10, 2025")
         actualDate = new Date(selectedDate);
         if (isNaN(actualDate.getTime())) {
           Alert.alert("Error", "Invalid date format");
           setLoading(false);
           return;
         }
+        dateString = actualDate.toISOString().split('T')[0];
       }
-      
-      // Format date as ISO string (YYYY-MM-DD) for backend
-      const dateString = actualDate.toISOString().split('T')[0];
       
       // Validate all required fields before sending
       if (!dateString || !startTime24 || !endTime24) {

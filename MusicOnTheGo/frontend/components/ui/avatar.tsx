@@ -6,9 +6,20 @@ type AvatarProps = {
   fallback?: string;
   style?: ViewStyle;
   size?: number;
+  children?: React.ReactNode;
 };
 
-export function Avatar({ src, fallback, style, size = 40 }: AvatarProps) {
+export function Avatar({ src, fallback, style, size = 40, children }: AvatarProps) {
+  // If children are provided, use compound pattern
+  if (children) {
+    return (
+      <View style={[styles.avatar, { width: size, height: size, borderRadius: size / 2 }, style]}>
+        {children}
+      </View>
+    );
+  }
+
+  // Otherwise use simple pattern with src/fallback props
   return (
     <View style={[styles.avatar, { width: size, height: size, borderRadius: size / 2 }, style]}>
       {src ? (
@@ -26,7 +37,7 @@ export function Avatar({ src, fallback, style, size = 40 }: AvatarProps) {
 
 export function AvatarImage({ src, style }: { src?: string; style?: ViewStyle }) {
   if (!src) return null;
-  return <Image source={{ uri: src }} style={[styles.image, style]} />;
+  return <Image source={{ uri: src }} style={[styles.image, { width: "100%", height: "100%" }, style]} />;
 }
 
 export function AvatarFallback({
@@ -37,7 +48,7 @@ export function AvatarFallback({
   style?: ViewStyle;
 }) {
   return (
-    <View style={[styles.fallback, style]}>
+    <View style={[styles.fallback, { width: "100%", height: "100%" }, style]}>
       <Text style={styles.fallbackText}>{children}</Text>
     </View>
   );

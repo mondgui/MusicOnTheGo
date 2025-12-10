@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import {
   View,
   Text,
@@ -7,7 +7,7 @@ import {
   ScrollView,
   ActivityIndicator,
 } from "react-native";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter, useFocusEffect } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { api } from "../../../lib/api";
@@ -29,8 +29,9 @@ type Teacher = {
 };
 
 type AvailabilitySlot = {
-  day: string;
+  day: string; // Display format: "Wednesday, December 10, 2025"
   timeRange: string;
+  isoDate?: string; // ISO format: "2025-12-10" for parsing
 };
 
 export default function TeacherProfileScreen() {
@@ -70,21 +71,45 @@ export default function TeacherProfileScreen() {
     return `${hour12}:${minutes} ${ampm}`;
   };
 
-  // Load teacher availability
-  useEffect(() => {
-    async function fetchAvailability() {
-      if (!id) return;
-      try {
-        setLoadingAvailability(true);
-        const data = await api(`/api/availability/teacher/${id}`);
+  // Function to fetch availability
+  const fetchAvailability = useCallback(async () => {
+    if (!id) return;
+    try {
+      setLoadingAvailability(true);
+      const data = await api(`/api/availability/teacher/${id}`);
         
         // Transform backend availability data to display format
-        // Backend returns: [{ day: "Monday", timeSlots: [{ start: "14:00", end: "16:00" }] }]
+        // Backend returns: [{ day: "2025-12-10" or "Monday", date: Date, timeSlots: [{ start: "14:00", end: "16:00" }] }]
         if (Array.isArray(data) && data.length > 0) {
           const slots: AvailabilitySlot[] = [];
           
           data.forEach((item: any) => {
-            const day = item.day || "";
+            let displayDay = item.day || "";
+            let isoDate: string | undefined = undefined;
+            
+            // If it's a specific date (has date field), format it nicely
+            if (item.date) {
+              const date = new Date(item.date);
+              displayDay = date.toLocaleDateString("en-US", {
+                weekday: "long",
+                year: "numeric",
+                month: "long",
+                day: "numeric",
+              });
+              // Store ISO date string for backend
+              isoDate = date.toISOString().split('T')[0];
+            } else if (item.day && /^\d{4}-\d{2}-\d{2}$/.test(item.day)) {
+              // If day is already in YYYY-MM-DD format, use it
+              isoDate = item.day;
+              const date = new Date(item.day);
+              displayDay = date.toLocaleDateString("en-US", {
+                weekday: "long",
+                year: "numeric",
+                month: "long",
+                day: "numeric",
+              });
+            }
+            
             const timeSlots = item.timeSlots || [];
             
             timeSlots.forEach((slot: any) => {
@@ -92,8 +117,9 @@ export default function TeacherProfileScreen() {
                 const startTime = formatTime24To12(slot.start);
                 const endTime = formatTime24To12(slot.end);
                 slots.push({
-                  day: day,
+                  day: displayDay,
                   timeRange: `${startTime} - ${endTime}`,
+                  isoDate: isoDate,
                 });
               }
             });
@@ -110,11 +136,19 @@ export default function TeacherProfileScreen() {
       } finally {
         setLoadingAvailability(false);
       }
-    }
-    if (id) {
-      fetchAvailability();
-    }
   }, [id]);
+
+  // Load teacher availability on mount
+  useEffect(() => {
+    fetchAvailability();
+  }, [fetchAvailability]);
+
+  // Refresh availability when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      fetchAvailability();
+    }, [fetchAvailability])
+  );
 
   if (loading) {
     return (
@@ -142,9 +176,12 @@ export default function TeacherProfileScreen() {
       const startTime = timeParts[0]; // Get "2:00 PM"
       const endTime = timeParts[1] || ""; // Get "4:00 PM" if available
       
-      params.selectedDay = slot.day;
+      params.selectedDay = slot.day; // Display format
       params.selectedTime = startTime;
       params.selectedTimeRange = slot.timeRange; // Pass full range for display
+      if (slot.isoDate) {
+        params.selectedDateISO = slot.isoDate; // ISO format for backend
+      }
       if (endTime) {
         params.selectedEndTime = endTime;
       }

@@ -16,7 +16,7 @@ const inquirySchema = new mongoose.Schema(
     // Guided Inquiry Fields
     instrument: { type: String, required: true },
     level: { type: String, enum: ["Beginner", "Intermediate", "Advanced"], required: true },
-    ageGroup: { type: String, enum: ["Child", "Teen", "Adult"], required: false },
+    ageGroup: { type: String, enum: ["Child", "Teen", "Young Adult", "Adult", "Senior"], required: false },
     lessonType: { type: String, enum: ["In-person", "Online", "Either"], required: true },
     availability: { type: String, required: true },
 

@@ -15,17 +15,24 @@ router.post(
   roleMiddleware("teacher"),
   async (req, res) => {
     try {
-      const { day, timeSlots } = req.body;
+      const { day, date, timeSlots } = req.body;
 
       if (!day || !timeSlots) {
         return res.status(400).json({ message: "Day and timeSlots are required." });
       }
 
-      const availability = new Availability({
+      const availabilityData = {
         teacher: req.user.id,
         day,
         timeSlots,
-      });
+      };
+
+      // If date is provided, parse and store it
+      if (date) {
+        availabilityData.date = new Date(date);
+      }
+
+      const availability = new Availability(availabilityData);
 
       await availability.save();
       res.status(201).json(availability);
@@ -56,6 +63,11 @@ router.put(
 
       availability.day = req.body.day || availability.day;
       availability.timeSlots = req.body.timeSlots || availability.timeSlots;
+      
+      // Update date if provided
+      if (req.body.date !== undefined) {
+        availability.date = req.body.date ? new Date(req.body.date) : null;
+      }
 
       await availability.save();
       res.json(availability);

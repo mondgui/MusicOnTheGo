@@ -12,6 +12,7 @@ import bookingRoutes from "./routes/bookingRoutes.js";
 import inquiryRoutes from "./routes/inquiryRoutes.js";
 import teacherRoutes from "./routes/teacherRoutes.js";
 import practiceRoutes from "./routes/practiceRoutes.js";
+import messageRoutes from "./routes/messageRoutes.js";
 
 const app = express();
 
@@ -28,6 +29,7 @@ app.use("/api/bookings", bookingRoutes);
 app.use("/api/inquiries", inquiryRoutes);
 app.use("/api/teachers", teacherRoutes);
 app.use("/api/practice", practiceRoutes);
+app.use("/api/messages", messageRoutes);
 
 
 

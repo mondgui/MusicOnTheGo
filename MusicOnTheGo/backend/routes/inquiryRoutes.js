@@ -69,6 +69,38 @@ router.get(
 );
 
 /**
+ * TEACHER: Mark inquiry as read
+ */
+router.put(
+  "/:id/read",
+  authMiddleware,
+  roleMiddleware("teacher"),
+  async (req, res) => {
+    try {
+      const inquiry = await Inquiry.findById(req.params.id);
+
+      if (!inquiry) {
+        return res.status(404).json({ message: "Inquiry not found." });
+      }
+
+      if (inquiry.teacher.toString() !== req.user.id) {
+        return res.status(403).json({ message: "Unauthorized." });
+      }
+
+      // Only update to "read" if status is still "sent"
+      if (inquiry.status === "sent") {
+        inquiry.status = "read";
+        await inquiry.save();
+      }
+
+      res.json(inquiry);
+    } catch (err) {
+      res.status(500).json({ message: err.message });
+    }
+  }
+);
+
+/**
  * TEACHER: Mark inquiry as responded
  */
 router.put(
@@ -87,7 +119,7 @@ router.put(
         return res.status(403).json({ message: "Unauthorized." });
       }
 
-      inquiry.status = "responded";  // ✅ FIXED
+      inquiry.status = "responded";
       await inquiry.save();
 
       res.json(inquiry);

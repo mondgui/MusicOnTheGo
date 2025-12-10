@@ -5,18 +5,22 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  ActivityIndicator,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
+import { useCallback } from "react";
 import { api } from "../lib/api";
 import { Card } from "../components/ui/card";
 import { Input } from "../components/ui/input";
 import { Avatar, AvatarImage, AvatarFallback } from "../components/ui/avatar";
 import { Badge } from "../components/ui/badge";
+import { Button } from "../components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
 
 type Contact = {
-  id: number;
+  id: string;
   name: string;
   role: "teacher" | "student";
   instrument: string;
@@ -29,116 +33,152 @@ type Contact = {
   nextLesson?: { date: string; time: string };
 };
 
+type Inquiry = {
+  _id: string;
+  student: {
+    _id: string;
+    name: string;
+    email: string;
+  };
+  instrument: string;
+  level: string;
+  ageGroup?: string;
+  lessonType: string;
+  availability: string;
+  message?: string;
+  goals?: string;
+  guardianName?: string;
+  guardianPhone?: string;
+  guardianEmail?: string;
+  status: "sent" | "read" | "responded";
+  createdAt: string;
+};
+
 export default function MessagesScreen() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
   const [userRole, setUserRole] = useState<"teacher" | "student" | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Load user role
+  const [contacts, setContacts] = useState<Contact[]>([]);
+  const [inquiries, setInquiries] = useState<Inquiry[]>([]);
+  const [inquiriesLoading, setInquiriesLoading] = useState(false);
+
+  // Load user role and contacts
   useEffect(() => {
-    async function loadUser() {
+    async function loadUserAndContacts() {
       try {
         const user = await api("/api/users/me", { auth: true });
         setUserRole(user.role);
+        
+        // Load contacts from bookings
+        if (user.role === "teacher") {
+          const bookings = await api("/api/bookings/teacher/me", { auth: true });
+          const studentMap = new Map<string, any>();
+          
+          (Array.isArray(bookings) ? bookings : []).forEach((booking: any) => {
+            if (booking.student) {
+              const studentId = booking.student._id 
+                ? String(booking.student._id) 
+                : String(booking.student);
+              
+              if (!studentMap.has(studentId)) {
+                const student = booking.student._id ? booking.student : { _id: booking.student, name: "Student", email: "" };
+                studentMap.set(studentId, {
+                  id: studentId,
+                  name: student.name || "Student",
+                  role: "student" as const,
+                  instrument: booking.instrument || "Music",
+                  image: student.profileImage || "",
+                  email: student.email || "",
+                  phone: student.phone || "",
+                  lastMessage: "No messages yet",
+                  timestamp: booking.date || "",
+                  unread: 0,
+                  nextLesson: booking.date ? { date: booking.date, time: booking.time } : undefined,
+                });
+              }
+            }
+          });
+          
+          setContacts(Array.from(studentMap.values()));
+        } else if (user.role === "student") {
+          const bookings = await api("/api/bookings/student/me", { auth: true });
+          const teacherMap = new Map<string, any>();
+          
+          (Array.isArray(bookings) ? bookings : []).forEach((booking: any) => {
+            if (booking.teacher) {
+              const teacherId = booking.teacher._id 
+                ? String(booking.teacher._id) 
+                : String(booking.teacher);
+              
+              if (!teacherMap.has(teacherId)) {
+                const teacher = booking.teacher._id ? booking.teacher : { _id: booking.teacher, name: "Teacher", email: "" };
+                teacherMap.set(teacherId, {
+                  id: teacherId,
+                  name: teacher.name || "Teacher",
+                  role: "teacher" as const,
+                  instrument: booking.instrument || "Music",
+                  image: teacher.profileImage || "",
+                  email: teacher.email || "",
+                  phone: teacher.phone || "",
+                  lastMessage: "No messages yet",
+                  timestamp: booking.date || "",
+                  unread: 0,
+                  nextLesson: booking.date ? { date: booking.date, time: booking.time } : undefined,
+                });
+              }
+            }
+          });
+          
+          setContacts(Array.from(teacherMap.values()));
+        }
       } catch (err) {
-        console.log("Error loading user:", err);
+        console.log("Error loading user/contacts:", err);
       } finally {
         setLoading(false);
       }
     }
-    loadUser();
+    loadUserAndContacts();
   }, []);
 
-  // Mock contacts based on user role
-  const contacts: Contact[] =
-    userRole === "student"
-      ? [
-          {
-            id: 1,
-            name: "Sarah Mitchell",
-            role: "teacher",
-            instrument: "Piano",
-            image:
-              "https://images.unsplash.com/photo-1573333333693-f9f1917e0f61?w=400",
-            email: "sarah.mitchell@musiconthego.com",
-            phone: "+1 (415) 555-0123",
-            lastMessage: "Great practice session today!",
-            timestamp: "2 hours ago",
-            unread: 2,
-            nextLesson: { date: "Nov 15, 2025", time: "2:00 PM" },
-          },
-          {
-            id: 2,
-            name: "James Rodriguez",
-            role: "teacher",
-            instrument: "Guitar",
-            image:
-              "https://images.unsplash.com/photo-1471478331149-c72f17e33c73?w=400",
-            email: "james.r@musiconthego.com",
-            phone: "+1 (310) 555-0145",
-            lastMessage: "Looking forward to our next lesson",
-            timestamp: "Yesterday",
-            unread: 0,
-            nextLesson: { date: "Nov 18, 2025", time: "4:00 PM" },
-          },
-          {
-            id: 3,
-            name: "Emma Thompson",
-            role: "teacher",
-            instrument: "Piano",
-            image:
-              "https://images.unsplash.com/photo-1573333744553-25f91be191d6?w=400",
-            email: "emma.t@musiconthego.com",
-            phone: "+1 (415) 555-0198",
-            lastMessage: "Remember to practice scales",
-            timestamp: "3 days ago",
-            unread: 0,
-          },
-        ]
-      : [
-          {
-            id: 4,
-            name: "Emily Johnson",
-            role: "student",
-            instrument: "Piano",
-            image:
-              "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=400",
-            email: "emily.j@email.com",
-            phone: "+1 (415) 555-0189",
-            lastMessage: "Can we reschedule tomorrow's lesson?",
-            timestamp: "1 hour ago",
-            unread: 1,
-            nextLesson: { date: "Nov 15, 2025", time: "2:00 PM" },
-          },
-          {
-            id: 5,
-            name: "Michael Chen",
-            role: "student",
-            instrument: "Guitar",
-            image:
-              "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400",
-            email: "michael.chen@email.com",
-            phone: "+1 (310) 555-0167",
-            lastMessage: "Thanks for the lesson!",
-            timestamp: "Yesterday",
-            unread: 0,
-            nextLesson: { date: "Nov 18, 2025", time: "4:00 PM" },
-          },
-          {
-            id: 6,
-            name: "Sarah Williams",
-            role: "student",
-            instrument: "Piano",
-            image:
-              "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400",
-            email: "sarah.w@email.com",
-            phone: "+1 (415) 555-0134",
-            lastMessage: "See you next week!",
-            timestamp: "2 days ago",
-            unread: 0,
-          },
-        ];
+  // Function to load inquiries
+  const loadInquiries = useCallback(async () => {
+    if (userRole !== "teacher") return;
+    
+    try {
+      setInquiriesLoading(true);
+      const data = await api("/api/inquiries/teacher/me", { auth: true });
+      const inquiriesList = Array.isArray(data) ? data : [];
+      // Sort by createdAt descending (newest first)
+      inquiriesList.sort((a: Inquiry, b: Inquiry) => {
+        const dateA = new Date(a.createdAt).getTime();
+        const dateB = new Date(b.createdAt).getTime();
+        return dateB - dateA; // Newest first
+      });
+      setInquiries(inquiriesList);
+    } catch (err) {
+      console.log("Error loading inquiries:", err);
+    } finally {
+      setInquiriesLoading(false);
+    }
+  }, [userRole]);
+
+  // Load inquiries for teachers
+  useEffect(() => {
+    if (userRole === "teacher") {
+      loadInquiries();
+    }
+  }, [userRole, loadInquiries]);
+
+  // Refresh inquiries when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      if (userRole === "teacher") {
+        loadInquiries();
+      }
+    }, [userRole, loadInquiries])
+  );
 
   const filteredContacts = contacts.filter(
     (contact) =>
@@ -147,15 +187,63 @@ export default function MessagesScreen() {
   );
 
   const handleSelectContact = (contact: Contact) => {
-    // Navigate to chat detail screen (to be implemented)
-    console.log("Selected contact:", contact);
-    // router.push({ pathname: "/chat/[id]", params: { contactId: contact.id } });
+    router.push({
+      pathname: "/chat/[id]",
+      params: { 
+        id: contact.id,
+        contactName: contact.name,
+        contactRole: contact.role,
+      },
+    });
+  };
+
+  const handleContactStudent = async (inquiry: Inquiry) => {
+    try {
+      // Mark inquiry as "read" when teacher clicks to contact student
+      if (inquiry.status === "sent") {
+        await api(`/api/inquiries/${inquiry._id}/read`, {
+          method: "PUT",
+          auth: true,
+        });
+        
+        // Update local state immediately
+        setInquiries((prev) =>
+          prev.map((inq) =>
+            inq._id === inquiry._id ? { ...inq, status: "read" as const } : inq
+          )
+        );
+      }
+    } catch (err) {
+      console.log("Error marking inquiry as read:", err);
+    }
+
+    router.push({
+      pathname: "/chat/[id]",
+      params: { 
+        id: inquiry.student._id,
+        contactName: inquiry.student.name,
+        contactRole: "student",
+        fromInquiry: "true",
+      },
+    });
+  };
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
   };
 
   if (loading) {
     return (
       <View style={styles.container}>
-        <Text>Loading...</Text>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#FF6A5C" />
+          <Text style={styles.loadingText}>Loading...</Text>
+        </View>
       </View>
     );
   }
@@ -168,7 +256,7 @@ export default function MessagesScreen() {
       >
         {/* Gradient Header */}
         <LinearGradient
-          colors={["#6366F1", "#8B5CF6"]}
+          colors={["#FF9076", "#FF6A5C"]}
           style={styles.header}
         >
           <View style={styles.headerContent}>
@@ -190,92 +278,339 @@ export default function MessagesScreen() {
         </LinearGradient>
 
         <View style={styles.content}>
-          {/* Search Bar */}
-          <View style={styles.searchContainer}>
-            <Ionicons
-              name="search"
-              size={20}
-              color="#999"
-              style={styles.searchIcon}
-            />
-            <Input
-              placeholder="Search contacts..."
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              style={styles.searchInput}
-            />
-          </View>
-
-          {/* Contacts List */}
-          <View style={styles.contactsList}>
-            {filteredContacts.length > 0 ? (
-              filteredContacts.map((contact) => (
-                <Card
-                  key={contact.id}
-                  style={styles.contactCard}
-                  onPress={() => handleSelectContact(contact)}
-                >
-                  <View style={styles.contactContent}>
-                    <View style={styles.avatarContainer}>
-                      <Avatar size={56}>
-                        <AvatarImage src={contact.image} />
-                        <AvatarFallback>
-                          {contact.name.charAt(0)}
-                        </AvatarFallback>
-                      </Avatar>
-                      {contact.unread > 0 && (
-                        <View style={styles.unreadBadge}>
-                          <Text style={styles.unreadText}>
-                            {contact.unread > 9 ? "9+" : contact.unread}
-                          </Text>
-                        </View>
-                      )}
-                    </View>
-
-                    <View style={styles.contactInfo}>
-                      <View style={styles.contactHeader}>
-                        <View style={styles.contactNameContainer}>
-                          <Text style={styles.contactName} numberOfLines={1}>
-                            {contact.name}
-                          </Text>
-                          <Text style={styles.contactInstrument}>
-                            {contact.instrument}
-                          </Text>
-                        </View>
-                        <Text style={styles.timestamp}>{contact.timestamp}</Text>
-                      </View>
-                      <Text style={styles.lastMessage} numberOfLines={1}>
-                        {contact.lastMessage}
-                      </Text>
-                    </View>
+          {/* Tabs for Teachers */}
+          {userRole === "teacher" && (
+            <Tabs defaultValue="conversations">
+              <TabsList style={styles.tabsList}>
+                <TabsTrigger value="conversations">
+                  <Text style={styles.tabText}>Conversations</Text>
+                </TabsTrigger>
+                <TabsTrigger value="inquiries">
+                  <View style={styles.tabTriggerContent}>
+                    <Text style={styles.tabText}>Inquiries</Text>
+                    {inquiries.filter((inq) => inq.status === "sent").length > 0 && (
+                      <Badge style={styles.inquiryBadge}>
+                        {inquiries.filter((inq) => inq.status === "sent").length}
+                      </Badge>
+                    )}
                   </View>
-                </Card>
-              ))
-            ) : (
-              <Card style={styles.emptyCard}>
-                <Ionicons
-                  name="chatbubbles-outline"
-                  size={48}
-                  color="#CCC"
-                  style={styles.emptyIcon}
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="conversations">
+                <ConversationsTab
+                  contacts={filteredContacts}
+                  searchQuery={searchQuery}
+                  setSearchQuery={setSearchQuery}
+                  onSelectContact={handleSelectContact}
+                  userRole={userRole}
                 />
-                <Text style={styles.emptyText}>No contacts found</Text>
-              </Card>
-            )}
-          </View>
+              </TabsContent>
+
+              <TabsContent value="inquiries">
+                <InquiriesTabContent
+                  inquiries={inquiries}
+                  loading={inquiriesLoading}
+                  onContactStudent={handleContactStudent}
+                  formatDate={formatDate}
+                />
+              </TabsContent>
+            </Tabs>
+          )}
+
+          {/* No tabs for Students */}
+          {userRole === "student" && (
+            <ConversationsTab
+              contacts={filteredContacts}
+              searchQuery={searchQuery}
+              setSearchQuery={setSearchQuery}
+              onSelectContact={handleSelectContact}
+              userRole={userRole}
+            />
+          )}
         </View>
       </ScrollView>
     </View>
   );
 }
 
+// Conversations Tab Component
+type ConversationsTabProps = {
+  contacts: Contact[];
+  searchQuery: string;
+  setSearchQuery: (query: string) => void;
+  onSelectContact: (contact: Contact) => void;
+  userRole: "teacher" | "student" | null;
+};
+
+function ConversationsTab({
+  contacts,
+  searchQuery,
+  setSearchQuery,
+  onSelectContact,
+  userRole,
+}: ConversationsTabProps) {
+  return (
+    <>
+      {/* Search Bar */}
+      <View style={styles.searchContainer}>
+        <Ionicons
+          name="search"
+          size={20}
+          color="#999"
+          style={styles.searchIcon}
+        />
+        <Input
+          placeholder="Search contacts..."
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          style={styles.searchInput}
+        />
+      </View>
+
+      {/* Contacts List */}
+      <View style={styles.contactsList}>
+        {contacts.length > 0 ? (
+          contacts.map((contact) => (
+            <Card
+              key={contact.id}
+              style={styles.contactCard}
+              onPress={() => onSelectContact(contact)}
+            >
+              <View style={styles.contactContent}>
+                <View style={styles.avatarContainer}>
+                  <Avatar size={56}>
+                    <AvatarImage src={contact.image} />
+                    <AvatarFallback>
+                      {contact.name.charAt(0)}
+                    </AvatarFallback>
+                  </Avatar>
+                  {contact.unread > 0 && (
+                    <View style={styles.unreadBadge}>
+                      <Text style={styles.unreadText}>
+                        {contact.unread > 9 ? "9+" : contact.unread}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+
+                <View style={styles.contactInfo}>
+                  <View style={styles.contactHeader}>
+                    <View style={styles.contactNameContainer}>
+                      <Text style={styles.contactName} numberOfLines={1}>
+                        {contact.name}
+                      </Text>
+                      <Text style={styles.contactInstrument}>
+                        {contact.instrument}
+                      </Text>
+                    </View>
+                    <Text style={styles.timestamp}>{contact.timestamp}</Text>
+                  </View>
+                  <Text style={styles.lastMessage} numberOfLines={1}>
+                    {contact.lastMessage}
+                  </Text>
+                </View>
+              </View>
+            </Card>
+          ))
+        ) : (
+          <Card style={styles.emptyCard}>
+            <Ionicons
+              name="chatbubbles-outline"
+              size={48}
+              color="#CCC"
+              style={styles.emptyIcon}
+            />
+            <Text style={styles.emptyText}>No conversations yet</Text>
+            <Text style={styles.emptySubtext}>
+              {userRole === "student"
+                ? "Book a lesson with a teacher to start messaging"
+                : "Students who book lessons with you will appear here"}
+            </Text>
+          </Card>
+        )}
+      </View>
+    </>
+  );
+}
+
+// Inquiries Tab Content Component
+type InquiriesTabContentProps = {
+  inquiries: Inquiry[];
+  loading: boolean;
+  onContactStudent: (inquiry: Inquiry) => void;
+  formatDate: (date: string) => string;
+};
+
+function InquiriesTabContent({
+  inquiries,
+  loading,
+  onContactStudent,
+  formatDate,
+}: InquiriesTabContentProps) {
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#FF6A5C" />
+        <Text style={styles.loadingText}>Loading inquiries...</Text>
+      </View>
+    );
+  }
+
+  if (inquiries.length === 0) {
+    return (
+      <Card style={styles.emptyCard}>
+        <Ionicons
+          name="mail-outline"
+          size={48}
+          color="#CCC"
+          style={styles.emptyIcon}
+        />
+        <Text style={styles.emptyText}>No inquiries yet</Text>
+        <Text style={styles.emptySubtext}>
+          When students contact you, their inquiries will appear here
+        </Text>
+      </Card>
+    );
+  }
+
+  return (
+    <ScrollView style={styles.inquiriesList} showsVerticalScrollIndicator={false}>
+      {inquiries.map((inquiry) => (
+        <Card key={inquiry._id} style={styles.inquiryCard}>
+          <View style={styles.inquiryHeader}>
+            <View style={styles.inquiryInfo}>
+              <Text style={styles.studentName}>
+                {inquiry.student?.name || "Student"}
+              </Text>
+              <Text style={styles.studentEmail}>
+                {inquiry.student?.email || ""}
+              </Text>
+            </View>
+            <Badge
+              variant={
+                inquiry.status === "responded"
+                  ? "success"
+                  : inquiry.status === "read"
+                  ? "secondary"
+                  : "warning"
+              }
+            >
+              {inquiry.status}
+            </Badge>
+          </View>
+
+          <View style={styles.inquiryDetails}>
+            <View style={styles.detailRow}>
+              <Ionicons name="musical-notes-outline" size={16} color="#666" />
+              <Text style={styles.detailText}>
+                {inquiry.instrument} - {inquiry.level}
+              </Text>
+            </View>
+            {inquiry.ageGroup && (
+              <View style={styles.detailRow}>
+                <Ionicons name="people-outline" size={16} color="#666" />
+                <Text style={styles.detailText}>{inquiry.ageGroup}</Text>
+              </View>
+            )}
+            <View style={styles.detailRow}>
+              <Ionicons name="calendar-outline" size={16} color="#666" />
+              <Text style={styles.detailText}>{inquiry.lessonType}</Text>
+            </View>
+            <View style={styles.detailRow}>
+              <Ionicons name="time-outline" size={16} color="#666" />
+              <Text style={styles.detailText}>{inquiry.availability}</Text>
+            </View>
+            <View style={styles.detailRow}>
+              <Ionicons name="calendar" size={16} color="#666" />
+              <Text style={styles.detailText}>
+                Received: {formatDate(inquiry.createdAt)}
+              </Text>
+            </View>
+          </View>
+
+          {/* Message */}
+          <View style={styles.messageSection}>
+            <Text style={styles.messageLabel}>Message:</Text>
+            <Text style={styles.messageText}>
+              {inquiry.message || "No message provided"}
+            </Text>
+          </View>
+
+          {/* Goals / Interests */}
+          {inquiry.goals && (
+            <View style={styles.messageSection}>
+              <Text style={styles.messageLabel}>Goals / Interests:</Text>
+              <Text style={styles.messageText}>{inquiry.goals}</Text>
+            </View>
+          )}
+
+          {/* Parent/Guardian Info */}
+          {(inquiry.guardianName || inquiry.guardianPhone || inquiry.guardianEmail) && (
+            <View style={styles.guardianSection}>
+              <Text style={styles.sectionTitle}>Parent/Guardian Contact</Text>
+              {inquiry.guardianName && (
+                <View style={styles.detailRow}>
+                  <Ionicons name="person-outline" size={16} color="#666" />
+                  <Text style={styles.detailText}>
+                    <Text style={styles.detailLabel}>Name: </Text>
+                    {inquiry.guardianName}
+                  </Text>
+                </View>
+              )}
+              {inquiry.guardianPhone && (
+                <View style={styles.detailRow}>
+                  <Ionicons name="call-outline" size={16} color="#666" />
+                  <Text style={styles.detailText}>
+                    <Text style={styles.detailLabel}>Phone: </Text>
+                    {inquiry.guardianPhone}
+                  </Text>
+                </View>
+              )}
+              {inquiry.guardianEmail && (
+                <View style={styles.detailRow}>
+                  <Ionicons name="mail-outline" size={16} color="#666" />
+                  <Text style={styles.detailText}>
+                    <Text style={styles.detailLabel}>Email: </Text>
+                    {inquiry.guardianEmail}
+                  </Text>
+                </View>
+              )}
+            </View>
+          )}
+
+          <View style={styles.actionsRow}>
+            <Button
+              size="sm"
+              onPress={() => onContactStudent(inquiry)}
+              style={styles.contactButton}
+            >
+              Contact {inquiry.student?.name || "Student"}
+            </Button>
+          </View>
+        </Card>
+      ))}
+    </ScrollView>
+  );
+}
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F5F3FF",
+    backgroundColor: "#FFF5F3",
   },
   scrollContent: {
     paddingBottom: 20,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 40,
+  },
+  loadingText: {
+    marginTop: 12,
+    color: "#666",
   },
   header: {
     paddingTop: 60,
@@ -309,6 +644,21 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: 20,
     paddingTop: 20,
+  },
+  tabsList: {
+    marginBottom: 20,
+  },
+  tabTriggerContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  tabText: {
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  inquiryBadge: {
+    marginLeft: 0,
   },
   searchContainer: {
     position: "relative",
@@ -398,6 +748,96 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 16,
     color: "#999",
+    marginTop: 12,
+  },
+  emptySubtext: {
+    fontSize: 14,
+    color: "#999",
+    textAlign: "center",
+    marginTop: 8,
+    paddingHorizontal: 20,
+  },
+  inquiriesList: {
+    maxHeight: 600,
+  },
+  inquiryCard: {
+    padding: 16,
+    marginBottom: 12,
+  },
+  inquiryHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    marginBottom: 12,
+  },
+  inquiryInfo: {
+    flex: 1,
+  },
+  studentName: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#333",
+    marginBottom: 4,
+  },
+  studentEmail: {
+    fontSize: 14,
+    color: "#666",
+  },
+  inquiryDetails: {
+    marginTop: 12,
+    gap: 8,
+  },
+  detailRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  detailText: {
+    fontSize: 14,
+    color: "#666",
+  },
+  messageSection: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: "#E5E5E5",
+  },
+  messageLabel: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#333",
+    marginBottom: 4,
+  },
+  messageText: {
+    fontSize: 14,
+    color: "#666",
+    lineHeight: 20,
+  },
+  guardianSection: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: "#E5E5E5",
+  },
+  sectionTitle: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#333",
+    marginBottom: 8,
+  },
+  detailLabel: {
+    fontWeight: "600",
+    color: "#333",
+  },
+  actionsRow: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: "#E5E5E5",
+  },
+  contactButton: {
+    minWidth: 180,
   },
 });
-

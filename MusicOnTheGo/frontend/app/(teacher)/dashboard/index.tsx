@@ -49,10 +49,7 @@ type BookingItem = {
 
 type AvailabilityDay = { day: string; slots: string[] };
 
-const scheduleData: ScheduleItem[] = [
-  { id: 1, student: "Emily Johnson", instrument: "Piano", time: "2:00 PM" },
-  { id: 2, student: "Michael Chen", instrument: "Guitar", time: "4:00 PM" },
-];
+// scheduleData will be computed from bookings
 
 const bookingsData: BookingItem[] = [
   {
@@ -88,6 +85,7 @@ export default function TeacherDashboard() {
   const [bookings, setBookings] = useState<any[]>([]);
   const [bookingsLoading, setBookingsLoading] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
+  const [scheduleData, setScheduleData] = useState<ScheduleItem[]>([]);
   
   // Get the tab parameter from query string
   const getTabParam = (): string => {
@@ -191,9 +189,44 @@ export default function TeacherDashboard() {
       }));
       
       setBookings(transformed);
+      
+      // Filter and transform bookings for today's schedule
+      const today = new Date();
+      const todayDayName = today.toLocaleDateString("en-US", { weekday: "long" });
+      
+      // Get today's approved bookings
+      const todaySchedule: ScheduleItem[] = (Array.isArray(data) ? data : [])
+        .filter((booking: any) => {
+          // Only show approved bookings for today's day
+          return booking.status === "approved" && booking.day === todayDayName;
+        })
+        .map((booking: any, index: number) => {
+          const startTime = formatTime24To12(booking.timeSlot?.start || "");
+          return {
+            id: booking._id || index,
+            student: booking.student?.name || "Student",
+            instrument: user?.instruments?.[0] || "Music",
+            time: startTime,
+          };
+        })
+        .sort((a: ScheduleItem, b: ScheduleItem) => {
+          // Sort by time (convert to 24-hour for comparison)
+          const parseTime = (timeStr: string): number => {
+            const [time, period] = timeStr.split(" ");
+            const [hours, minutes] = time.split(":");
+            let hour = parseInt(hours);
+            if (period === "PM" && hour !== 12) hour += 12;
+            if (period === "AM" && hour === 12) hour = 0;
+            return hour * 60 + parseInt(minutes || "0");
+          };
+          return parseTime(a.time) - parseTime(b.time);
+        });
+      
+      setScheduleData(todaySchedule);
     } catch (err) {
       console.error("Failed to load bookings", err);
       setBookings([]);
+      setScheduleData([]);
     } finally {
       setBookingsLoading(false);
     }

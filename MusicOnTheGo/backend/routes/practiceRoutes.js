@@ -28,19 +28,19 @@ function calculateBadges(streak, totalMinutes, totalSessions) {
     badges.push({ emoji: "🎯", text: `${streak}-Day Streak`, variant: "warning" });
   }
 
-  // Total minutes milestones
+  // Total minutes milestones - show only the highest badge with actual numbers
   if (totalMinutes >= 10000) {
-    badges.push({ emoji: "🏆", text: "10K Minutes", variant: "success" });
+    badges.push({ emoji: "🏆", text: `${totalMinutes} minutes`, variant: "success" });
   } else if (totalMinutes >= 5000) {
-    badges.push({ emoji: "⭐", text: "5K Minutes", variant: "success" });
+    badges.push({ emoji: "⭐", text: `${totalMinutes} minutes`, variant: "success" });
   } else if (totalMinutes >= 2500) {
-    badges.push({ emoji: "⭐", text: "2.5K Minutes", variant: "success" });
+    badges.push({ emoji: "⭐", text: `${totalMinutes} minutes`, variant: "success" });
   } else if (totalMinutes >= 1000) {
-    badges.push({ emoji: "⏰", text: "1K Minutes", variant: "success" });
+    badges.push({ emoji: "⏰", text: `${totalMinutes} minutes`, variant: "success" });
   } else if (totalMinutes >= 500) {
-    badges.push({ emoji: "⏰", text: "500 Minutes", variant: "success" });
+    badges.push({ emoji: "⏰", text: `${totalMinutes} minutes`, variant: "success" });
   } else if (totalMinutes >= 100) {
-    badges.push({ emoji: "⏰", text: "100 Minutes", variant: "success" });
+    badges.push({ emoji: "⏰", text: `${totalMinutes} minutes`, variant: "success" });
   }
 
   // Encouraging titles based on activity patterns

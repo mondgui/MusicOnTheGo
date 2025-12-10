@@ -80,6 +80,14 @@ export default function InquiryForm() {
       setError("Please enter your availability");
       return;
     }
+    if (!message.trim()) {
+      setError("Please enter a message");
+      return;
+    }
+    if (!goals.trim()) {
+      setError("Please enter your goals/interests");
+      return;
+    }
 
     try {
       setLoading(true);
@@ -95,8 +103,8 @@ export default function InquiryForm() {
           ageGroup: ageGroup || undefined,
           lessonType,
           availability: availability.trim(),
-          message: message.trim() || undefined,
-          goals: goals.trim() || undefined,
+          message: message.trim(),
+          goals: goals.trim(),
           guardianName: guardianName.trim() || undefined,
           guardianPhone: guardianPhone.trim() || undefined,
           guardianEmail: guardianEmail.trim() || undefined,
@@ -190,9 +198,11 @@ export default function InquiryForm() {
                   <SelectValue placeholder="Child, Teen, Adult" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Child">Child (5-12)</SelectItem>
+                  <SelectItem value="Child">Child (5-12) via parents/guardians</SelectItem>
                   <SelectItem value="Teen">Teen (13-17)</SelectItem>
-                  <SelectItem value="Adult">Adult (18+)</SelectItem>
+                  <SelectItem value="Young Adult">Young Adult (18-25)</SelectItem>
+                  <SelectItem value="Adult">Adult (26-50)</SelectItem>
+                  <SelectItem value="Senior">Senior (51+)</SelectItem>
                 </SelectContent>
               </Select>
             </View>
@@ -229,7 +239,9 @@ export default function InquiryForm() {
 
             {/* Message */}
             <View style={styles.fieldGroup}>
-              <Label style={styles.label}>Message (optional)</Label>
+              <Label style={styles.label}>
+                Message <Text style={styles.required}>*</Text>
+              </Label>
               <Textarea
                 placeholder="Add your question or info..."
                 value={message}
@@ -240,7 +252,9 @@ export default function InquiryForm() {
 
             {/* Goals / Interests */}
             <View style={styles.fieldGroup}>
-              <Label style={styles.label}>Goals / Interests (optional)</Label>
+              <Label style={styles.label}>
+                Goals / Interests <Text style={styles.required}>*</Text>
+              </Label>
               <Textarea
                 placeholder="What would you like to achieve?"
                 value={goals}

@@ -1,26 +1,17 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { View, Text, StyleSheet, ActivityIndicator } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useFocusEffect } from "expo-router";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectItem } from "@/components/ui/select";
+import { DatePicker } from "@/components/ui/date-picker";
 import { api } from "../../../../lib/api";
 
 type Availability = { day: string; slots: string[] };
 type Props = { availability: Availability[] };
-
-// Days of the week matching backend enum
-const DAYS_OF_WEEK = [
-  "Monday",
-  "Tuesday",
-  "Wednesday",
-  "Thursday",
-  "Friday",
-  "Saturday",
-  "Sunday",
-];
 
 // Generate individual time options with 15-minute intervals
 // Format: "8:00 AM", "8:15 AM", "8:30 AM", etc.
@@ -70,7 +61,7 @@ const TIME_OPTIONS = generateTimeOptions();
 
 export default function TimesTab({ availability: initialAvailability }: Props) {
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [selectedDay, setSelectedDay] = useState("");
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedFromTime, setSelectedFromTime] = useState("");
   const [selectedToTime, setSelectedToTime] = useState("");
   const [availability, setAvailability] = useState<Availability[]>(initialAvailability);
@@ -87,27 +78,49 @@ export default function TimesTab({ availability: initialAvailability }: Props) {
     loadAvailability();
   }, []);
 
+  // Refresh availability when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      loadAvailability();
+    }, [])
+  );
+
   const loadAvailability = async () => {
     try {
       setLoading(true);
       const data = await api("/api/availability/me", { auth: true });
       // Transform backend data to match our format
-      // Backend returns: [{ day: "Monday", timeSlots: [{ start: "14:00", end: "16:00" }] }]
+      // Backend returns: [{ day: "2025-12-10" or "Monday", date: Date, timeSlots: [{ start: "14:00", end: "16:00" }] }]
       if (Array.isArray(data)) {
-        const transformed = data.map((item: any) => ({
-          day: item.day,
-          slots: (item.timeSlots || []).map((slot: any) => {
-            // Convert "14:00" to "2:00 PM"
-            const formatTime = (time24: string) => {
-              const [hours, minutes] = time24.split(":");
-              const hour = parseInt(hours);
-              const ampm = hour >= 12 ? "PM" : "AM";
-              const hour12 = hour % 12 || 12;
-              return `${hour12}:${minutes} ${ampm}`;
-            };
-            return `${formatTime(slot.start)} - ${formatTime(slot.end)}`;
-          }),
-        }));
+        const transformed = data.map((item: any) => {
+          // Format the day/date for display
+          let displayDay = item.day;
+          if (item.date) {
+            // If it's a specific date, format it nicely
+            const date = new Date(item.date);
+            displayDay = date.toLocaleDateString("en-US", {
+              weekday: "long",
+              year: "numeric",
+              month: "long",
+              day: "numeric",
+            });
+          }
+          
+          return {
+            day: displayDay,
+            slots: (item.timeSlots || []).map((slot: any) => {
+              // Convert "14:00" to "2:00 PM"
+              const formatTime = (time24: string) => {
+                const [hours, minutes] = time24.split(":");
+                const hour = parseInt(hours);
+                const ampm = hour >= 12 ? "PM" : "AM";
+                const hour12 = hour % 12 || 12;
+                return `${hour12}:${minutes} ${ampm}`;
+              };
+              return `${formatTime(slot.start)} - ${formatTime(slot.end)}`;
+            }),
+          };
+        });
         setAvailability(transformed);
       }
     } catch (error) {
@@ -119,8 +132,8 @@ export default function TimesTab({ availability: initialAvailability }: Props) {
   };
 
   const handleSave = async () => {
-    if (!selectedDay || !selectedFromTime || !selectedToTime) {
-      alert("Please select day, from time, and to time");
+    if (!selectedDate || !selectedFromTime || !selectedToTime) {
+      alert("Please select date, from time, and to time");
       return;
     }
 
@@ -137,18 +150,22 @@ export default function TimesTab({ availability: initialAvailability }: Props) {
         end: formatTime12To24(selectedToTime),
       };
       
+      // Format date as YYYY-MM-DD
+      const dateStr = selectedDate.toISOString().split('T')[0];
+      
       // Create new availability entry
       await api("/api/availability", {
         method: "POST",
         auth: true,
         body: JSON.stringify({
-          day: selectedDay,
+          day: dateStr, // Send date as YYYY-MM-DD string
+          date: selectedDate.toISOString(), // Also send as ISO date
           timeSlots: [timeSlotObj],
         }),
       });
 
       setDialogOpen(false);
-      setSelectedDay("");
+      setSelectedDate(null);
       setSelectedFromTime("");
       setSelectedToTime("");
       await loadAvailability(); // Reload availability
@@ -174,55 +191,51 @@ export default function TimesTab({ availability: initialAvailability }: Props) {
           </DialogHeader>
           <View style={styles.dialogForm}>
             <View style={styles.formField}>
-              <Label>Day of Week</Label>
-              <Select
-                value={selectedDay}
-                onValueChange={setSelectedDay}
-                placeholder="Select a day"
-                style={styles.select}
-              >
-                {DAYS_OF_WEEK.map((day) => (
-                  <SelectItem key={day} value={day}>
-                    {day}
-                  </SelectItem>
-                ))}
-              </Select>
+              <Label>Date</Label>
+              <DatePicker
+                value={selectedDate}
+                onValueChange={setSelectedDate}
+                placeholder="Select a date"
+                minimumDate={new Date()} // Can't select past dates
+              />
             </View>
-            <View style={styles.formField}>
-              <Label>From (15-minute intervals)</Label>
-              <Select
-                value={selectedFromTime}
-                onValueChange={(value) => {
-                  setSelectedFromTime(value);
-                  // Reset "To" time if it's now invalid
-                  if (selectedToTime && !isTimeBefore(value, selectedToTime)) {
-                    setSelectedToTime("");
-                  }
-                }}
-                placeholder="Select start time"
-                style={styles.select}
-              >
-                {TIME_OPTIONS.map((time) => (
-                  <SelectItem key={time} value={time}>
-                    {time}
-                  </SelectItem>
-                ))}
-              </Select>
-            </View>
-            <View style={styles.formField}>
-              <Label>To (15-minute intervals)</Label>
-              <Select
-                value={selectedToTime}
-                onValueChange={setSelectedToTime}
-                placeholder={selectedFromTime ? "Select end time" : "Select 'From' time first"}
-                style={styles.select}
-              >
-                {getAvailableToTimes().map((time) => (
-                  <SelectItem key={time} value={time}>
-                    {time}
-                  </SelectItem>
-                ))}
-              </Select>
+            <View style={styles.timeRow}>
+              <View style={[styles.formField, styles.timeField]}>
+                <Label>From</Label>
+                <Select
+                  value={selectedFromTime}
+                  onValueChange={(value) => {
+                    setSelectedFromTime(value);
+                    // Reset "To" time if it's now invalid
+                    if (selectedToTime && !isTimeBefore(value, selectedToTime)) {
+                      setSelectedToTime("");
+                    }
+                  }}
+                  placeholder="Select start time"
+                  style={styles.select}
+                >
+                  {TIME_OPTIONS.map((time) => (
+                    <SelectItem key={time} value={time}>
+                      {time}
+                    </SelectItem>
+                  ))}
+                </Select>
+              </View>
+              <View style={[styles.formField, styles.timeField]}>
+                <Label>To</Label>
+                <Select
+                  value={selectedToTime}
+                  onValueChange={setSelectedToTime}
+                  placeholder={selectedFromTime ? "Select end time" : "Select 'From' time first"}
+                  style={styles.select}
+                >
+                  {getAvailableToTimes().map((time) => (
+                    <SelectItem key={time} value={time}>
+                      {time}
+                    </SelectItem>
+                  ))}
+                </Select>
+              </View>
             </View>
             <Button onPress={handleSave} disabled={saving} style={styles.saveButton}>
               <Text style={styles.saveButtonText}>
@@ -279,6 +292,13 @@ const styles = StyleSheet.create({
   },
   formField: {
     gap: 8,
+  },
+  timeRow: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  timeField: {
+    flex: 1,
   },
   select: {
     marginTop: 0,
