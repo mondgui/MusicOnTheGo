@@ -64,17 +64,42 @@ export default function MessagesScreen() {
   const [inquiries, setInquiries] = useState<Inquiry[]>([]);
   const [inquiriesLoading, setInquiriesLoading] = useState(false);
 
-  // Load user role and contacts
-  useEffect(() => {
-    async function loadUserAndContacts() {
+  // Function to load contacts from bookings and messages
+  const loadContacts = useCallback(async () => {
+    try {
+      const user = await api("/api/users/me", { auth: true });
+      setUserRole(user.role);
+      
+      const contactsMap = new Map<string, Contact>();
+      
+      // Load conversations from messages
       try {
-        const user = await api("/api/users/me", { auth: true });
-        setUserRole(user.role);
-        
-        // Load contacts from bookings
-        if (user.role === "teacher") {
+        const conversations = await api("/api/messages/conversations", { auth: true });
+        (Array.isArray(conversations) ? conversations : []).forEach((conv: any) => {
+          const contactId = conv.userId;
+          const role = user.role === "teacher" ? "student" : "teacher";
+          
+          contactsMap.set(contactId, {
+            id: contactId,
+            name: conv.name || "Contact",
+            role: role,
+            instrument: "Music", // Default, can be updated from bookings
+            image: conv.profileImage || "",
+            email: conv.email || "",
+            phone: "",
+            lastMessage: conv.lastMessage || "No messages yet",
+            timestamp: conv.lastMessageTime || new Date().toISOString(),
+            unread: conv.unreadCount || 0,
+          });
+        });
+      } catch (err) {
+        console.log("Error loading conversations:", err);
+      }
+      
+      // Load contacts from bookings and merge
+      if (user.role === "teacher") {
+        try {
           const bookings = await api("/api/bookings/teacher/me", { auth: true });
-          const studentMap = new Map<string, any>();
           
           (Array.isArray(bookings) ? bookings : []).forEach((booking: any) => {
             if (booking.student) {
@@ -82,9 +107,19 @@ export default function MessagesScreen() {
                 ? String(booking.student._id) 
                 : String(booking.student);
               
-              if (!studentMap.has(studentId)) {
-                const student = booking.student._id ? booking.student : { _id: booking.student, name: "Student", email: "" };
-                studentMap.set(studentId, {
+              const student = booking.student._id ? booking.student : { _id: booking.student, name: "Student", email: "" };
+              
+              // If contact already exists from messages, update it; otherwise create new
+              if (contactsMap.has(studentId)) {
+                const existing = contactsMap.get(studentId)!;
+                existing.instrument = booking.instrument || existing.instrument || "Music";
+                existing.nextLesson = booking.date ? { date: booking.date, time: booking.time } : existing.nextLesson;
+                // Preserve image from messages, but use booking image if messages didn't have one
+                if (!existing.image && student.profileImage) {
+                  existing.image = student.profileImage;
+                }
+              } else {
+                contactsMap.set(studentId, {
                   id: studentId,
                   name: student.name || "Student",
                   role: "student" as const,
@@ -100,11 +135,12 @@ export default function MessagesScreen() {
               }
             }
           });
-          
-          setContacts(Array.from(studentMap.values()));
-        } else if (user.role === "student") {
+        } catch (err) {
+          console.log("Error loading bookings:", err);
+        }
+      } else if (user.role === "student") {
+        try {
           const bookings = await api("/api/bookings/student/me", { auth: true });
-          const teacherMap = new Map<string, any>();
           
           (Array.isArray(bookings) ? bookings : []).forEach((booking: any) => {
             if (booking.teacher) {
@@ -112,9 +148,19 @@ export default function MessagesScreen() {
                 ? String(booking.teacher._id) 
                 : String(booking.teacher);
               
-              if (!teacherMap.has(teacherId)) {
-                const teacher = booking.teacher._id ? booking.teacher : { _id: booking.teacher, name: "Teacher", email: "" };
-                teacherMap.set(teacherId, {
+              const teacher = booking.teacher._id ? booking.teacher : { _id: booking.teacher, name: "Teacher", email: "" };
+              
+              // If contact already exists from messages, update it; otherwise create new
+              if (contactsMap.has(teacherId)) {
+                const existing = contactsMap.get(teacherId)!;
+                existing.instrument = booking.instrument || existing.instrument || "Music";
+                existing.nextLesson = booking.date ? { date: booking.date, time: booking.time } : existing.nextLesson;
+                // Preserve image from messages, but use booking image if messages didn't have one
+                if (!existing.image && teacher.profileImage) {
+                  existing.image = teacher.profileImage;
+                }
+              } else {
+                contactsMap.set(teacherId, {
                   id: teacherId,
                   name: teacher.name || "Teacher",
                   role: "teacher" as const,
@@ -130,17 +176,39 @@ export default function MessagesScreen() {
               }
             }
           });
-          
-          setContacts(Array.from(teacherMap.values()));
+        } catch (err) {
+          console.log("Error loading bookings:", err);
         }
-      } catch (err) {
-        console.log("Error loading user/contacts:", err);
-      } finally {
-        setLoading(false);
       }
+      
+      // Sort contacts by last message time (most recent first)
+      const sortedContacts = Array.from(contactsMap.values()).sort((a, b) => {
+        const timeA = new Date(a.timestamp).getTime();
+        const timeB = new Date(b.timestamp).getTime();
+        return timeB - timeA;
+      });
+      
+      setContacts(sortedContacts);
+    } catch (err) {
+      console.log("Error loading user/contacts:", err);
+    } finally {
+      setLoading(false);
     }
-    loadUserAndContacts();
   }, []);
+
+  // Load user role and contacts
+  useEffect(() => {
+    loadContacts();
+  }, [loadContacts]);
+
+  // Refresh contacts when screen comes into focus (e.g., after sending a message)
+  useFocusEffect(
+    useCallback(() => {
+      if (userRole) {
+        loadContacts();
+      }
+    }, [userRole, loadContacts])
+  );
 
   // Function to load inquiries
   const loadInquiries = useCallback(async () => {
@@ -496,7 +564,7 @@ function InquiriesTabContent({
                   : "warning"
               }
             >
-              {inquiry.status}
+                 {inquiry.status === "sent" ? "New" : inquiry.status === "read" ? "Read" : "Responded"}
             </Badge>
           </View>
 

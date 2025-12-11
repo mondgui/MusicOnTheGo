@@ -16,6 +16,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
 import { api } from "../../lib/api";
+import { Badge } from "@/components/ui/badge";
 
 const INSTRUMENT_OPTIONS = [
   "Piano",
@@ -39,6 +40,19 @@ const EXPERIENCE_OPTIONS = [
   "10+ years",
 ];
 
+const SPECIALTY_OPTIONS = [
+  "Beginners Welcome",
+  "Music Theory",
+  "Performance Prep",
+  "Sight Reading",
+  "Ear Training",
+  "Composition",
+  "Jazz",
+  "Classical",
+  "Pop/Rock",
+  "Online Teaching",
+];
+
 export default function EditProfileScreen() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
@@ -53,6 +67,8 @@ export default function EditProfileScreen() {
   const [experience, setExperience] = useState("");
   const [rate, setRate] = useState("");
   const [about, setAbout] = useState("");
+  const [specialties, setSpecialties] = useState<string[]>([]);
+  const [customSpecialty, setCustomSpecialty] = useState("");
 
   // Load current user data
   useEffect(() => {
@@ -71,6 +87,7 @@ export default function EditProfileScreen() {
       setExperience(user.experience || "");
       setRate(user.rate ? user.rate.toString() : "");
       setAbout(user.about || "");
+      setSpecialties(user.specialties || []);
     } catch (err: any) {
       Alert.alert("Error", err.message || "Failed to load profile");
       router.back();
@@ -132,6 +149,26 @@ export default function EditProfileScreen() {
     }
   };
 
+  const toggleSpecialty = (specialty: string) => {
+    if (specialties.includes(specialty)) {
+      setSpecialties(specialties.filter((s) => s !== specialty));
+    } else {
+      setSpecialties([...specialties, specialty]);
+    }
+  };
+
+  const addCustomSpecialty = () => {
+    const trimmed = customSpecialty.trim();
+    if (trimmed && !specialties.includes(trimmed)) {
+      setSpecialties([...specialties, trimmed]);
+      setCustomSpecialty("");
+    }
+  };
+
+  const removeSpecialty = (specialty: string) => {
+    setSpecialties(specialties.filter((s) => s !== specialty));
+  };
+
   const saveProfile = async () => {
     if (!name.trim()) {
       Alert.alert("Error", "Name is required");
@@ -151,6 +188,7 @@ export default function EditProfileScreen() {
           rate: rate ? parseFloat(rate) : undefined,
           about: about.trim(),
           profileImage: profileImage || "",
+          specialties,
         }),
       });
 
@@ -314,6 +352,61 @@ export default function EditProfileScreen() {
             keyboardType="numeric"
           />
 
+          {/* Specialties */}
+          <Text style={styles.label}>Specialties (Select all that apply)</Text>
+          <View style={styles.badgesContainer}>
+            {SPECIALTY_OPTIONS.map((specialty) => (
+              <TouchableOpacity
+                key={specialty}
+                onPress={() => toggleSpecialty(specialty)}
+                style={styles.badgeWrapper}
+              >
+                <Badge
+                  variant={specialties.includes(specialty) ? "default" : "secondary"}
+                >
+                  {specialty}
+                </Badge>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {/* Custom Specialty Input */}
+          <View style={styles.customSpecialtyRow}>
+            <TextInput
+              style={styles.customSpecialtyInput}
+              placeholder="Add your own specialty..."
+              value={customSpecialty}
+              onChangeText={setCustomSpecialty}
+              onSubmitEditing={addCustomSpecialty}
+            />
+            <TouchableOpacity
+              style={styles.addCustomButton}
+              onPress={addCustomSpecialty}
+            >
+              <Ionicons name="add" size={20} color="white" />
+            </TouchableOpacity>
+          </View>
+
+          {/* Selected Specialties with Remove Option */}
+          {specialties.length > 0 && (
+            <View style={styles.selectedSpecialtiesContainer}>
+              <Text style={styles.selectedLabel}>Selected Specialties:</Text>
+              <View style={styles.selectedBadgesContainer}>
+                {specialties.map((specialty, index) => (
+                  <View key={index} style={styles.selectedBadgeWrapper}>
+                    <Badge variant="default">{specialty}</Badge>
+                    <TouchableOpacity
+                      onPress={() => removeSpecialty(specialty)}
+                      style={styles.removeButton}
+                    >
+                      <Ionicons name="close-circle" size={18} color="#FF6A5C" />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </View>
+            </View>
+          )}
+
           {/* About/Bio */}
           <Text style={styles.label}>About Me</Text>
           <TextInput
@@ -472,6 +565,60 @@ const styles = StyleSheet.create({
   chipWrapper: {
     marginRight: 8,
     marginBottom: 8,
+  },
+  badgesContainer: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginTop: 6,
+  },
+  badgeWrapper: {
+    marginBottom: 4,
+  },
+  customSpecialtyRow: {
+    flexDirection: "row",
+    gap: 8,
+    marginTop: 12,
+    alignItems: "center",
+  },
+  customSpecialtyInput: {
+    flex: 1,
+    backgroundColor: "white",
+    padding: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#E5E5E5",
+    fontSize: 14,
+  },
+  addCustomButton: {
+    backgroundColor: "#FF6A5C",
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  selectedSpecialtiesContainer: {
+    marginTop: 16,
+  },
+  selectedLabel: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#333",
+    marginBottom: 8,
+  },
+  selectedBadgesContainer: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  selectedBadgeWrapper: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  removeButton: {
+    marginLeft: 2,
   },
   chip: {
     borderRadius: 18,

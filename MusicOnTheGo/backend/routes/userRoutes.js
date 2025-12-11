@@ -73,6 +73,7 @@ router.put("/me", authMiddleware, async (req, res) => {
     if (req.body.experience !== undefined) updates.experience = req.body.experience;
     if (req.body.rate !== undefined) updates.rate = req.body.rate;
     if (req.body.about !== undefined) updates.about = req.body.about;
+    if (req.body.specialties !== undefined) updates.specialties = req.body.specialties;
 
     // student fields
     if (req.body.skillLevel !== undefined) updates.skillLevel = req.body.skillLevel;

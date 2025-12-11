@@ -20,7 +20,7 @@ router.get("/", async (req, res) => {
     }
 
     const teachers = await User.find(filter).select(
-      "name instruments experience location email createdAt rate about"
+      "name instruments experience location email createdAt rate about specialties profileImage"
     );
 
     res.json(teachers);
@@ -38,7 +38,7 @@ router.get("/:id", async (req, res) => {
       _id: req.params.id,
       role: "teacher",
     }).select(
-      "name instruments experience location email createdAt rate about"
+      "name instruments experience location email createdAt rate about specialties profileImage"
     );
 
     if (!teacher) {

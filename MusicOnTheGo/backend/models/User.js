@@ -52,6 +52,12 @@ const userSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    
+    // Teacher-specific: Specialties (e.g., "Beginners Welcome", "Music Theory", etc.)
+    specialties: {
+      type: [String],
+      default: [],
+    },
 
     // Student-specific fields
     skillLevel: {

@@ -134,7 +134,7 @@ export default function InquiriesTab({ onMarkResponded }: Props) {
                   : "warning"
               }
             >
-              {inquiry.status}
+              {inquiry.status === "sent" ? "New" : inquiry.status === "read" ? "Read" : "Responded"}
             </Badge>
           </View>
 

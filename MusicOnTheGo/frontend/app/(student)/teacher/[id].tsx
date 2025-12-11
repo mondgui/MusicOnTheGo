@@ -269,15 +269,21 @@ export default function TeacherProfileScreen() {
           </Card>
 
           {/* Specialties */}
-          <Card style={styles.specialtiesCard}>
-            <Text style={styles.cardTitle}>Specialties</Text>
-            <View style={styles.badgesRow}>
-              <Badge variant="default">Beginners Welcome</Badge>
-              <Badge variant="warning">Music Theory</Badge>
-              <Badge variant="default">Performance Prep</Badge>
-              <Badge variant="warning">Sight Reading</Badge>
-            </View>
-          </Card>
+          {teacher?.specialties && teacher.specialties.length > 0 && (
+            <Card style={styles.specialtiesCard}>
+              <Text style={styles.cardTitle}>Specialties</Text>
+              <View style={styles.badgesRow}>
+                {teacher.specialties.map((specialty, index) => (
+                  <Badge
+                    key={index}
+                    variant={index % 2 === 0 ? "default" : "warning"}
+                  >
+                    {specialty}
+                  </Badge>
+                ))}
+              </View>
+            </Card>
+          )}
 
           {/* Available Times */}
           <Card style={styles.availabilityCard}>

@@ -24,6 +24,8 @@ type Teacher = {
   location: string;
   rate?: number;
   about?: string;
+  specialties?: string[];
+  profileImage?: string;
 };
 
 type HomeTabProps = {
@@ -189,7 +191,7 @@ export default function HomeTab({ teachers, loading }: HomeTabProps) {
           >
             <View style={styles.teacherCardContent}>
               <Avatar
-                src="https://picsum.photos/200"
+                src={teacher.profileImage}
                 fallback={teacher.name.charAt(0)}
                 size={64}
               />
@@ -219,6 +221,25 @@ export default function HomeTab({ teachers, loading }: HomeTabProps) {
                     </Text>
                   </View>
                 </View>
+
+                {teacher.specialties && teacher.specialties.length > 0 && (
+                  <View style={styles.specialtiesRow}>
+                    {teacher.specialties.slice(0, 3).map((specialty, index) => (
+                      <Badge
+                        key={index}
+                        variant={index % 2 === 0 ? "default" : "warning"}
+                        style={styles.specialtyBadge}
+                      >
+                        {specialty}
+                      </Badge>
+                    ))}
+                    {teacher.specialties.length > 3 && (
+                      <Text style={styles.moreSpecialtiesText}>
+                        +{teacher.specialties.length - 3} more
+                      </Text>
+                    )}
+                  </View>
+                )}
 
                 <View style={styles.teacherFooter}>
                   <Text style={styles.priceText}>
@@ -366,6 +387,21 @@ const styles = StyleSheet.create({
   locationText: {
     fontSize: 12,
     color: "#666",
+  },
+  specialtiesRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+    alignItems: "center",
+    marginTop: 4,
+  },
+  specialtyBadge: {
+    marginRight: 0,
+  },
+  moreSpecialtiesText: {
+    fontSize: 11,
+    color: "#999",
+    fontStyle: "italic",
   },
   teacherFooter: {
     flexDirection: "row",

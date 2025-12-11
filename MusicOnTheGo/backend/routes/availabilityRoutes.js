@@ -82,9 +82,25 @@ router.put(
  */
 router.get("/teacher/:teacherId", async (req, res) => {
   try {
-    const availability = await Availability.find({
+    const allAvailability = await Availability.find({
       teacher: req.params.teacherId,
     });
+    
+    // Filter out past dates and old recurring weekly availability (entries without date field)
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Set to start of today
+    
+    const availability = allAvailability.filter((item) => {
+      // Only keep entries with a date field (new calendar-based availability)
+      if (!item.date) {
+        return false; // Filter out old recurring weekly availability
+      }
+      // Check if the date is today or in the future
+      const itemDate = new Date(item.date);
+      itemDate.setHours(0, 0, 0, 0);
+      return itemDate >= today; // Keep if today or future
+    });
+    
     res.json(availability);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -127,8 +143,23 @@ router.get(
   roleMiddleware("teacher"),
   async (req, res) => {
     try {
-      const availability = await Availability.find({
+      const allAvailability = await Availability.find({
         teacher: req.user.id,
+      });
+      
+      // Filter out past dates (keep recurring weekly availability and future dates)
+      const today = new Date();
+      today.setHours(0, 0, 0, 0); // Set to start of today
+      
+      const availability = allAvailability.filter((item) => {
+        // If it has a specific date, check if it's in the past
+        if (item.date) {
+          const itemDate = new Date(item.date);
+          itemDate.setHours(0, 0, 0, 0);
+          return itemDate >= today; // Keep if today or future
+        }
+        // If no date field, it's recurring weekly availability - keep it
+        return true;
       });
 
       res.json(availability);

@@ -16,6 +16,7 @@ import { LinearGradient } from "expo-linear-gradient";
   import { useRouter, useLocalSearchParams } from "expo-router";
 import { api } from "../../lib/api";
 import { Ionicons } from "@expo/vector-icons";
+import { Badge } from "@/components/ui/badge";
 
 export default function ProfileSetup() {
   const router = useRouter();
@@ -29,6 +30,41 @@ export default function ProfileSetup() {
   const [experience, setExperience] = useState("");
   const [rate, setRate] = useState("");
   const [about, setAbout] = useState("");
+  const [specialties, setSpecialties] = useState<string[]>([]);
+  const [customSpecialty, setCustomSpecialty] = useState("");
+
+  const SPECIALTY_OPTIONS = [
+    "Beginners Welcome",
+    "Music Theory",
+    "Performance Prep",
+    "Sight Reading",
+    "Ear Training",
+    "Composition",
+    "Jazz",
+    "Classical",
+    "Pop/Rock",
+    "Online Teaching",
+  ];
+
+  const toggleSpecialty = (specialty: string) => {
+    if (specialties.includes(specialty)) {
+      setSpecialties(specialties.filter((s) => s !== specialty));
+    } else {
+      setSpecialties([...specialties, specialty]);
+    }
+  };
+
+  const addCustomSpecialty = () => {
+    const trimmed = customSpecialty.trim();
+    if (trimmed && !specialties.includes(trimmed)) {
+      setSpecialties([...specialties, trimmed]);
+      setCustomSpecialty("");
+    }
+  };
+
+  const removeSpecialty = (specialty: string) => {
+    setSpecialties(specialties.filter((s) => s !== specialty));
+  };
 
   const saveProfile = async () => {
     try {
@@ -41,6 +77,7 @@ export default function ProfileSetup() {
           experience,
           rate: rate ? Number(rate) : undefined,
           about,
+          specialties,
         }),
       });
 
@@ -106,6 +143,60 @@ export default function ProfileSetup() {
             keyboardType="numeric"
           />
 
+          <Text style={styles.label}>Specialties (Select all that apply)</Text>
+          <View style={styles.badgesContainer}>
+            {SPECIALTY_OPTIONS.map((specialty) => (
+              <TouchableOpacity
+                key={specialty}
+                onPress={() => toggleSpecialty(specialty)}
+                style={styles.badgeWrapper}
+              >
+                <Badge
+                  variant={specialties.includes(specialty) ? "default" : "secondary"}
+                >
+                  {specialty}
+                </Badge>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {/* Custom Specialty Input */}
+          <View style={styles.customSpecialtyRow}>
+            <TextInput
+              style={styles.customSpecialtyInput}
+              placeholder="Add your own specialty..."
+              value={customSpecialty}
+              onChangeText={setCustomSpecialty}
+              onSubmitEditing={addCustomSpecialty}
+            />
+            <TouchableOpacity
+              style={styles.addCustomButton}
+              onPress={addCustomSpecialty}
+            >
+              <Ionicons name="add" size={20} color="white" />
+            </TouchableOpacity>
+          </View>
+
+          {/* Selected Specialties with Remove Option */}
+          {specialties.length > 0 && (
+            <View style={styles.selectedSpecialtiesContainer}>
+              <Text style={styles.selectedLabel}>Selected Specialties:</Text>
+              <View style={styles.selectedBadgesContainer}>
+                {specialties.map((specialty, index) => (
+                  <View key={index} style={styles.selectedBadgeWrapper}>
+                    <Badge variant="default">{specialty}</Badge>
+                    <TouchableOpacity
+                      onPress={() => removeSpecialty(specialty)}
+                      style={styles.removeButton}
+                    >
+                      <Ionicons name="close-circle" size={18} color="#FF6A5C" />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </View>
+            </View>
+          )}
+
           <Text style={styles.label}>About Me</Text>
           <TextInput
             style={styles.textArea}
@@ -166,6 +257,58 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginTop: 20,
     marginBottom: 20,
+  },
+  badgesContainer: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginTop: 6,
+  },
+  badgeWrapper: {
+    marginBottom: 4,
+  },
+  customSpecialtyRow: {
+    flexDirection: "row",
+    gap: 8,
+    marginTop: 12,
+    alignItems: "center",
+  },
+  customSpecialtyInput: {
+    flex: 1,
+    backgroundColor: "#F5F5F5",
+    padding: 12,
+    borderRadius: 10,
+    fontSize: 14,
+  },
+  addCustomButton: {
+    backgroundColor: "#FF6A5C",
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  selectedSpecialtiesContainer: {
+    marginTop: 16,
+  },
+  selectedLabel: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#333",
+    marginBottom: 8,
+  },
+  selectedBadgesContainer: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  selectedBadgeWrapper: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  removeButton: {
+    marginLeft: 2,
   },
   saveBtn: {
     backgroundColor: "#FF6A5C",

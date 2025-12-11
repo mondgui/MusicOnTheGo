@@ -76,7 +76,7 @@ router.get(
   async (req, res) => {
     try {
       const bookings = await Booking.find({ student: req.user.id })
-        .populate("teacher", "name email");
+        .populate("teacher", "name email profileImage");
       res.json(bookings);
     } catch (err) {
       res.status(500).json({ message: err.message });
@@ -94,7 +94,7 @@ router.get(
   async (req, res) => {
     try {
       const bookings = await Booking.find({ teacher: req.user.id })
-        .populate("student", "name email");
+        .populate("student", "name email profileImage");
       res.json(bookings);
     } catch (err) {
       res.status(500).json({ message: err.message });

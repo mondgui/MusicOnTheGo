@@ -1,3 +1,8 @@
+// This file is the entry point for the app. 
+// It is the first screen that the user sees.
+// It displays a welcome message and a button to get started.
+// It also displays a link to the login screen.
+
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';

@@ -29,6 +29,8 @@ type Teacher = {
   location: string;
   rate?: number;
   about?: string;
+  specialties?: string[];
+  profileImage?: string;
 };
 
 type TabKey = "home" | "lessons" | "settings";

@@ -21,6 +21,7 @@ type Message = {
   text: string;
   senderId: string;
   senderName: string;
+  senderImage?: string;
   timestamp: Date;
   isOwn: boolean;
 };
@@ -54,6 +55,7 @@ export default function ChatScreen() {
         text: msg.text,
         senderId: msg.sender._id || msg.sender,
         senderName: msg.sender.name || "Unknown",
+        senderImage: msg.sender.profileImage || "",
         timestamp: new Date(msg.createdAt),
         isOwn: String(msg.sender._id || msg.sender) === String(currentUserId),
       }));
@@ -63,8 +65,9 @@ export default function ChatScreen() {
         formattedMessages.push({
           id: "welcome",
           text: `Hello! I received your inquiry. How can I help you?`,
-          senderId: currentUserId,
+          senderId: currentUserId || "",
           senderName: "You",
+          senderImage: "",
           timestamp: new Date(),
           isOwn: true,
         });
@@ -127,6 +130,7 @@ export default function ChatScreen() {
       text: messageText,
       senderId: currentUserId,
       senderName: "You",
+      senderImage: "",
       timestamp: new Date(),
       isOwn: true,
     };
@@ -158,6 +162,7 @@ export default function ChatScreen() {
                 text: savedMessage.text,
                 senderId: savedMessage.sender._id || savedMessage.sender,
                 senderName: savedMessage.sender.name || "You",
+                senderImage: savedMessage.sender.profileImage || "",
                 timestamp: new Date(savedMessage.createdAt),
                 isOwn: true,
               }
@@ -238,7 +243,15 @@ export default function ChatScreen() {
               ]}
             >
               {!msg.isOwn && (
-                <Text style={styles.senderName}>{msg.senderName}</Text>
+                <View style={styles.messageHeader}>
+                  <Avatar size={24} style={styles.messageAvatar}>
+                    <AvatarImage src={msg.senderImage} />
+                    <AvatarFallback>
+                      {msg.senderName.charAt(0).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <Text style={styles.senderName}>{msg.senderName}</Text>
+                </View>
               )}
               <Text
                 style={[
@@ -372,11 +385,19 @@ const styles = StyleSheet.create({
     backgroundColor: "white",
     borderBottomLeftRadius: 4,
   },
+  messageHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 4,
+    gap: 6,
+  },
+  messageAvatar: {
+    marginRight: 0,
+  },
   senderName: {
     fontSize: 12,
     fontWeight: "600",
     color: "#666",
-    marginBottom: 4,
   },
   messageText: {
     fontSize: 15,

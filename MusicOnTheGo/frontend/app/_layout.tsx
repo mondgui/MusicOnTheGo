@@ -4,6 +4,9 @@ import { ThemeProvider, DarkTheme, DefaultTheme } from '@react-navigation/native
 import 'react-native-reanimated';
 import { useColorScheme } from '../hooks/use-color-scheme';
 
+
+// This root layout defines shared UI elements such as headers and tab bars.
+
 export default function RootLayout() {
   const colorScheme = useColorScheme();
 
