@@ -143,16 +143,39 @@ export default function TeacherDashboard() {
       });
     }
     
-    // Try to parse as date string
+    // Try to parse as date string (YYYY-MM-DD format)
+    // Parse as local date to avoid timezone issues
     try {
-      const date = new Date(day);
-      if (!isNaN(date.getTime())) {
-        return date.toLocaleDateString("en-US", {
-          weekday: "long",
-          month: "long",
-          day: "numeric",
-          year: "numeric",
-        });
+      // Check if it's in YYYY-MM-DD format
+      const yyyyMmDdPattern = /^(\d{4})-(\d{2})-(\d{2})$/;
+      const match = day.match(yyyyMmDdPattern);
+      
+      if (match) {
+        // Parse as local date (not UTC) to avoid timezone shift
+        const year = parseInt(match[1], 10);
+        const month = parseInt(match[2], 10) - 1; // Month is 0-indexed
+        const dayOfMonth = parseInt(match[3], 10);
+        const date = new Date(year, month, dayOfMonth);
+        
+        if (!isNaN(date.getTime())) {
+          return date.toLocaleDateString("en-US", {
+            weekday: "long",
+            month: "long",
+            day: "numeric",
+            year: "numeric",
+          });
+        }
+      } else {
+        // Try parsing as general date string
+        const date = new Date(day);
+        if (!isNaN(date.getTime())) {
+          return date.toLocaleDateString("en-US", {
+            weekday: "long",
+            month: "long",
+            day: "numeric",
+            year: "numeric",
+          });
+        }
       }
     } catch {
       // If parsing fails, return as is
@@ -193,12 +216,22 @@ export default function TeacherDashboard() {
       // Filter and transform bookings for today's schedule
       const today = new Date();
       const todayDayName = today.toLocaleDateString("en-US", { weekday: "long" });
+      const todayDateString = today.toISOString().split('T')[0]; // YYYY-MM-DD format
       
       // Get today's approved bookings
       const todaySchedule: ScheduleItem[] = (Array.isArray(data) ? data : [])
         .filter((booking: any) => {
-          // Only show approved bookings for today's day
-          return booking.status === "approved" && booking.day === todayDayName;
+          if (booking.status !== "approved") return false;
+          
+          // Check if booking.day is a date string (YYYY-MM-DD format)
+          const yyyyMmDdPattern = /^(\d{4})-(\d{2})-(\d{2})$/;
+          if (yyyyMmDdPattern.test(booking.day)) {
+            // Compare date strings directly
+            return booking.day === todayDateString;
+          } else {
+            // Compare day names (for old recurring weekly bookings)
+            return booking.day === todayDayName;
+          }
         })
         .map((booking: any, index: number) => {
           const startTime = formatTime24To12(booking.timeSlot?.start || "");

@@ -87,13 +87,22 @@ export function DatePicker({
     if (selectedDay === null) return;
     
     const date = new Date(viewingYear, viewingMonth, selectedDay);
+    date.setHours(0, 0, 0, 0); // Normalize to start of day
     
-    // Validate date
-    if (minimumDate && date < minimumDate) {
-      return;
+    // Validate date - normalize minimumDate to start of day for comparison
+    if (minimumDate) {
+      const minDateNormalized = new Date(minimumDate);
+      minDateNormalized.setHours(0, 0, 0, 0);
+      if (date < minDateNormalized) {
+        return;
+      }
     }
-    if (maximumDate && date > maximumDate) {
-      return;
+    if (maximumDate) {
+      const maxDateNormalized = new Date(maximumDate);
+      maxDateNormalized.setHours(23, 59, 59, 999);
+      if (date > maxDateNormalized) {
+        return;
+      }
     }
     
     onValueChange(date);

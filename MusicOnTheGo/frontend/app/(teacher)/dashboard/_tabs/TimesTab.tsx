@@ -143,6 +143,24 @@ export default function TimesTab({ availability: initialAvailability }: Props) {
       return;
     }
 
+    // If the selected date is today, validate that the time slots are not in the past
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const selectedDateNormalized = new Date(selectedDate);
+    selectedDateNormalized.setHours(0, 0, 0, 0);
+    
+    if (selectedDateNormalized.getTime() === today.getTime()) {
+      // It's today - check if the "From" time has already passed
+      const now = new Date();
+      const currentTime24 = `${now.getHours().toString().padStart(2, "0")}:${now.getMinutes().toString().padStart(2, "0")}`;
+      const fromTime24 = formatTime12To24(selectedFromTime);
+      
+      if (fromTime24 <= currentTime24) {
+        alert("You cannot set availability for a time that has already passed today. Please select a future time.");
+        return;
+      }
+    }
+
     try {
       setSaving(true);
       const timeSlotObj = {
@@ -196,7 +214,12 @@ export default function TimesTab({ availability: initialAvailability }: Props) {
                 value={selectedDate}
                 onValueChange={setSelectedDate}
                 placeholder="Select a date"
-                minimumDate={new Date()} // Can't select past dates
+                minimumDate={(() => {
+                  // Set minimum date to start of today (midnight) so today can be selected
+                  const today = new Date();
+                  today.setHours(0, 0, 0, 0);
+                  return today;
+                })()}
               />
             </View>
             <View style={styles.timeRow}>

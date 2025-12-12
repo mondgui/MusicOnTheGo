@@ -52,66 +52,7 @@ export default function LessonsTab() {
   const [bookings, setBookings] = useState<TransformedBooking[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    loadBookings();
-  }, []);
-
-  // Refresh bookings when screen comes into focus
-  useFocusEffect(
-    useCallback(() => {
-      loadBookings();
-    }, [loadBookings])
-  );
-
-  const loadBookings = useCallback(async () => {
-    try {
-      setLoading(true);
-      const data = await api("/api/bookings/student/me", { auth: true });
-      const transformed = transformBookings(data);
-      setBookings(transformed);
-    } catch (err) {
-      console.error("Failed to load bookings", err);
-      setBookings([]);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  const transformBookings = (bookings: BookingData[]): TransformedBooking[] => {
-    return bookings.map((booking) => {
-      // Format date for display
-      const displayDate = formatDate(booking.day);
-      
-      // Format time
-      const time = formatTimeSlot(booking.timeSlot);
-      
-      // Map status
-      const status =
-        booking.status === "approved"
-          ? "Confirmed"
-          : booking.status === "pending"
-          ? "Pending"
-          : "Completed";
-      
-      // Get instrument from teacher or use first one
-      const instrument =
-        booking.teacher.instruments?.[0] || "Instrument";
-      
-      return {
-        id: booking._id,
-        name: booking.teacher.name,
-        instrument: instrument,
-        date: displayDate,
-        originalDate: booking.day, // Preserve original for comparison
-        time: time,
-        originalTimeSlot: booking.timeSlot, // Preserve original timeSlot for calendar
-        location: booking.teacher.location || "Location TBD",
-        status: status,
-        email: booking.teacher.email,
-      };
-    });
-  };
-
+  // Helper functions - defined before they're used
   // Convert day name to next occurrence date
   const dayNameToDate = (dayName: string): Date | null => {
     const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -178,6 +119,66 @@ export default function LessonsTab() {
     }
     return timeSlot.start ? formatTime24To12(timeSlot.start) : "";
   };
+
+  const transformBookings = (bookings: BookingData[]): TransformedBooking[] => {
+    return bookings.map((booking) => {
+      // Format date for display
+      const displayDate = formatDate(booking.day);
+      
+      // Format time
+      const time = formatTimeSlot(booking.timeSlot);
+      
+      // Map status
+      const status =
+        booking.status === "approved"
+          ? "Confirmed"
+          : booking.status === "pending"
+          ? "Pending"
+          : "Completed";
+      
+      // Get instrument from teacher or use first one
+      const instrument =
+        booking.teacher.instruments?.[0] || "Instrument";
+      
+      return {
+        id: booking._id,
+        name: booking.teacher.name,
+        instrument: instrument,
+        date: displayDate,
+        originalDate: booking.day, // Preserve original for comparison
+        time: time,
+        originalTimeSlot: booking.timeSlot, // Preserve original timeSlot for calendar
+        location: booking.teacher.location || "Location TBD",
+        status: status,
+        email: booking.teacher.email,
+      };
+    });
+  };
+
+  const loadBookings = useCallback(async () => {
+    try {
+      setLoading(true);
+      const data = await api("/api/bookings/student/me", { auth: true });
+      const transformed = transformBookings(data);
+      setBookings(transformed);
+    } catch (err) {
+      console.error("Failed to load bookings", err);
+      setBookings([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadBookings();
+  }, [loadBookings]);
+
+  // Refresh bookings when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      loadBookings();
+    }, [loadBookings])
+  );
 
   const isUpcoming = (booking: TransformedBooking): boolean => {
     // Use originalDate if available, otherwise try to parse display date

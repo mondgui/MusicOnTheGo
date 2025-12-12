@@ -97,7 +97,7 @@ export default function RegisterTeacher() {
       }
 
       router.push({
-        pathname: "/profile-setup",
+        pathname: "/(teacher)/profile-setup",
         params: {
           fullName,
           instruments: JSON.stringify(allInstruments),

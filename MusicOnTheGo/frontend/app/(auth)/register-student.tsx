@@ -99,7 +99,7 @@ export default function RegisterStudent() {
       }
 
       router.push({
-        pathname: "/student-profile-setup",
+        pathname: "/(student)/student-profile-setup",
         params: {
           fullName,
           instruments: JSON.stringify(allInstruments),
