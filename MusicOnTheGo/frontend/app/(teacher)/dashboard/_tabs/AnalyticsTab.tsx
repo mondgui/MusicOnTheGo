@@ -107,9 +107,9 @@ export default function AnalyticsTab({ bookings, user }: Props) {
       <View style={[styles.statIconContainer, { backgroundColor: color + "20" }]}>
         <Ionicons name={icon} size={24} color={color} />
       </View>
-      <Text style={styles.statValue}>{value}</Text>
+      <Text style={styles.statValue}>{String(value ?? 0)}</Text>
       <Text style={styles.statLabel}>{label}</Text>
-      {subtitle && <Text style={styles.statSubtitle}>{subtitle}</Text>}
+      {subtitle ? <Text style={styles.statSubtitle}>{subtitle}</Text> : null}
     </Card>
   );
 
@@ -196,7 +196,7 @@ export default function AnalyticsTab({ bookings, user }: Props) {
             <Ionicons name="trending-up-outline" size={18} color="#666" />
             <Text style={styles.insightText}>
               Estimated earnings: <Text style={styles.insightValue}>
-                ${(stats.totalLessons * user.rate).toLocaleString()}
+                ${((stats.totalLessons * (user.rate || 0)) || 0).toLocaleString()}
               </Text>
             </Text>
           </View>

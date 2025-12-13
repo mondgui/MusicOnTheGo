@@ -66,11 +66,21 @@ async function getToken() {
 export async function api(path: string, init: ApiInit = {}) {
   const url = `${BASE_URL}${path.startsWith("/") ? path : `/${path}`}`;
 
+  // Debug logging (only in development)
+  // if (__DEV__) {
+  //  console.log(`[API] ${init.method || 'GET'} ${url}`);
+  //}
+
   // Normalize headers first
   const headers: Record<string, string> = {
-    "Content-Type": "application/json",
     ...normalizeHeaders(init.headers),
   };
+
+  // Only set Content-Type if it's not FormData (FormData sets its own Content-Type with boundary)
+  const isFormData = init.body instanceof FormData;
+  if (!isFormData && !headers["Content-Type"]) {
+    headers["Content-Type"] = "application/json";
+  }
 
   // Attach JWT token if requested
   if (init.auth) {
@@ -78,26 +88,46 @@ export async function api(path: string, init: ApiInit = {}) {
     if (token) headers.Authorization = `Bearer ${token}`;
   }
 
-  const response = await fetch(url, {
-    ...init,
-    headers,
-  });
-
-  const text = await response.text();
-  let data: any = null;
-
   try {
-    data = text ? JSON.parse(text) : null;
-  } catch {
-    data = text;
-  }
+    const response = await fetch(url, {
+      ...init,
+      headers,
+    });
 
-  if (!response.ok) {
-    const message =
-      (data && (data.error || data.message)) ||
-      `Request failed with ${response.status} ${response.statusText}`;
-    throw new Error(message);
-  }
+    const text = await response.text();
+    let data: any = null;
 
-  return data;
+    try {
+      data = text ? JSON.parse(text) : null;
+    } catch {
+      data = text;
+    }
+
+    if (!response.ok) {
+      const message =
+        (data && (data.error || data.message)) ||
+        `Request failed with ${response.status} ${response.statusText}`;
+      throw new Error(message);
+    }
+
+    return data;
+  } catch (error: any) {
+    // Enhanced error logging for network failures
+    if (error.message === 'Network request failed' || error.message?.includes('Network')) {
+      console.error('[API] Network Error Details:', {
+        url,
+        method: init.method || 'GET',
+        baseUrl: BASE_URL,
+        platform: Platform.OS,
+        error: error.message,
+      });
+      throw new Error(
+        `Network request failed. Please check:\n` +
+        `1. Backend server is running on ${BASE_URL}\n` +
+        `2. If using a physical device, set EXPO_PUBLIC_API_URL to your computer's IP address\n` +
+        `3. Both devices are on the same network`
+      );
+    }
+    throw error;
+  }
 }

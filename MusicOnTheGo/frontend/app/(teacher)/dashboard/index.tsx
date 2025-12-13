@@ -209,14 +209,40 @@ export default function TeacherDashboard() {
         date: formatDay(booking.day),
         time: formatTimeSlot(booking.timeSlot),
         status: booking.status === "approved" ? "Confirmed" : booking.status === "pending" ? "Pending" : "Rejected",
+        createdAt: booking.createdAt || new Date().toISOString(), // Preserve creation timestamp for sorting
+        originalDay: booking.day, // Preserve original day for date parsing
       }));
       
-      setBookings(transformed);
+      // Sort bookings: Pending first (newest first), then Confirmed (newest first), then Rejected (newest first)
+      const sorted = transformed.sort((a: any, b: any) => {
+        // First, sort by status priority: Pending > Confirmed > Rejected
+        const statusPriority: { [key: string]: number } = {
+          "Pending": 0,
+          "Confirmed": 1,
+          "Rejected": 2,
+        };
+        
+        const statusDiff = statusPriority[a.status] - statusPriority[b.status];
+        if (statusDiff !== 0) {
+          return statusDiff;
+        }
+        
+        // If same status, sort by creation date (newest first)
+        const dateA = new Date(a.createdAt).getTime();
+        const dateB = new Date(b.createdAt).getTime();
+        return dateB - dateA; // Descending order (newest first)
+      });
+      
+      setBookings(sorted);
       
       // Filter and transform bookings for today's schedule
       const today = new Date();
       const todayDayName = today.toLocaleDateString("en-US", { weekday: "long" });
-      const todayDateString = today.toISOString().split('T')[0]; // YYYY-MM-DD format
+      // Get today's date in YYYY-MM-DD format using local timezone (not UTC)
+      const todayYear = today.getFullYear();
+      const todayMonth = String(today.getMonth() + 1).padStart(2, '0');
+      const todayDay = String(today.getDate()).padStart(2, '0');
+      const todayDateString = `${todayYear}-${todayMonth}-${todayDay}`;
       
       // Get today's approved bookings
       const todaySchedule: ScheduleItem[] = (Array.isArray(data) ? data : [])
@@ -234,12 +260,14 @@ export default function TeacherDashboard() {
           }
         })
         .map((booking: any, index: number) => {
-          const startTime = formatTime24To12(booking.timeSlot?.start || "");
+          const timeRange = formatTimeSlot(booking.timeSlot || {});
+          const formattedDate = formatDay(booking.day);
           return {
             id: booking._id || index,
             student: booking.student?.name || "Student",
             instrument: user?.instruments?.[0] || "Music",
-            time: startTime,
+            time: timeRange,
+            date: formattedDate,
           };
         })
         .sort((a: ScheduleItem, b: ScheduleItem) => {

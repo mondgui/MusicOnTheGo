@@ -21,6 +21,64 @@ router.post(
         return res.status(400).json({ message: "Missing required fields." });
       }
 
+      // Check if there's already an approved booking for this time slot
+      const existingApproved = await Booking.findOne({
+        teacher,
+        day,
+        "timeSlot.start": timeSlot.start,
+        "timeSlot.end": timeSlot.end,
+        status: "approved",
+      });
+
+      if (existingApproved) {
+        return res.status(409).json({ 
+          message: "This time slot is already booked by another student." 
+        });
+      }
+
+      // Check if the same student already has a pending or approved booking for this time slot
+      const existingStudentBooking = await Booking.findOne({
+        student: req.user.id,
+        teacher,
+        day,
+        "timeSlot.start": timeSlot.start,
+        "timeSlot.end": timeSlot.end,
+        status: { $in: ["pending", "approved"] },
+      });
+
+      if (existingStudentBooking) {
+        return res.status(409).json({ 
+          message: "You already have a booking request for this time slot." 
+        });
+      }
+
+      // Check if another student has a pending booking for this time slot
+      const existingPending = await Booking.findOne({
+        teacher,
+        day,
+        "timeSlot.start": timeSlot.start,
+        "timeSlot.end": timeSlot.end,
+        status: "pending",
+      });
+
+      if (existingPending) {
+        // Allow the booking but note that there's a conflict
+        // The teacher will see multiple pending requests and can choose
+        const booking = new Booking({
+          student: req.user.id,
+          teacher,
+          day,
+          timeSlot,
+        });
+
+        await booking.save();
+
+        return res.status(201).json({
+          ...booking.toObject(),
+          conflictWarning: "Another student has also requested this time slot. The teacher will review all requests.",
+        });
+      }
+
       const booking = new Booking({
         student: req.user.id,
         teacher,
@@ -58,6 +116,23 @@ router.put(
 
       booking.status = status;
       await booking.save();
+
+      // If approving a booking, automatically reject all other pending bookings for the same time slot
+      if (status === "approved") {
+        await Booking.updateMany(
+          {
+            _id: { $ne: booking._id }, // Exclude the just-approved booking
+            teacher: booking.teacher,
+            day: booking.day,
+            "timeSlot.start": booking.timeSlot.start,
+            "timeSlot.end": booking.timeSlot.end,
+            status: "pending",
+          },
+          {
+            $set: { status: "rejected" },
+          }
+        );
+      }
 
       res.json(booking);
     } catch (err) {

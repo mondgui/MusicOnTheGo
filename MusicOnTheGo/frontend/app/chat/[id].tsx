@@ -36,7 +36,10 @@ export default function ChatScreen() {
   const contactRole = params.contactRole as string;
   const fromInquiry = params.fromInquiry === "true";
 
-  const [message, setMessage] = useState("");
+  // Suggested message when coming from inquiry
+  const suggestedMessage = "Hello, I received your inquiry. How can I help you?";
+  
+  const [message, setMessage] = useState(fromInquiry ? suggestedMessage : "");
   const [messages, setMessages] = useState<Message[]>([]);
   const [contact, setContact] = useState<any>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
@@ -59,19 +62,6 @@ export default function ChatScreen() {
         timestamp: new Date(msg.createdAt),
         isOwn: String(msg.sender._id || msg.sender) === String(currentUserId),
       }));
-
-      // If no messages and coming from inquiry, show welcome message
-      if (formattedMessages.length === 0 && fromInquiry) {
-        formattedMessages.push({
-          id: "welcome",
-          text: `Hello! I received your inquiry. How can I help you?`,
-          senderId: currentUserId || "",
-          senderName: "You",
-          senderImage: "",
-          timestamp: new Date(),
-          isOwn: true,
-        });
-      }
 
       setMessages(formattedMessages);
     } catch (err) {
@@ -218,6 +208,14 @@ export default function ChatScreen() {
         </View>
       </LinearGradient>
 
+      {/* Security Notice */}
+      <View style={styles.securityNotice}>
+        <Ionicons name="shield-checkmark-outline" size={18} color="#FF6A5C" />
+        <Text style={styles.securityText}>
+          <Text style={styles.securityBold}>Security Notice:</Text> This chat is for music-related purposes only. Please be cautious, vigilant, and report any inappropriate behavior immediately.
+        </Text>
+      </View>
+
       {/* Messages */}
       <ScrollView
         ref={scrollViewRef}
@@ -343,6 +341,26 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "white",
     opacity: 0.8,
+  },
+  securityNotice: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    backgroundColor: "#FFF3E0",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#FFE0B2",
+    gap: 10,
+    minHeight: 50,
+  },
+  securityText: {
+    flex: 1,
+    fontSize: 13,
+    color: "#E65100",
+    lineHeight: 18,
+  },
+  securityBold: {
+    fontWeight: "700",
   },
   messagesContainer: {
     flex: 1,

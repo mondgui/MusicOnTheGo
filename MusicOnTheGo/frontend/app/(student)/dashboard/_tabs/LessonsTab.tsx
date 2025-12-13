@@ -5,8 +5,6 @@ import {
   StyleSheet,
   ScrollView,
   ActivityIndicator,
-  Linking,
-  TouchableOpacity,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "expo-router";
@@ -36,7 +34,7 @@ type BookingData = {
 type TransformedBooking = {
   id: string;
   name: string;
-  instrument: string;
+  instrument: string | null;
   date: string;
   originalDate?: string; // Preserve original date for comparison
   time: string;
@@ -136,9 +134,8 @@ export default function LessonsTab() {
           ? "Pending"
           : "Completed";
       
-      // Get instrument from teacher or use first one
-      const instrument =
-        booking.teacher.instruments?.[0] || "Instrument";
+      // Get instrument from teacher - use first one if available
+      const instrument = booking.teacher.instruments?.[0] || null;
       
       return {
         id: booking._id,
@@ -210,93 +207,198 @@ export default function LessonsTab() {
     }
   };
 
+  // Helper function to parse booking date
+  const parseBookingDate = (booking: TransformedBooking): Date | null => {
+    const dateString = booking.originalDate || booking.date;
+    try {
+      // Check if it's a day name
+      const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+      if (dayNames.includes(dateString)) {
+        const date = dayNameToDate(dateString);
+        return date;
+      }
+      
+      // Check if it's YYYY-MM-DD format
+      const yyyyMmDdPattern = /^(\d{4})-(\d{2})-(\d{2})$/;
+      if (yyyyMmDdPattern.test(dateString)) {
+        // Parse as local date to avoid timezone issues
+        const [year, month, day] = dateString.split('-').map(Number);
+        return new Date(year, month - 1, day);
+      }
+      
+      // Try to parse as date
+      const parsed = new Date(dateString);
+      return isNaN(parsed.getTime()) ? null : parsed;
+    } catch {
+      return null;
+    }
+  };
+
+  // Helper function to categorize upcoming booking by time period
+  const getUpcomingTimePeriod = (booking: TransformedBooking): string | null => {
+    const bookingDate = parseBookingDate(booking);
+    if (!bookingDate) return null;
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    
+    // End of this week (7 days from today, exclusive)
+    const endOfThisWeek = new Date(today);
+    endOfThisWeek.setDate(endOfThisWeek.getDate() + 7);
+    
+    // End of this month (first day of next month)
+    const endOfThisMonth = new Date(today);
+    endOfThisMonth.setMonth(endOfThisMonth.getMonth() + 1);
+    endOfThisMonth.setDate(1);
+
+    const bookingDateOnly = new Date(bookingDate);
+    bookingDateOnly.setHours(0, 0, 0, 0);
+
+    if (bookingDateOnly.getTime() === today.getTime()) {
+      return "Today";
+    } else if (bookingDateOnly.getTime() === tomorrow.getTime()) {
+      return "Tomorrow";
+    } else if (bookingDateOnly < endOfThisWeek) {
+      return "This Week";
+    } else if (bookingDateOnly < endOfThisMonth) {
+      return "This Month";
+    } else {
+      const currentYear = today.getFullYear();
+      const bookingYear = bookingDateOnly.getFullYear();
+      
+      if (bookingYear > currentYear) {
+        return bookingYear.toString();
+      } else {
+        return bookingDateOnly.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+      }
+    }
+  };
+
+  // Helper function to categorize past booking by time period
+  const getPastTimePeriod = (booking: TransformedBooking): string | null => {
+    const bookingDate = parseBookingDate(booking);
+    if (!bookingDate) return null;
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    // Start of this week (7 days ago)
+    const startOfThisWeek = new Date(today);
+    startOfThisWeek.setDate(startOfThisWeek.getDate() - 7);
+    
+    // Start of this month (first day of current month)
+    const startOfThisMonth = new Date(today);
+    startOfThisMonth.setDate(1);
+    
+    // Start of last month (first day of last month)
+    const startOfLastMonth = new Date(today);
+    startOfLastMonth.setMonth(startOfLastMonth.getMonth() - 1);
+    startOfLastMonth.setDate(1);
+    
+    // Start of this year (January 1st)
+    const startOfThisYear = new Date(today);
+    startOfThisYear.setMonth(0);
+    startOfThisYear.setDate(1);
+
+    const bookingDateOnly = new Date(bookingDate);
+    bookingDateOnly.setHours(0, 0, 0, 0);
+
+    if (bookingDateOnly >= startOfThisWeek) {
+      return "This Week";
+    } else if (bookingDateOnly >= startOfThisMonth) {
+      return "This Month";
+    } else if (bookingDateOnly >= startOfLastMonth) {
+      return "Last Month";
+    } else if (bookingDateOnly >= startOfThisYear) {
+      return bookingDateOnly.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+    } else {
+      return bookingDateOnly.getFullYear().toString();
+    }
+  };
+
   const upcomingBookings = bookings.filter(isUpcoming);
   const pastBookings = bookings.filter((b) => !isUpcoming(b));
 
-  const handleContact = (booking: TransformedBooking) => {
-    // Navigate to messages - placeholder for now
-    console.log("Contact:", booking);
-    // TODO: Navigate to messages screen with teacher ID
-  };
+  // Separate pending bookings (show first in upcoming)
+  const pendingUpcoming = upcomingBookings.filter(b => b.status === "Pending");
+  const confirmedUpcoming = upcomingBookings.filter(b => b.status === "Confirmed");
+  const confirmedPast = pastBookings.filter(b => b.status === "Confirmed");
 
-  const handleCall = (phone?: string) => {
-    if (phone) {
-      Linking.openURL(`tel:${phone}`);
-    } else {
-      alert("Phone number not available");
+  // Group confirmed upcoming bookings by time period
+  const groupedUpcoming = confirmedUpcoming.reduce((groups, booking) => {
+    const period = getUpcomingTimePeriod(booking);
+    if (!period) return groups;
+    if (!groups[period]) {
+      groups[period] = [];
     }
-  };
+    groups[period].push(booking);
+    return groups;
+  }, {} as Record<string, TransformedBooking[]>);
 
-  const handleAddToCalendar = (booking: TransformedBooking) => {
-    try {
-      // Use original date and timeSlot from backend (24-hour format)
-      const dateString = booking.originalDate || booking.date;
-      const timeSlot = booking.originalTimeSlot;
-      
-      if (!timeSlot || !timeSlot.start) {
-        alert("Time information not available");
-        return;
-      }
-      
-      // Parse the date
-      const bookingDate = new Date(dateString);
-      if (isNaN(bookingDate.getTime())) {
-        alert("Invalid date format");
-        return;
-      }
-      
-      // Parse 24-hour time format (e.g., "14:00")
-      const parseTime24 = (time24: string): { hours: number; minutes: number } => {
-        const [hours, minutes] = time24.split(":").map(Number);
-        return { hours, minutes };
-      };
-      
-      const startTime = parseTime24(timeSlot.start);
-      const endTime = timeSlot.end ? parseTime24(timeSlot.end) : {
-        hours: startTime.hours + 1,
-        minutes: startTime.minutes
-      };
-      
-      // Set the date and time
-      const startDateTime = new Date(bookingDate);
-      startDateTime.setHours(startTime.hours, startTime.minutes, 0, 0);
-      
-      const endDateTime = new Date(bookingDate);
-      endDateTime.setHours(endTime.hours, endTime.minutes, 0, 0);
-      
-      // Format dates for calendar URL (YYYYMMDDTHHmmss)
-      const formatCalendarDate = (date: Date): string => {
-        const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, "0");
-        const day = String(date.getDate()).padStart(2, "0");
-        const hours = String(date.getHours()).padStart(2, "0");
-        const minutes = String(date.getMinutes()).padStart(2, "0");
-        const seconds = String(date.getSeconds()).padStart(2, "0");
-        return `${year}${month}${day}T${hours}${minutes}${seconds}`;
-      };
-      
-      const start = formatCalendarDate(startDateTime);
-      const end = formatCalendarDate(endDateTime);
-      
-      // Create calendar event title
-      const title = encodeURIComponent(`Music Lesson with ${booking.name}`);
-      const details = encodeURIComponent(
-        `Lesson: ${booking.instrument}\nLocation: ${booking.location}`
-      );
-      const location = encodeURIComponent(booking.location);
-      
-      // Create Google Calendar URL (works on both iOS and Android)
-      const calendarUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${start}/${end}&details=${details}&location=${location}`;
-      
-      Linking.openURL(calendarUrl).catch((err) => {
-        console.error("Failed to open calendar:", err);
-        alert("Could not open calendar app");
-      });
-    } catch (error) {
-      console.error("Error adding to calendar:", error);
-      alert("Could not add event to calendar");
+  // Group confirmed past bookings by time period
+  const groupedPast = confirmedPast.reduce((groups, booking) => {
+    const period = getPastTimePeriod(booking);
+    if (!period) return groups;
+    if (!groups[period]) {
+      groups[period] = [];
     }
-  };
+    groups[period].push(booking);
+    return groups;
+  }, {} as Record<string, TransformedBooking[]>);
+
+  // Sort upcoming groups
+  const upcomingGroupOrder = ["Today", "Tomorrow", "This Week", "This Month"];
+  const sortedUpcomingKeys = Object.keys(groupedUpcoming).sort((a, b) => {
+    const aIndex = upcomingGroupOrder.indexOf(a);
+    const bIndex = upcomingGroupOrder.indexOf(b);
+    if (aIndex !== -1 && bIndex !== -1) return aIndex - bIndex;
+    if (aIndex !== -1) return -1;
+    if (bIndex !== -1) return 1;
+    const dateA = parseBookingDate(groupedUpcoming[a][0]);
+    const dateB = parseBookingDate(groupedUpcoming[b][0]);
+    if (dateA && dateB) {
+      return dateA.getTime() - dateB.getTime();
+    }
+    return a.localeCompare(b);
+  });
+
+  // Sort past groups (most recent first)
+  const pastGroupOrder = ["This Week", "This Month", "Last Month"];
+  const sortedPastKeys = Object.keys(groupedPast).sort((a, b) => {
+    const aIndex = pastGroupOrder.indexOf(a);
+    const bIndex = pastGroupOrder.indexOf(b);
+    if (aIndex !== -1 && bIndex !== -1) return aIndex - bIndex;
+    if (aIndex !== -1) return -1;
+    if (bIndex !== -1) return 1;
+    const dateA = parseBookingDate(groupedPast[a][0]);
+    const dateB = parseBookingDate(groupedPast[b][0]);
+    if (dateA && dateB) {
+      return dateB.getTime() - dateA.getTime(); // Reverse for past
+    }
+    return b.localeCompare(a); // Reverse alphabetical for past
+  });
+
+  // Sort bookings within each group
+  sortedUpcomingKeys.forEach(key => {
+    groupedUpcoming[key].sort((a, b) => {
+      const dateA = parseBookingDate(a);
+      const dateB = parseBookingDate(b);
+      if (!dateA || !dateB) return 0;
+      return dateA.getTime() - dateB.getTime(); // Ascending for upcoming
+    });
+  });
+
+  sortedPastKeys.forEach(key => {
+    groupedPast[key].sort((a, b) => {
+      const dateA = parseBookingDate(a);
+      const dateB = parseBookingDate(b);
+      if (!dateA || !dateB) return 0;
+      return dateB.getTime() - dateA.getTime(); // Descending for past
+    });
+  });
 
   const renderBooking = (booking: TransformedBooking) => (
     <Card key={booking.id} style={styles.bookingCard}>
@@ -310,7 +412,9 @@ export default function LessonsTab() {
           <View style={styles.bookingTitleRow}>
             <View style={styles.bookingTitleContainer}>
               <Text style={styles.bookingName}>{booking.name}</Text>
-              <Text style={styles.bookingInstrument}>{booking.instrument}</Text>
+              {booking.instrument && (
+                <Text style={styles.bookingInstrument}>{booking.instrument}</Text>
+              )}
             </View>
             <Badge
               variant={
@@ -336,46 +440,7 @@ export default function LessonsTab() {
           <Ionicons name="time-outline" size={16} color="#FF6A5C" />
           <Text style={styles.detailText}>{booking.time}</Text>
         </View>
-        <View style={styles.detailRow}>
-          <Ionicons name="location-outline" size={16} color="#FF6A5C" />
-          <Text style={styles.detailText}>{booking.location}</Text>
-        </View>
       </View>
-
-      {/* Action Buttons */}
-      {booking.status === "Confirmed" && (
-        <View style={styles.actionButtonsContainer}>
-          <TouchableOpacity
-            style={styles.addToCalendarButton}
-            onPress={() => handleAddToCalendar(booking)}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="calendar-outline" size={18} color="#FF6A5C" />
-            <Text style={styles.addToCalendarText}>Add to Calendar</Text>
-          </TouchableOpacity>
-          
-          <View style={styles.contactButtons}>
-            <TouchableOpacity
-              style={styles.contactButton}
-              onPress={() => handleContact(booking)}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="chatbubble-outline" size={16} color="#FF6A5C" />
-              <Text style={styles.contactButtonText}>Contact</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.contactButton, styles.callButton]}
-              onPress={() => handleCall(booking.phone)}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="call-outline" size={16} color="#FF9076" />
-              <Text style={[styles.contactButtonText, styles.callButtonText]}>
-                Call
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      )}
     </Card>
   );
 
@@ -398,7 +463,27 @@ export default function LessonsTab() {
           <TabsContent value="upcoming">
             {upcomingBookings.length > 0 ? (
               <ScrollView style={styles.bookingsList} showsVerticalScrollIndicator={false}>
-                {upcomingBookings.map(renderBooking)}
+                {/* Pending Bookings Section */}
+                {pendingUpcoming.length > 0 && (
+                  <>
+                    <Text style={styles.groupHeader}>Pending</Text>
+                    {pendingUpcoming.map(renderBooking)}
+                  </>
+                )}
+
+                {/* Confirmed Upcoming Bookings by Time Period */}
+                {sortedUpcomingKeys.map((groupKey) => (
+                  <View key={groupKey} style={styles.groupSection}>
+                    <Text style={styles.groupHeader}>{groupKey}</Text>
+                    {groupedUpcoming[groupKey].map(renderBooking)}
+                  </View>
+                ))}
+
+                {pendingUpcoming.length === 0 && sortedUpcomingKeys.length === 0 && (
+                  <Card style={styles.emptyCard}>
+                    <Text style={styles.emptyText}>No upcoming bookings</Text>
+                  </Card>
+                )}
               </ScrollView>
             ) : (
               <Card style={styles.emptyCard}>
@@ -410,7 +495,19 @@ export default function LessonsTab() {
           <TabsContent value="past">
             {pastBookings.length > 0 ? (
               <ScrollView style={styles.bookingsList} showsVerticalScrollIndicator={false}>
-                {pastBookings.map(renderBooking)}
+                {/* Confirmed Past Bookings by Time Period */}
+                {sortedPastKeys.map((groupKey) => (
+                  <View key={groupKey} style={styles.groupSection}>
+                    <Text style={styles.groupHeader}>{groupKey}</Text>
+                    {groupedPast[groupKey].map(renderBooking)}
+                  </View>
+                ))}
+
+                {sortedPastKeys.length === 0 && (
+                  <Card style={styles.emptyCard}>
+                    <Text style={styles.emptyText}>No past bookings</Text>
+                  </Card>
+                )}
               </ScrollView>
             ) : (
               <Card style={styles.emptyCard}>
@@ -491,57 +588,16 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#555",
   },
-  actionButtonsContainer: {
-    marginTop: 16,
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: "#E5E5E5",
-    gap: 12,
+  groupSection: {
+    marginTop: 24,
+    marginBottom: 8,
   },
-  addToCalendarButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    backgroundColor: "white",
-    borderWidth: 2,
-    borderColor: "#FF6A5C",
-    borderRadius: 10,
-  },
-  addToCalendarText: {
-    color: "#FF6A5C",
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  contactButtons: {
-    flexDirection: "row",
-    gap: 8,
-  },
-  contactButton: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "#FF6A5C",
-    backgroundColor: "transparent",
-  },
-  callButton: {
-    borderColor: "#FF9076",
-  },
-  contactButtonText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#FF6A5C",
-  },
-  callButtonText: {
-    color: "#FF9076",
+  groupHeader: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#333",
+    marginBottom: 12,
+    marginTop: 8,
   },
   emptyCard: {
     padding: 32,

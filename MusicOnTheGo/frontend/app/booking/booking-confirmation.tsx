@@ -171,7 +171,7 @@ export default function BookingConfirmationScreen() {
       }
       
       // Create booking - backend expects: teacher (ID), day (date string), timeSlot {start, end}
-      await api("/api/bookings", {
+      const response = await api("/api/bookings", {
         method: "POST",
         auth: true,
         body: JSON.stringify({
@@ -183,6 +183,15 @@ export default function BookingConfirmationScreen() {
           },
         }),
       });
+
+      // Check if there's a conflict warning
+      if (response.conflictWarning) {
+        Alert.alert(
+          "Booking Requested",
+          response.conflictWarning + "\n\nYour booking request has been submitted. The teacher will review all requests for this time slot.",
+          [{ text: "OK" }]
+        );
+      }
 
       // Format date for display
       const formattedDate = actualDate.toLocaleDateString("en-US", {
@@ -208,7 +217,16 @@ export default function BookingConfirmationScreen() {
         },
       });
     } catch (err: any) {
-      Alert.alert("Error", err.message || "Failed to confirm booking");
+      // Handle conflict errors (409) with a more user-friendly message
+      if (err.message && err.message.includes("already booked") || err.message.includes("already have a booking")) {
+        Alert.alert(
+          "Time Slot Unavailable",
+          err.message || "This time slot is no longer available. Please select another time.",
+          [{ text: "OK" }]
+        );
+      } else {
+        Alert.alert("Error", err.message || "Failed to confirm booking");
+      }
     } finally {
       setLoading(false);
     }

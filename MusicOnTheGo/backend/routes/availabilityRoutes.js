@@ -82,6 +82,8 @@ router.put(
  */
 router.get("/teacher/:teacherId", async (req, res) => {
   try {
+    const Booking = (await import("../models/Booking.js")).default;
+    
     const allAvailability = await Availability.find({
       teacher: req.params.teacherId,
     });
@@ -90,7 +92,7 @@ router.get("/teacher/:teacherId", async (req, res) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0); // Set to start of today
     
-    const availability = allAvailability.filter((item) => {
+    let availability = allAvailability.filter((item) => {
       // Only keep entries with a date field (new calendar-based availability)
       if (!item.date) {
         return false; // Filter out old recurring weekly availability
@@ -100,6 +102,32 @@ router.get("/teacher/:teacherId", async (req, res) => {
       itemDate.setHours(0, 0, 0, 0);
       return itemDate >= today; // Keep if today or future
     });
+    
+    // Get all approved bookings for this teacher to filter out booked slots
+    const approvedBookings = await Booking.find({
+      teacher: req.params.teacherId,
+      status: "approved",
+    });
+    
+    // Create a set of booked time slots for quick lookup
+    const bookedSlots = new Set();
+    approvedBookings.forEach((booking) => {
+      const key = `${booking.day}-${booking.timeSlot.start}-${booking.timeSlot.end}`;
+      bookedSlots.add(key);
+    });
+    
+    // Filter out booked time slots from availability
+    availability = availability.map((item) => {
+      const availableTimeSlots = (item.timeSlots || []).filter((slot) => {
+        const key = `${item.day}-${slot.start}-${slot.end}`;
+        return !bookedSlots.has(key);
+      });
+      
+      return {
+        ...item.toObject(),
+        timeSlots: availableTimeSlots,
+      };
+    }).filter((item) => item.timeSlots.length > 0); // Only keep items with available slots
     
     res.json(availability);
   } catch (err) {

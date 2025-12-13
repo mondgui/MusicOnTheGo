@@ -3,7 +3,7 @@ import { View, Text, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Card } from "@/components/ui/card";
 
-type ScheduleItem = { id: string | number; student: string; instrument: string; time: string };
+type ScheduleItem = { id: string | number; student: string; instrument: string; time: string; date?: string };
 
 type Props = {
   schedule: ScheduleItem[];
@@ -28,6 +28,9 @@ export default function ScheduleTab({ schedule }: Props) {
                 </View>
                 <View style={styles.scheduleInfo}>
                   <Text style={styles.studentName}>{item.student}</Text>
+                  {item.date && (
+                    <Text style={styles.scheduleDate}>{item.date}</Text>
+                  )}
                   <Text style={styles.scheduleDetails}>
                     {item.instrument} • {item.time}
                   </Text>
@@ -80,6 +83,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
     color: "#333",
+    marginBottom: 4,
+  },
+  scheduleDate: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#FF6A5C",
     marginBottom: 4,
   },
   scheduleDetails: {

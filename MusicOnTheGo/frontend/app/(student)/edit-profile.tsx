@@ -109,7 +109,36 @@ export default function EditProfileScreen() {
       // Check if we have an asset
       if (result.assets && result.assets.length > 0 && result.assets[0]?.uri) {
         const imageUri = result.assets[0].uri;
-        setProfileImage(imageUri);
+        
+        // Show loading state
+        Alert.alert("Uploading", "Please wait while your image is being uploaded...");
+        
+        try {
+          // Create FormData for image upload
+          const formData = new FormData();
+          formData.append("file", {
+            uri: imageUri,
+            type: "image/jpeg",
+            name: "profile.jpg",
+          } as any);
+
+          // Upload to Cloudinary via backend
+          const uploadResponse = await api("/api/uploads/profile-image", {
+            method: "POST",
+            auth: true,
+            body: formData,
+          });
+
+          // Save the cloud URL (not the local URI)
+          setProfileImage(uploadResponse.url);
+          Alert.alert("Success", "Profile picture uploaded successfully!");
+        } catch (uploadErr: any) {
+          console.error("Upload error:", uploadErr);
+          Alert.alert(
+            "Upload Failed",
+            uploadErr.message || "Failed to upload image. Please try again."
+          );
+        }
       } else {
         Alert.alert("Error", "No image was selected. Please try again.");
       }

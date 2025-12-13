@@ -10,7 +10,12 @@ import { Select, SelectItem } from "@/components/ui/select";
 import { DatePicker } from "@/components/ui/date-picker";
 import { api } from "../../../../lib/api";
 
-type Availability = { day: string; slots: string[] };
+type Availability = { 
+  day: string; 
+  slots: string[];
+  originalDay?: string; // Original day string from backend (YYYY-MM-DD or day name)
+  originalDate?: Date; // Parsed date object for grouping
+};
 type Props = { availability: Availability[] };
 
 // Generate individual time options with 15-minute intervals
@@ -92,35 +97,72 @@ export default function TimesTab({ availability: initialAvailability }: Props) {
       // Transform backend data to match our format
       // Backend returns: [{ day: "2025-12-10" or "Monday", date: Date, timeSlots: [{ start: "14:00", end: "16:00" }] }]
       if (Array.isArray(data)) {
-        const transformed = data.map((item: any) => {
-          // Format the day/date for display
-          let displayDay = item.day;
-          if (item.date) {
-            // If it's a specific date, format it nicely
-            const date = new Date(item.date);
-            displayDay = date.toLocaleDateString("en-US", {
-              weekday: "long",
-              year: "numeric",
-              month: "long",
-              day: "numeric",
-            });
-          }
-          
-          return {
-            day: displayDay,
-            slots: (item.timeSlots || []).map((slot: any) => {
-              // Convert "14:00" to "2:00 PM"
-              const formatTime = (time24: string) => {
-                const [hours, minutes] = time24.split(":");
-                const hour = parseInt(hours);
-                const ampm = hour >= 12 ? "PM" : "AM";
-                const hour12 = hour % 12 || 12;
-                return `${hour12}:${minutes} ${ampm}`;
-              };
-              return `${formatTime(slot.start)} - ${formatTime(slot.end)}`;
-            }),
-          };
-        });
+        const transformed = data
+          .filter((item: any) => {
+            // Filter out recurring weekly availability (only day names without dates)
+            // Only keep items that have a specific date (YYYY-MM-DD format or date object)
+            if (item.day && /^\d{4}-\d{2}-\d{2}$/.test(item.day)) {
+              return true; // Has a specific date
+            }
+            if (item.date) {
+              return true; // Has a date object
+            }
+            // Filter out day names like "Sunday", "Wednesday", etc.
+            return false;
+          })
+          .map((item: any) => {
+            // Format the day/date for display - always show full date format
+            let displayDay = item.day;
+            
+            // Check if day is a date string (YYYY-MM-DD format)
+            if (item.day && /^\d{4}-\d{2}-\d{2}$/.test(item.day)) {
+              // Parse as local date to avoid timezone issues
+              const [year, month, day] = item.day.split('-').map(Number);
+              const date = new Date(year, month - 1, day);
+              displayDay = date.toLocaleDateString("en-US", {
+                weekday: "long",
+                year: "numeric",
+                month: "long",
+                day: "numeric",
+              });
+            } else if (item.date) {
+              // If it's a specific date object, format it nicely
+              const date = new Date(item.date);
+              displayDay = date.toLocaleDateString("en-US", {
+                weekday: "long",
+                year: "numeric",
+                month: "long",
+                day: "numeric",
+              });
+            }
+            
+            // Parse the date for grouping
+            let parsedDate: Date | null = null;
+            if (item.day && /^\d{4}-\d{2}-\d{2}$/.test(item.day)) {
+              // Parse as local date to avoid timezone issues
+              const [year, month, day] = item.day.split('-').map(Number);
+              parsedDate = new Date(year, month - 1, day);
+            } else if (item.date) {
+              parsedDate = new Date(item.date);
+            }
+
+            return {
+              day: displayDay,
+              slots: (item.timeSlots || []).map((slot: any) => {
+                // Convert "14:00" to "2:00 PM"
+                const formatTime = (time24: string) => {
+                  const [hours, minutes] = time24.split(":");
+                  const hour = parseInt(hours);
+                  const ampm = hour >= 12 ? "PM" : "AM";
+                  const hour12 = hour % 12 || 12;
+                  return `${hour12}:${minutes} ${ampm}`;
+                };
+                return `${formatTime(slot.start)} - ${formatTime(slot.end)}`;
+              }),
+              originalDay: item.day,
+              originalDate: parsedDate,
+            };
+          });
         setAvailability(transformed);
       }
     } catch (error) {
@@ -276,19 +318,109 @@ export default function TimesTab({ availability: initialAvailability }: Props) {
           {availability.length === 0 ? (
             <Text style={styles.emptyText}>No availability set yet. Add your first time slot!</Text>
           ) : (
-            availability.map((item, index) => (
-              <Card key={index} style={styles.availabilityCard}>
-                <Text style={styles.dayTitle}>{item.day}</Text>
-                <View style={styles.slotsList}>
-                  {item.slots.map((slot, slotIndex) => (
-                    <View key={slotIndex} style={styles.slotRow}>
-                      <Ionicons name="time-outline" size={16} color="#FF6A5C" />
-                      <Text style={styles.slotText}>{slot}</Text>
-                    </View>
+            (() => {
+              // Helper function to categorize availability by time period
+              const getTimePeriod = (item: Availability): string | null => {
+                if (!item.originalDate) return null; // Return null for invalid dates
+
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                
+                const tomorrow = new Date(today);
+                tomorrow.setDate(tomorrow.getDate() + 1);
+                
+                // End of this week (7 days from today, exclusive)
+                const endOfThisWeek = new Date(today);
+                endOfThisWeek.setDate(endOfThisWeek.getDate() + 7);
+                
+                // End of this month (first day of next month)
+                const endOfThisMonth = new Date(today);
+                endOfThisMonth.setMonth(endOfThisMonth.getMonth() + 1);
+                endOfThisMonth.setDate(1);
+
+                const itemDate = new Date(item.originalDate);
+                itemDate.setHours(0, 0, 0, 0);
+
+                if (itemDate.getTime() === today.getTime()) {
+                  return "Today";
+                } else if (itemDate.getTime() === tomorrow.getTime()) {
+                  return "Tomorrow";
+                } else if (itemDate < endOfThisWeek) {
+                  return "This Week";
+                } else if (itemDate < endOfThisMonth) {
+                  return "This Month";
+                } else {
+                  // For dates beyond this month, return month and year (e.g., "January 2026")
+                  // For dates in different years, return just the year (e.g., "2027", "2028")
+                  const currentYear = today.getFullYear();
+                  const itemYear = itemDate.getFullYear();
+                  
+                  if (itemYear > currentYear) {
+                    // Different year - just show the year
+                    return itemYear.toString();
+                  } else {
+                    // Same year, different month - show month and year
+                    return itemDate.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+                  }
+                }
+              };
+
+              // Group availability by time period (filter out invalid dates)
+              const grouped = availability.reduce((groups, item) => {
+                const period = getTimePeriod(item);
+                if (!period) return groups; // Skip items with invalid dates
+                if (!groups[period]) {
+                  groups[period] = [];
+                }
+                groups[period].push(item);
+                return groups;
+              }, {} as Record<string, Availability[]>);
+
+              // Sort groups in order: Today, Tomorrow, This Week, This Month, then by date
+              const groupOrder = ["Today", "Tomorrow", "This Week", "This Month"];
+              const sortedGroupKeys = Object.keys(grouped).sort((a, b) => {
+                const aIndex = groupOrder.indexOf(a);
+                const bIndex = groupOrder.indexOf(b);
+                if (aIndex !== -1 && bIndex !== -1) return aIndex - bIndex;
+                if (aIndex !== -1) return -1;
+                if (bIndex !== -1) return 1;
+                
+                // For month/year or year-only groups, sort chronologically
+                const dateA = grouped[a][0]?.originalDate;
+                const dateB = grouped[b][0]?.originalDate;
+                if (dateA && dateB) {
+                  return dateA.getTime() - dateB.getTime();
+                }
+                return a.localeCompare(b); // Fallback to alphabetical
+              });
+
+              // Sort items within each group by date
+              sortedGroupKeys.forEach(key => {
+                grouped[key].sort((a, b) => {
+                  if (!a.originalDate || !b.originalDate) return 0;
+                  return a.originalDate.getTime() - b.originalDate.getTime();
+                });
+              });
+
+              return sortedGroupKeys.map((groupKey) => (
+                <View key={groupKey} style={styles.groupSection}>
+                  <Text style={styles.groupHeader}>{groupKey}</Text>
+                  {grouped[groupKey].map((item, index) => (
+                    <Card key={`${groupKey}-${index}`} style={styles.availabilityCard}>
+                      <Text style={styles.dayTitle}>{item.day}</Text>
+                      <View style={styles.slotsList}>
+                        {item.slots.map((slot, slotIndex) => (
+                          <View key={slotIndex} style={styles.slotRow}>
+                            <Ionicons name="time-outline" size={16} color="#FF6A5C" />
+                            <Text style={styles.slotText}>{slot}</Text>
+                          </View>
+                        ))}
+                      </View>
+                    </Card>
                   ))}
                 </View>
-              </Card>
-            ))
+              ));
+            })()
           )}
         </View>
       )}
@@ -367,5 +499,16 @@ const styles = StyleSheet.create({
     color: "#999",
     marginTop: 20,
     fontSize: 14,
+  },
+  groupSection: {
+    marginTop: 24,
+    marginBottom: 8,
+  },
+  groupHeader: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#333",
+    marginBottom: 12,
+    marginTop: 8,
   },
 });
