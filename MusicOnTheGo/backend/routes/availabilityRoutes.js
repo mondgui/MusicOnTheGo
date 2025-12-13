@@ -99,6 +99,10 @@ router.get("/teacher/:teacherId", async (req, res) => {
       }
       // Check if the date is today or in the future
       const itemDate = new Date(item.date);
+      // Validate that the date is valid before using it
+      if (isNaN(itemDate.getTime())) {
+        return false; // Invalid date, filter it out
+      }
       itemDate.setHours(0, 0, 0, 0);
       return itemDate >= today; // Keep if today or future
     });
@@ -110,16 +114,47 @@ router.get("/teacher/:teacherId", async (req, res) => {
     });
     
     // Create a set of booked time slots for quick lookup
+    // Normalize day/date format for consistent comparison
     const bookedSlots = new Set();
     approvedBookings.forEach((booking) => {
-      const key = `${booking.day}-${booking.timeSlot.start}-${booking.timeSlot.end}`;
+      // Normalize booking.day: if it's a date string (YYYY-MM-DD), use it as-is
+      // If it's a day name, we need to match it with availability items that have the same day name
+      // For date-based availability, we need to compare the actual date
+      let bookingDayKey = booking.day;
+      
+      // If booking.day looks like a date (YYYY-MM-DD format), normalize it
+      if (booking.day && /^\d{4}-\d{2}-\d{2}$/.test(booking.day)) {
+        // It's a date string, use it directly
+        bookingDayKey = booking.day;
+      }
+      
+      const key = `${bookingDayKey}-${booking.timeSlot.start}-${booking.timeSlot.end}`;
       bookedSlots.add(key);
     });
     
     // Filter out booked time slots from availability
     availability = availability.map((item) => {
       const availableTimeSlots = (item.timeSlots || []).filter((slot) => {
-        const key = `${item.day}-${slot.start}-${slot.end}`;
+        // Normalize item.day for comparison
+        let itemDayKey = item.day;
+        
+        // If item has a date field and item.day is a date string, use the date string
+        // Otherwise, use item.day as-is (could be day name or date string)
+        if (item.date && item.day && /^\d{4}-\d{2}-\d{2}$/.test(item.day)) {
+          // item.day is already a date string, use it
+          itemDayKey = item.day;
+        } else if (item.date) {
+          // item has a date field, convert it to YYYY-MM-DD format for comparison
+          const dateObj = new Date(item.date);
+          if (!isNaN(dateObj.getTime())) {
+            const year = dateObj.getFullYear();
+            const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+            const day = String(dateObj.getDate()).padStart(2, '0');
+            itemDayKey = `${year}-${month}-${day}`;
+          }
+        }
+        
+        const key = `${itemDayKey}-${slot.start}-${slot.end}`;
         return !bookedSlots.has(key);
       });
       
@@ -183,6 +218,10 @@ router.get(
         // If it has a specific date, check if it's in the past
         if (item.date) {
           const itemDate = new Date(item.date);
+          // Validate that the date is valid before using it
+          if (isNaN(itemDate.getTime())) {
+            return false; // Invalid date, filter it out
+          }
           itemDate.setHours(0, 0, 0, 0);
           return itemDate >= today; // Keep if today or future
         }

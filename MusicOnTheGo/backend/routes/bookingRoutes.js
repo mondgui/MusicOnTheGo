@@ -114,11 +114,29 @@ router.put(
         return res.status(403).json({ message: "Unauthorized teacher." });
       }
 
-      booking.status = status;
-      await booking.save();
-
-      // If approving a booking, automatically reject all other pending bookings for the same time slot
+      // If approving a booking, we need to atomically:
+      // 1. Check that no other booking was approved for this slot
+      // 2. Reject all other pending bookings for the same slot
+      // 3. Save the current booking as approved
+      // To minimize race conditions, we do the rejection first, then save
       if (status === "approved") {
+        // First, check if another booking was just approved for this slot (race condition check)
+        const conflictingApproved = await Booking.findOne({
+          _id: { $ne: booking._id },
+          teacher: booking.teacher,
+          day: booking.day,
+          "timeSlot.start": booking.timeSlot.start,
+          "timeSlot.end": booking.timeSlot.end,
+          status: "approved",
+        });
+
+        if (conflictingApproved) {
+          return res.status(409).json({
+            message: "This time slot was just booked by another student. Please refresh and try again.",
+          });
+        }
+
+        // Reject all other pending bookings for the same time slot atomically
         await Booking.updateMany(
           {
             _id: { $ne: booking._id }, // Exclude the just-approved booking
@@ -133,6 +151,9 @@ router.put(
           }
         );
       }
+
+      booking.status = status;
+      await booking.save();
 
       res.json(booking);
     } catch (err) {

@@ -217,9 +217,10 @@ router.post("/reset-password", async (req, res) => {
     const hashedPassword = await bcrypt.hash(newPassword, 10);
 
     // Update password and clear reset token
+    // Use a past date instead of undefined to ensure the field is properly cleared
     user.password = hashedPassword;
     user.resetPasswordToken = "";
-    user.resetPasswordExpires = undefined;
+    user.resetPasswordExpires = new Date(0); // Set to epoch (Jan 1, 1970) to ensure it's always expired
     await user.save();
 
     // Send confirmation email
