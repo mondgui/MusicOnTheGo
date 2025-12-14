@@ -3,7 +3,7 @@ import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
+  FlatList,
   TouchableOpacity,
   TextInput,
   KeyboardAvoidingView,
@@ -29,7 +29,7 @@ type Message = {
 export default function ChatScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
-  const scrollViewRef = useRef<ScrollView>(null);
+  const flatListRef = useRef<FlatList>(null);
   
   const contactId = params.id as string;
   const contactName = params.contactName as string || "Contact";
@@ -127,11 +127,6 @@ export default function ChatScreen() {
 
     setMessages((prev) => [...prev, tempMessage]);
 
-    // Scroll to bottom
-    setTimeout(() => {
-      scrollViewRef.current?.scrollToEnd({ animated: true });
-    }, 100);
-
     try {
       // Send message to backend
       const savedMessage = await api("/api/messages", {
@@ -216,25 +211,22 @@ export default function ChatScreen() {
         </Text>
       </View>
 
-      {/* Messages */}
-      <ScrollView
-        ref={scrollViewRef}
-        style={styles.messagesContainer}
-        contentContainerStyle={styles.messagesContent}
-        onContentSizeChange={() => scrollViewRef.current?.scrollToEnd({ animated: true })}
-      >
-        {messages.length === 0 ? (
-          <View style={styles.emptyState}>
-            <Ionicons name="chatbubbles-outline" size={64} color="#CCC" />
-            <Text style={styles.emptyText}>No messages yet</Text>
-            <Text style={styles.emptySubtext}>
-              Start the conversation by sending a message
-            </Text>
-          </View>
-        ) : (
-          messages.map((msg) => (
+      {/* Messages - Optimized with FlatList */}
+      {messages.length === 0 ? (
+        <View style={[styles.messagesContainer, styles.emptyState]}>
+          <Ionicons name="chatbubbles-outline" size={64} color="#CCC" />
+          <Text style={styles.emptyText}>No messages yet</Text>
+          <Text style={styles.emptySubtext}>
+            Start the conversation by sending a message
+          </Text>
+        </View>
+      ) : (
+        <FlatList
+          ref={flatListRef}
+          data={messages}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item: msg }) => (
             <View
-              key={msg.id}
               style={[
                 styles.messageBubble,
                 msg.isOwn ? styles.ownMessage : styles.otherMessage,
@@ -268,9 +260,26 @@ export default function ChatScreen() {
                 {formatTime(msg.timestamp)}
               </Text>
             </View>
-          ))
-        )}
-      </ScrollView>
+          )}
+          style={styles.messagesContainer}
+          contentContainerStyle={styles.messagesContent}
+          inverted={false} // Don't invert - we want newest at bottom
+          // Performance optimizations
+          removeClippedSubviews={true}
+          maxToRenderPerBatch={15}
+          windowSize={10}
+          initialNumToRender={15}
+          maintainVisibleContentPosition={{
+            minIndexForVisible: 0,
+          }}
+          onContentSizeChange={() => {
+            // Auto-scroll to bottom when new messages arrive
+            if (messages.length > 0) {
+              flatListRef.current?.scrollToEnd({ animated: true });
+            }
+          }}
+        />
+      )}
 
       {/* Input Area */}
       <View style={styles.inputContainer}>
