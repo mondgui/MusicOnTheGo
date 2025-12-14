@@ -207,21 +207,6 @@ export default function CommunityScreen() {
             : p
         )
       );
-    } catch (error) {
-      // Rollback optimistic update on error
-      setPosts((prevPosts) =>
-        prevPosts.map((p) =>
-          p._id === postId
-            ? {
-                ...p,
-                isLiked: wasLiked,
-                likeCount: previousLikeCount,
-              }
-            : p
-        )
-      );
-      alert("Failed to like post. Please try again.");
-    }
 
       // Update in specific tab lists
       if (activeTab === "all") {
@@ -237,9 +222,60 @@ export default function CommunityScreen() {
               : post
           )
         );
+      } else if (activeTab === "students") {
+        setStudentPosts((prev) =>
+          prev.map((post) =>
+            post._id === postId
+              ? {
+                  ...post,
+                  isLiked: response.isLiked,
+                  likeCount: response.likeCount,
+                  likes: response.likes,
+                }
+              : post
+          )
+        );
+      } else if (activeTab === "teachers") {
+        setTeacherPosts((prev) =>
+          prev.map((post) =>
+            post._id === postId
+              ? {
+                  ...post,
+                  isLiked: response.isLiked,
+                  likeCount: response.likeCount,
+                  likes: response.likes,
+                }
+              : post
+          )
+        );
+      } else if (activeTab === "myPosts") {
+        setMyPosts((prev) =>
+          prev.map((post) =>
+            post._id === postId
+              ? {
+                  ...post,
+                  isLiked: response.isLiked,
+                  likeCount: response.likeCount,
+                  likes: response.likes,
+                }
+              : post
+          )
+        );
       }
     } catch (error: any) {
-      Alert.alert("Error", error.message || "Failed to like post");
+      // Rollback optimistic update on error
+      setPosts((prevPosts) =>
+        prevPosts.map((p) =>
+          p._id === postId
+            ? {
+                ...p,
+                isLiked: wasLiked,
+                likeCount: previousLikeCount,
+              }
+            : p
+        )
+      );
+      alert("Failed to like post. Please try again.");
     }
   };
 
