@@ -107,9 +107,16 @@ export async function api(path: string, init: ApiInit = {}) {
   // Remove params from init before passing to fetch (not a valid RequestInit property)
   const { params, ...fetchInit } = init;
 
+  // Stringify JSON body if it's an object and Content-Type is application/json
+  let body = fetchInit.body;
+  if (!isFormData && body && typeof body === 'object' && headers['Content-Type'] === 'application/json') {
+    body = JSON.stringify(body);
+  }
+
   try {
     const response = await fetch(url, {
       ...fetchInit,
+      body,
       headers,
     });
 

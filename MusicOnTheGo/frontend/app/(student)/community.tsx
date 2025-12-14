@@ -280,13 +280,23 @@ export default function CommunityScreen() {
   };
 
   const handleAddComment = async () => {
-    if (!selectedPost || !commentText.trim()) return;
+    if (!selectedPost || !commentText.trim()) {
+      Alert.alert("Error", "Please enter a comment");
+      return;
+    }
+
+    const trimmedText = commentText.trim();
+    console.log("[Community] Adding comment:", {
+      postId: selectedPost._id,
+      commentText: trimmedText,
+      length: trimmedText.length,
+    });
 
     try {
       const response = await api(`/api/community/${selectedPost._id}/comment`, {
         method: "POST",
         auth: true,
-        body: { text: commentText },
+        body: { text: trimmedText },
       });
 
       // Update the post
@@ -296,9 +306,37 @@ export default function CommunityScreen() {
         )
       );
 
+      // Update tab-specific lists
+      if (activeTab === "all") {
+        setAllPosts((prev) =>
+          prev.map((post) =>
+            post._id === selectedPost._id ? response : post
+          )
+        );
+      } else if (activeTab === "students") {
+        setStudentPosts((prev) =>
+          prev.map((post) =>
+            post._id === selectedPost._id ? response : post
+          )
+        );
+      } else if (activeTab === "teachers") {
+        setTeacherPosts((prev) =>
+          prev.map((post) =>
+            post._id === selectedPost._id ? response : post
+          )
+        );
+      } else if (activeTab === "myPosts") {
+        setMyPosts((prev) =>
+          prev.map((post) =>
+            post._id === selectedPost._id ? response : post
+          )
+        );
+      }
+
       setCommentText("");
       setSelectedPost(response);
     } catch (error: any) {
+      console.error("[Community] Error adding comment:", error);
       Alert.alert("Error", error.message || "Failed to add comment");
     }
   };
