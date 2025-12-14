@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -12,12 +12,14 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useFocusEffect } from "expo-router";
 import { useCallback } from "react";
 import { api } from "../lib/api";
+import { initSocket, getSocket } from "../lib/socket";
 import { Card } from "../components/ui/card";
 import { Input } from "../components/ui/input";
 import { Avatar, AvatarImage, AvatarFallback } from "../components/ui/avatar";
 import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
+import type { Socket } from "socket.io-client";
 
 type Contact = {
   id: string;
@@ -63,12 +65,15 @@ export default function MessagesScreen() {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [inquiries, setInquiries] = useState<Inquiry[]>([]);
   const [inquiriesLoading, setInquiriesLoading] = useState(false);
+  const [socket, setSocket] = useState<Socket | null>(null);
+  const currentUserIdRef = useRef<string | null>(null);
 
   // Function to load contacts from bookings and messages
   const loadContacts = useCallback(async () => {
     try {
       const user = await api("/api/users/me", { auth: true });
       setUserRole(user.role);
+      currentUserIdRef.current = user._id || user.id;
       
       const contactsMap = new Map<string, Contact>();
       
@@ -194,6 +199,143 @@ export default function MessagesScreen() {
     } finally {
       setLoading(false);
     }
+  }, []);
+
+  // Initialize Socket.io connection for real-time updates
+  useEffect(() => {
+    let mounted = true;
+    let socketInstance: Socket | null = null;
+
+    async function setupSocket() {
+      try {
+        socketInstance = await initSocket();
+        if (socketInstance && mounted) {
+          setSocket(socketInstance);
+
+          // Remove any existing listeners to avoid duplicates
+          socketInstance.removeAllListeners("message-notification");
+          socketInstance.removeAllListeners("new-message");
+
+          // Listen for message notifications (includes unread count)
+          socketInstance.on("message-notification", (data: any) => {
+            if (mounted && data && data.message) {
+              const message = data.message;
+              const senderId = message.sender?._id || message.sender || "";
+              const unreadCount = data.unreadCount || 0;
+
+              // Update the contact in the list
+              setContacts((prevContacts) => {
+                const updated = prevContacts.map((contact) => {
+                  // If this message is from this contact
+                  if (contact.id === senderId) {
+                    return {
+                      ...contact,
+                      lastMessage: message.text || contact.lastMessage,
+                      timestamp: message.createdAt || contact.timestamp,
+                      unread: unreadCount,
+                    };
+                  }
+                  return contact;
+                });
+
+                // If contact doesn't exist in list, we might need to reload
+                // But for now, just update existing ones
+                const contactExists = updated.some((c) => c.id === senderId);
+                if (!contactExists) {
+                  // Contact not in list, reload to get it
+                  setTimeout(() => {
+                    if (mounted) loadContacts();
+                  }, 500);
+                }
+
+                // Sort by timestamp (most recent first)
+                return updated.sort((a, b) => {
+                  const timeA = new Date(a.timestamp).getTime();
+                  const timeB = new Date(b.timestamp).getTime();
+                  return timeB - timeA;
+                });
+              });
+
+              console.log("[Messages] Updated unread count for:", senderId, "unread:", unreadCount);
+            }
+          });
+
+          // Also listen for new-message events (for both sender and recipient)
+          socketInstance.on("new-message", (newMessage: any) => {
+            if (mounted && newMessage) {
+              const senderId = newMessage.sender?._id || newMessage.sender || "";
+              const recipientId = newMessage.recipient?._id || newMessage.recipient || "";
+              const currentUserId = currentUserIdRef.current;
+
+              setContacts((prevContacts) => {
+                let updated = [...prevContacts];
+                let needsSort = false;
+
+                // Update recipient's conversation (if current user is the sender)
+                if (senderId && currentUserId && String(senderId) === String(currentUserId) && recipientId) {
+                  updated = updated.map((contact) => {
+                    if (contact.id === recipientId) {
+                      needsSort = true;
+                      return {
+                        ...contact,
+                        lastMessage: newMessage.text || contact.lastMessage,
+                        timestamp: newMessage.createdAt || contact.timestamp,
+                        // Don't increment unread for messages you sent
+                      };
+                    }
+                    return contact;
+                  });
+                }
+
+                // Update sender's conversation (if current user is the recipient)
+                if (senderId && currentUserId && String(senderId) !== String(currentUserId) && recipientId === currentUserId) {
+                  updated = updated.map((contact) => {
+                    if (contact.id === senderId) {
+                      needsSort = true;
+                      return {
+                        ...contact,
+                        lastMessage: newMessage.text || contact.lastMessage,
+                        timestamp: newMessage.createdAt || contact.timestamp,
+                        unread: (contact.unread || 0) + 1, // Increment unread count
+                      };
+                    }
+                    return contact;
+                  });
+                }
+
+                // Sort by timestamp if any updates were made
+                if (needsSort) {
+                  return updated.sort((a, b) => {
+                    const timeA = new Date(a.timestamp).getTime();
+                    const timeB = new Date(b.timestamp).getTime();
+                    return timeB - timeA;
+                  });
+                }
+
+                return updated;
+              });
+            }
+          });
+
+          socketInstance.on("error", (error: any) => {
+            console.error("[Messages] Socket error:", error);
+          });
+        }
+      } catch (error) {
+        console.error("[Messages] Failed to initialize socket:", error);
+      }
+    }
+
+    setupSocket();
+
+    return () => {
+      mounted = false;
+      if (socketInstance) {
+        socketInstance.removeAllListeners("message-notification");
+        socketInstance.removeAllListeners("new-message");
+        socketInstance.removeAllListeners("error");
+      }
+    };
   }, []);
 
   // Load user role and contacts

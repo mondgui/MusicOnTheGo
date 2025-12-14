@@ -2,6 +2,7 @@
 
 // frontend/lib/auth.ts
 import { storage } from "./storage";
+import { disconnectSocket } from "./socket";
 
 const TOKEN_KEY = "token";
 const USER_KEY = "user";
@@ -15,6 +16,8 @@ export type AuthUser = {
 
 // Save token + user after login / register
 export async function saveAuth(token: string, user: AuthUser) {
+  // Disconnect existing socket to force reconnection with new token
+  disconnectSocket();
   await storage.setItem(TOKEN_KEY, token);
   await storage.setItem(USER_KEY, JSON.stringify(user));
 }
@@ -37,6 +40,8 @@ export async function getStoredUser(): Promise<AuthUser | null> {
 
 // Clear everything on logout
 export async function clearAuth() {
+  // Disconnect socket on logout
+  disconnectSocket();
   await storage.removeItem(TOKEN_KEY);
   await storage.removeItem(USER_KEY);
 }

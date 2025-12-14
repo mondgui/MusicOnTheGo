@@ -178,33 +178,16 @@ export default function LessonsTab() {
   );
 
   const isUpcoming = (booking: TransformedBooking): boolean => {
-    // Use originalDate if available, otherwise try to parse display date
-    const dateString = booking.originalDate || booking.date;
-    try {
-      // Check if it's a day name
-      const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-      let bookingDate: Date;
-      
-      if (dayNames.includes(dateString)) {
-        // Convert day name to next occurrence date
-        const date = dayNameToDate(dateString);
-        if (!date) return false;
-        bookingDate = date;
-      } else {
-        // Try to parse as date string
-        bookingDate = new Date(dateString);
-        if (isNaN(bookingDate.getTime())) return false;
-      }
-      
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      bookingDate.setHours(0, 0, 0, 0);
-      
-      // Upcoming if date is today or in the future, and status is not Completed
-      return bookingDate >= today && booking.status !== "Completed";
-    } catch {
-      return false;
-    }
+    // Use the same parseBookingDate function to ensure consistency
+    const bookingDate = parseBookingDate(booking);
+    if (!bookingDate) return false;
+    
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    bookingDate.setHours(0, 0, 0, 0);
+    
+    // Upcoming if date is today or in the future, and status is not Completed
+    return bookingDate >= today && booking.status !== "Completed";
   };
 
   // Helper function to parse booking date
@@ -237,7 +220,16 @@ export default function LessonsTab() {
   // Helper function to categorize upcoming booking by time period
   const getUpcomingTimePeriod = (booking: TransformedBooking): string | null => {
     const bookingDate = parseBookingDate(booking);
-    if (!bookingDate) return null;
+    if (!bookingDate) {
+      if (__DEV__) {
+        console.log("[Student Lessons] ❌ Could not parse booking date:", {
+          bookingId: booking.id,
+          originalDate: booking.originalDate,
+          displayDate: booking.date,
+        });
+      }
+      return null;
+    }
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -257,9 +249,34 @@ export default function LessonsTab() {
     const bookingDateOnly = new Date(bookingDate);
     bookingDateOnly.setHours(0, 0, 0, 0);
 
-    if (bookingDateOnly.getTime() === today.getTime()) {
-      return "Today";
-    } else if (bookingDateOnly.getTime() === tomorrow.getTime()) {
+    const isToday = bookingDateOnly.getTime() === today.getTime();
+    const isTomorrow = bookingDateOnly.getTime() === tomorrow.getTime();
+
+    if (__DEV__) {
+      console.log("[Student Lessons] 🔍 Categorizing booking:", {
+        bookingId: booking.id,
+        originalDate: booking.originalDate,
+        displayDate: booking.date,
+        status: booking.status,
+        bookingDateISO: bookingDateOnly.toISOString().split('T')[0],
+        todayISO: today.toISOString().split('T')[0],
+        tomorrowISO: tomorrow.toISOString().split('T')[0],
+        bookingTime: bookingDateOnly.getTime(),
+        todayTime: today.getTime(),
+        tomorrowTime: tomorrow.getTime(),
+        isToday,
+        isTomorrow,
+        bookingDateOnly: bookingDateOnly.toString(),
+        today: today.toString(),
+      });
+    }
+
+    if (isToday) {
+      if (__DEV__) {
+        console.log("[Student Lessons] ✅ Returning 'Today's Schedule' for booking:", booking.id);
+      }
+      return "Today's Schedule";
+    } else if (isTomorrow) {
       return "Tomorrow";
     } else if (bookingDateOnly < endOfThisWeek) {
       return "This Week";
@@ -322,14 +339,23 @@ export default function LessonsTab() {
   const upcomingBookings = bookings.filter(isUpcoming);
   const pastBookings = bookings.filter((b) => !isUpcoming(b));
 
-  // Separate pending bookings (show first in upcoming)
+  // Separate pending and confirmed bookings
   const pendingUpcoming = upcomingBookings.filter(b => b.status === "Pending");
   const confirmedUpcoming = upcomingBookings.filter(b => b.status === "Confirmed");
   const confirmedPast = pastBookings.filter(b => b.status === "Confirmed");
 
-  // Group confirmed upcoming bookings by time period
-  const groupedUpcoming = confirmedUpcoming.reduce((groups, booking) => {
+  // Group ALL upcoming bookings (both pending and confirmed) by time period
+  // This ensures "Today" section appears for both pending and confirmed bookings
+  const groupedUpcoming = upcomingBookings.reduce((groups, booking) => {
     const period = getUpcomingTimePeriod(booking);
+    if (__DEV__) {
+      console.log("[Student Lessons] Grouping booking:", {
+        bookingId: booking.id,
+        originalDate: booking.originalDate,
+        status: booking.status,
+        period,
+      });
+    }
     if (!period) return groups;
     if (!groups[period]) {
       groups[period] = [];
@@ -337,6 +363,17 @@ export default function LessonsTab() {
     groups[period].push(booking);
     return groups;
   }, {} as Record<string, TransformedBooking[]>);
+
+  if (__DEV__) {
+    console.log("[Student Lessons] 📊 Grouping summary:", {
+      totalUpcoming: upcomingBookings.length,
+      pendingCount: pendingUpcoming.length,
+      confirmedCount: confirmedUpcoming.length,
+      groups: Object.keys(groupedUpcoming),
+      todayCount: groupedUpcoming["Today"]?.length || 0,
+      thisWeekCount: groupedUpcoming["This Week"]?.length || 0,
+    });
+  }
 
   // Group confirmed past bookings by time period
   const groupedPast = confirmedPast.reduce((groups, booking) => {
@@ -350,7 +387,7 @@ export default function LessonsTab() {
   }, {} as Record<string, TransformedBooking[]>);
 
   // Sort upcoming groups
-  const upcomingGroupOrder = ["Today", "Tomorrow", "This Week", "This Month"];
+  const upcomingGroupOrder = ["Today's Schedule", "Tomorrow", "This Week", "This Month"];
   const sortedUpcomingKeys = Object.keys(groupedUpcoming).sort((a, b) => {
     const aIndex = upcomingGroupOrder.indexOf(a);
     const bIndex = upcomingGroupOrder.indexOf(b);
@@ -463,23 +500,26 @@ export default function LessonsTab() {
           <TabsContent value="upcoming">
             {upcomingBookings.length > 0 ? (
               <ScrollView style={styles.bookingsList} showsVerticalScrollIndicator={false}>
-                {/* Pending Bookings Section */}
-                {pendingUpcoming.length > 0 && (
-                  <>
-                    <Text style={styles.groupHeader}>Pending</Text>
-                    {pendingUpcoming.map(renderBooking)}
-                  </>
-                )}
+                {/* All Upcoming Bookings grouped by Time Period (includes both Pending and Confirmed) */}
+                {sortedUpcomingKeys.map((groupKey) => {
+                  const groupBookings = groupedUpcoming[groupKey];
+                  if (!groupBookings || groupBookings.length === 0) return null;
+                  
+                  // Separate pending and confirmed within each group
+                  const pendingInGroup = groupBookings.filter(b => b.status === "Pending");
+                  const confirmedInGroup = groupBookings.filter(b => b.status === "Confirmed");
+                  
+                  return (
+                    <View key={groupKey} style={styles.groupSection}>
+                      <Text style={styles.groupHeader}>{groupKey}</Text>
+                      {/* Show pending first, then confirmed */}
+                      {pendingInGroup.map(renderBooking)}
+                      {confirmedInGroup.map(renderBooking)}
+                    </View>
+                  );
+                })}
 
-                {/* Confirmed Upcoming Bookings by Time Period */}
-                {sortedUpcomingKeys.map((groupKey) => (
-                  <View key={groupKey} style={styles.groupSection}>
-                    <Text style={styles.groupHeader}>{groupKey}</Text>
-                    {groupedUpcoming[groupKey].map(renderBooking)}
-                  </View>
-                ))}
-
-                {pendingUpcoming.length === 0 && sortedUpcomingKeys.length === 0 && (
+                {sortedUpcomingKeys.length === 0 && (
                   <Card style={styles.emptyCard}>
                     <Text style={styles.emptyText}>No upcoming bookings</Text>
                   </Card>
