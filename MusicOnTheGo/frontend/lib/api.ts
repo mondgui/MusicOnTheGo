@@ -22,6 +22,7 @@ const BASE_URL =
 type ApiInit = RequestInit & {
   headers?: HeadersInit;
   auth?: boolean; // when true → automatically attach JWT token
+  params?: Record<string, string>; // query parameters for GET requests
 };
 
 // --------------------------------------------
@@ -64,12 +65,26 @@ async function getToken() {
 // Main API function
 // --------------------------------------------
 export async function api(path: string, init: ApiInit = {}) {
-  const url = `${BASE_URL}${path.startsWith("/") ? path : `/${path}`}`;
+  let url = `${BASE_URL}${path.startsWith("/") ? path : `/${path}`}`;
+  
+  // Add query parameters if provided
+  if (init.params && Object.keys(init.params).length > 0) {
+    const searchParams = new URLSearchParams();
+    Object.entries(init.params).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== "") {
+        searchParams.append(key, String(value));
+      }
+    });
+    const queryString = searchParams.toString();
+    if (queryString) {
+      url += `?${queryString}`;
+    }
+  }
 
-  // Debug logging (only in development)
+  // Debug logging disabled - uncomment if needed for troubleshooting
   // if (__DEV__) {
-  //  console.log(`[API] ${init.method || 'GET'} ${url}`);
-  //}
+  //   console.log(`[API] ${init.method || 'GET'} ${url}`);
+  // }
 
   // Normalize headers first
   const headers: Record<string, string> = {
@@ -82,15 +97,19 @@ export async function api(path: string, init: ApiInit = {}) {
     headers["Content-Type"] = "application/json";
   }
 
-  // Attach JWT token if requested
-  if (init.auth) {
+  // Attach JWT token (default to true for authenticated requests)
+  // Only skip if explicitly set to false
+  if (init.auth !== false) {
     const token = await getToken();
     if (token) headers.Authorization = `Bearer ${token}`;
   }
+  
+  // Remove params from init before passing to fetch (not a valid RequestInit property)
+  const { params, ...fetchInit } = init;
 
   try {
     const response = await fetch(url, {
-      ...init,
+      ...fetchInit,
       headers,
     });
 

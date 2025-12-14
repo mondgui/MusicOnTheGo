@@ -14,6 +14,9 @@ import teacherRoutes from "./routes/teacherRoutes.js";
 import practiceRoutes from "./routes/practiceRoutes.js";
 import messageRoutes from "./routes/messageRoutes.js";
 import uploadRoutes from "./routes/uploadRoutes.js";
+import resourceRoutes from "./routes/resourceRoutes.js";
+import challengeRoutes from "./routes/challengeRoutes.js";
+import communityRoutes from "./routes/communityRoutes.js";
 
 const app = express();
 
@@ -32,10 +35,18 @@ app.use("/api/teachers", teacherRoutes);
 app.use("/api/practice", practiceRoutes);
 app.use("/api/messages", messageRoutes);
 app.use("/api/uploads", uploadRoutes);
+app.use("/api/resources", resourceRoutes);
+app.use("/api/challenges", challengeRoutes);
+app.use("/api/community", communityRoutes);
 
 
 
 
+
+// Health check route
+app.get("/api/health", (req, res) => {
+  res.json({ status: "ok", message: "Backend server is running" });
+});
 
 // Basic route
 app.get("/", (req, res) => {

@@ -476,11 +476,20 @@ function HomeTabContent({
         <Card
           style={styles.quickAccessCard}
           onPress={() => {
-            router.push("/(student)/resources");
+            router.push("/(teacher)/resources");
           }}
         >
           <Ionicons name="book-outline" size={20} color="#FF9076" />
           <Text style={styles.quickAccessText}>Resources</Text>
+        </Card>
+        <Card
+          style={styles.quickAccessCard}
+          onPress={() => {
+            router.push("/(teacher)/community");
+          }}
+        >
+          <Ionicons name="people-circle-outline" size={20} color="#10B981" />
+          <Text style={styles.quickAccessText}>Community</Text>
         </Card>
         <Card
           style={styles.quickAccessCard}

@@ -94,6 +94,16 @@ export default function HomeTab({ teachers, loading }: HomeTabProps) {
         <Card
           style={styles.quickAccessCard}
           onPress={() => {
+            router.push("/(student)/community");
+          }}
+        >
+          <Ionicons name="people-outline" size={20} color="#10B981" />
+          <Text style={styles.quickAccessText}>Community</Text>
+        </Card>
+
+        <Card
+          style={styles.quickAccessCard}
+          onPress={() => {
             router.push("/(student)/practice-tools");
           }}
         >
