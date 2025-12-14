@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
+  FlatList,
   TouchableOpacity,
   Alert,
   ActivityIndicator,
@@ -444,6 +445,109 @@ export default function CommunityScreen() {
     setSelectedMediaFile(null);
   };
 
+  // Key extractor for FlatList
+  const keyExtractor = useCallback((item: CommunityPost) => item._id, []);
+
+  // Get item layout for better FlatList performance (approximate post height: 500px)
+  const getItemLayout = useCallback(
+    (_: any, index: number) => ({
+      length: 500,
+      offset: 500 * index,
+      index,
+    }),
+    []
+  );
+
+  // Empty components for FlatList
+  const renderEmptyAll = useCallback(
+    () => (
+      <Card style={styles.emptyCard}>
+        <Ionicons name="people-outline" size={48} color="#999" />
+        <Text style={styles.emptyText}>No posts yet</Text>
+        <Text style={styles.emptySubtext}>Be the first to share your music!</Text>
+      </Card>
+    ),
+    []
+  );
+
+  const renderEmptyStudents = useCallback(
+    () => (
+      <Card style={styles.emptyCard}>
+        <Ionicons name="school-outline" size={48} color="#999" />
+        <Text style={styles.emptyText}>No student posts</Text>
+        <Text style={styles.emptySubtext}>Students haven't shared anything yet</Text>
+      </Card>
+    ),
+    []
+  );
+
+  const renderEmptyTeachers = useCallback(
+    () => (
+      <Card style={styles.emptyCard}>
+        <Ionicons name="person-outline" size={48} color="#999" />
+        <Text style={styles.emptyText}>No teacher posts</Text>
+        <Text style={styles.emptySubtext}>Teachers haven't shared anything yet</Text>
+      </Card>
+    ),
+    []
+  );
+
+  const renderEmptyMyPosts = useCallback(
+    () => (
+      <Card style={styles.emptyCard}>
+        <Ionicons name="add-circle-outline" size={48} color="#999" />
+        <Text style={styles.emptyText}>No posts yet</Text>
+        <Text style={styles.emptySubtext}>Share your music with the community!</Text>
+      </Card>
+    ),
+    []
+  );
+
+  // List header component with filters and tabs
+  const renderListHeader = useCallback(
+    () => (
+      <>
+        {/* Filter Chips */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.filterScroll}
+        >
+          {INSTRUMENT_OPTIONS.map((inst) => (
+            <TouchableOpacity
+              key={inst}
+              style={[
+                styles.filterChip,
+                selectedInstrument === inst && styles.filterChipActive,
+              ]}
+              onPress={() => setSelectedInstrument(inst)}
+            >
+              <Text
+                style={[
+                  styles.filterChipText,
+                  selectedInstrument === inst && styles.filterChipTextActive,
+                ]}
+              >
+                {inst}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+
+        {/* Main Tabs */}
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)}>
+          <TabsList style={styles.tabsList}>
+            <TabsTrigger value="all">All</TabsTrigger>
+            <TabsTrigger value="students">Students</TabsTrigger>
+            <TabsTrigger value="teachers">Teachers</TabsTrigger>
+            <TabsTrigger value="myPosts">My Posts</TabsTrigger>
+          </TabsList>
+        </Tabs>
+      </>
+    ),
+    [activeTab, selectedInstrument]
+  );
+
   const formatDate = (dateString: string): string => {
     try {
       const date = new Date(dateString);
@@ -463,7 +567,8 @@ export default function CommunityScreen() {
     }
   };
 
-  const renderPost = (post: CommunityPost) => (
+  // Memoized render function for FlatList performance
+  const renderPost = useCallback(({ item: post }: { item: CommunityPost }) => (
     <Card key={post._id} style={styles.postCard}>
       {/* Post Header */}
       <View style={styles.postHeader}>
@@ -567,7 +672,7 @@ export default function CommunityScreen() {
         </TouchableOpacity>
       </View>
     </Card>
-  );
+  ), []);
 
   return (
     <View style={styles.container}>
@@ -586,8 +691,8 @@ export default function CommunityScreen() {
         </Text>
       </LinearGradient>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Filter Chips */}
+      {/* Filter Chips and Tabs - Fixed Header */}
+      <View style={styles.fixedHeader}>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -614,7 +719,6 @@ export default function CommunityScreen() {
           ))}
         </ScrollView>
 
-        {/* Main Tabs */}
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)}>
           <TabsList style={styles.tabsList}>
             <TabsTrigger value="all">All</TabsTrigger>
@@ -622,88 +726,42 @@ export default function CommunityScreen() {
             <TabsTrigger value="teachers">Teachers</TabsTrigger>
             <TabsTrigger value="myPosts">My Posts</TabsTrigger>
           </TabsList>
-
-          {/* All Posts */}
-          <TabsContent value="all">
-            {loading ? (
-              <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color="#FF6A5C" />
-                <Text style={styles.loadingText}>Loading...</Text>
-              </View>
-            ) : posts.length === 0 ? (
-              <Card style={styles.emptyCard}>
-                <Ionicons name="people-outline" size={48} color="#999" />
-                <Text style={styles.emptyText}>No posts yet</Text>
-                <Text style={styles.emptySubtext}>
-                  Be the first to share your music!
-                </Text>
-              </Card>
-            ) : (
-              posts.map(renderPost)
-            )}
-          </TabsContent>
-
-          {/* Student Posts */}
-          <TabsContent value="students">
-            {loading ? (
-              <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color="#FF6A5C" />
-                <Text style={styles.loadingText}>Loading...</Text>
-              </View>
-            ) : posts.length === 0 ? (
-              <Card style={styles.emptyCard}>
-                <Ionicons name="school-outline" size={48} color="#999" />
-                <Text style={styles.emptyText}>No student posts</Text>
-                <Text style={styles.emptySubtext}>
-                  Students haven't shared anything yet
-                </Text>
-              </Card>
-            ) : (
-              posts.map(renderPost)
-            )}
-          </TabsContent>
-
-          {/* Teacher Posts */}
-          <TabsContent value="teachers">
-            {loading ? (
-              <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color="#FF6A5C" />
-                <Text style={styles.loadingText}>Loading...</Text>
-              </View>
-            ) : posts.length === 0 ? (
-              <Card style={styles.emptyCard}>
-                <Ionicons name="person-outline" size={48} color="#999" />
-                <Text style={styles.emptyText}>No teacher posts</Text>
-                <Text style={styles.emptySubtext}>
-                  Teachers haven't shared anything yet
-                </Text>
-              </Card>
-            ) : (
-              posts.map(renderPost)
-            )}
-          </TabsContent>
-
-          {/* My Posts */}
-          <TabsContent value="myPosts">
-            {loading ? (
-              <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color="#FF6A5C" />
-                <Text style={styles.loadingText}>Loading...</Text>
-              </View>
-            ) : posts.length === 0 ? (
-              <Card style={styles.emptyCard}>
-                <Ionicons name="add-circle-outline" size={48} color="#999" />
-                <Text style={styles.emptyText}>No posts yet</Text>
-                <Text style={styles.emptySubtext}>
-                  Share your music with the community!
-                </Text>
-              </Card>
-            ) : (
-              posts.map(renderPost)
-            )}
-          </TabsContent>
         </Tabs>
-      </ScrollView>
+      </View>
+
+      {/* Optimized FlatList for Posts */}
+      {loading && posts.length === 0 ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#FF6A5C" />
+          <Text style={styles.loadingText}>Loading...</Text>
+        </View>
+      ) : (
+        <FlatList
+          data={posts}
+          renderItem={renderPost}
+          keyExtractor={keyExtractor}
+          getItemLayout={getItemLayout}
+          style={styles.content}
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+          // Performance optimizations
+          removeClippedSubviews={true}
+          maxToRenderPerBatch={10}
+          windowSize={10}
+          initialNumToRender={10}
+          updateCellsBatchingPeriod={50}
+          // Empty state
+          ListEmptyComponent={
+            activeTab === "all"
+              ? renderEmptyAll
+              : activeTab === "students"
+              ? renderEmptyStudents
+              : activeTab === "teachers"
+              ? renderEmptyTeachers
+              : renderEmptyMyPosts
+          }
+        />
+      )}
 
       {/* Create Post Button */}
       <TouchableOpacity
@@ -977,8 +1035,18 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
+    backgroundColor: "#FFF5F3",
+  },
+  fixedHeader: {
+    backgroundColor: "#FFF5F3",
     paddingHorizontal: 24,
     paddingTop: 24,
+    paddingBottom: 8,
+  },
+  listContent: {
+    paddingHorizontal: 24,
+    paddingTop: 8,
+    paddingBottom: 100, // Space for floating button
   },
   filterScroll: {
     marginBottom: 16,
