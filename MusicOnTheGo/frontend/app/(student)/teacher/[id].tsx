@@ -15,6 +15,8 @@ import { Avatar } from "@/components/ui/avatar";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { initSocket, getSocket } from "../../../lib/socket";
+import type { Socket } from "socket.io-client";
 
 type Teacher = {
   _id: string;
@@ -42,10 +44,28 @@ export default function TeacherProfileScreen() {
   const [loading, setLoading] = useState(true);
   const [availability, setAvailability] = useState<AvailabilitySlot[]>([]);
   const [loadingAvailability, setLoadingAvailability] = useState(false);
+  const [hasConversation, setHasConversation] = useState(false);
+  const [checkingConversation, setCheckingConversation] = useState(true);
 
   // Mock data for ratings/reviews (until backend supports it)
   const mockRating = 4.8;
   const mockReviews = 24;
+
+  // Check if conversation exists with this teacher
+  const checkConversation = useCallback(async () => {
+    if (!id) return;
+    try {
+      setCheckingConversation(true);
+      const messages = await api(`/api/messages/conversation/${id}`, { auth: true });
+      // If there are any messages, a conversation exists
+      setHasConversation(Array.isArray(messages) && messages.length > 0);
+    } catch (err: any) {
+      // If error or no messages, no conversation exists
+      setHasConversation(false);
+    } finally {
+      setCheckingConversation(false);
+    }
+  }, [id]);
 
   // Load teacher from backend
   useEffect(() => {
@@ -60,7 +80,8 @@ export default function TeacherProfileScreen() {
       }
     }
     fetchTeacher();
-  }, [id]);
+    checkConversation();
+  }, [id, checkConversation]);
 
   // Convert 24-hour format to 12-hour format with AM/PM
   const formatTime24To12 = (time24: string): string => {
@@ -143,11 +164,46 @@ export default function TeacherProfileScreen() {
     fetchAvailability();
   }, [fetchAvailability]);
 
-  // Refresh availability when screen comes into focus
+  // Initialize Socket.io for real-time availability updates
+  useEffect(() => {
+    let mounted = true;
+    let socketInstance: Socket | null = null;
+
+    async function setupSocket() {
+      try {
+        socketInstance = await initSocket();
+        if (socketInstance && mounted && id) {
+          // Listen for availability updates
+          socketInstance.on("availability-updated", () => {
+            if (mounted) {
+              console.log("[Teacher Profile] Availability updated");
+              fetchAvailability();
+            }
+          });
+        }
+      } catch (error) {
+        console.warn("[Teacher Profile] Socket setup failed (non-critical):", error);
+      }
+    }
+
+    if (id) {
+      setupSocket();
+    }
+
+    return () => {
+      mounted = false;
+      if (socketInstance) {
+        socketInstance.off("availability-updated");
+      }
+    };
+  }, [id, fetchAvailability]);
+
+  // Refresh availability and conversation status when screen comes into focus
   useFocusEffect(
     useCallback(() => {
       fetchAvailability();
-    }, [fetchAvailability])
+      checkConversation();
+    }, [fetchAvailability, checkConversation])
   );
 
   if (loading) {
@@ -194,10 +250,22 @@ export default function TeacherProfileScreen() {
   };
 
   const handleContact = () => {
-    router.push({
-      pathname: "/booking/contact-detail",
-      params: { teacherId: teacher?._id },
-    });
+    // Navigate to chat if conversation exists, otherwise to contact form
+    if (hasConversation) {
+      router.push({
+        pathname: "/chat/[id]",
+        params: { 
+          id: teacher?._id,
+          contactName: teacher?.name || "Teacher",
+          contactRole: "teacher"
+        },
+      });
+    } else {
+      router.push({
+        pathname: "/booking/contact-detail",
+        params: { teacherId: teacher?._id },
+      });
+    }
   };
 
   return (
@@ -262,10 +330,15 @@ export default function TeacherProfileScreen() {
           {/* About Section */}
           <Card style={styles.aboutCard}>
             <Text style={styles.cardTitle}>About</Text>
-            <Text style={styles.aboutText}>
-              {teacher?.about ||
-                `With over ${teacher?.experience || "years of"} experience, I specialize in teaching ${teacher?.instruments?.join(" and ") || "music"} to students of all levels. My approach focuses on building a strong foundation while keeping lessons engaging and fun. Whether you're a complete beginner or looking to refine your skills, I'll create a personalized learning plan to help you achieve your musical goals.`}
-            </Text>
+            {teacher?.about ? (
+              <Text style={styles.aboutText}>
+                {teacher.about}
+              </Text>
+            ) : (
+              <Text style={styles.noAboutText}>
+                This teacher hasn't added a bio yet.
+              </Text>
+            )}
           </Card>
 
           {/* Specialties */}
@@ -297,6 +370,22 @@ export default function TeacherProfileScreen() {
               <Text style={styles.noAvailabilityText}>
                 No availability set yet. Contact the teacher to schedule a lesson.
               </Text>
+            ) : !hasConversation ? (
+              <View style={styles.contactFirstContainer}>
+                <Ionicons name="chatbubble-ellipses-outline" size={48} color="#FF6A5C" style={{ marginBottom: 12 }} />
+                <Text style={styles.contactFirstTitle}>Contact Teacher First</Text>
+                <Text style={styles.contactFirstText}>
+                  Please contact the teacher before booking a lesson. This helps ensure you're a good fit and allows you to discuss your learning goals.
+                </Text>
+                <Button
+                  variant="primary"
+                  onPress={handleContact}
+                  style={styles.contactFirstButton}
+                >
+                  <Ionicons name="chatbubble-outline" size={20} color="white" style={{ marginRight: 8 }} />
+                  <Text style={styles.contactFirstButtonText}>Contact Teacher</Text>
+                </Button>
+              </View>
             ) : (
               <View style={styles.slotsGrid}>
                 {availability.map((slot, index) => (
@@ -316,12 +405,23 @@ export default function TeacherProfileScreen() {
           {/* Action Buttons */}
           <View style={styles.actionsRow}>
             <Button
-              variant="outline"
+              variant={hasConversation ? "outline" : "primary"}
               onPress={handleContact}
               style={styles.contactButton}
             >
-              <Ionicons name="chatbubble-outline" size={20} color="#FF6A5C" style={{ marginRight: 8 }} />
-              <Text style={styles.contactButtonText}>Contact Teacher</Text>
+              <Ionicons 
+                name={hasConversation ? "chatbubble-outline" : "chatbubble-ellipses-outline"} 
+                size={20} 
+                color={hasConversation ? "#FF6A5C" : "white"} 
+                style={{ marginRight: 8 }} 
+              />
+              <Text style={[
+                styles.contactButtonText, 
+                hasConversation && styles.contactButtonTextOutline,
+                { fontSize: 18, fontWeight: "700" }
+              ]}>
+                {hasConversation ? "Message Teacher" : "Contact Teacher"}
+              </Text>
             </Button>
           </View>
         </View>
@@ -445,6 +545,14 @@ const styles = StyleSheet.create({
     color: "#666",
     lineHeight: 20,
   },
+  noAboutText: {
+    fontSize: 14,
+    color: "#999",
+    lineHeight: 20,
+    fontStyle: "italic",
+    textAlign: "center",
+    paddingVertical: 8,
+  },
   badgesRow: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -496,14 +604,48 @@ const styles = StyleSheet.create({
   },
   contactButton: {
     width: "100%",
-    paddingVertical: 20,
+    minHeight: 56,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
   },
   contactButtonText: {
-    color: "#FF6A5C",
+    color: "white",
     fontSize: 18,
+    fontWeight: "700",
+  },
+  contactButtonTextOutline: {
+    color: "#FF6A5C",
+  },
+  contactFirstContainer: {
+    alignItems: "center",
+    paddingVertical: 24,
+    paddingHorizontal: 16,
+  },
+  contactFirstTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#333",
+    marginBottom: 8,
+    textAlign: "center",
+  },
+  contactFirstText: {
+    fontSize: 14,
+    color: "#666",
+    textAlign: "center",
+    lineHeight: 20,
+    marginBottom: 20,
+  },
+  contactFirstButton: {
+    width: "100%",
+    paddingVertical: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  contactFirstButtonText: {
+    color: "white",
+    fontSize: 16,
     fontWeight: "700",
   },
   loadingContainer: {

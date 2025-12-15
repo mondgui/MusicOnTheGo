@@ -39,6 +39,74 @@ export default function BookingConfirmationScreen() {
   const [selectedDate, setSelectedDate] = useState(selectedDay ? String(selectedDay) : "");
   const [selectedTime, setSelectedTime] = useState(preSelectedTime ? String(preSelectedTime) : "");
   const [loading, setLoading] = useState(false);
+  const [hasConversation, setHasConversation] = useState(false);
+  const [checkingConversation, setCheckingConversation] = useState(true);
+
+  // Check if conversation exists with this teacher
+  useEffect(() => {
+    const checkConversation = async () => {
+      if (!teacherId) return;
+      try {
+        setCheckingConversation(true);
+        const messages = await api(`/api/messages/conversation/${teacherId}`, { auth: true });
+        // If there are any messages, a conversation exists
+        setHasConversation(Array.isArray(messages) && messages.length > 0);
+        
+        // If no conversation exists, show alert and redirect
+        if (!Array.isArray(messages) || messages.length === 0) {
+          Alert.alert(
+            "Contact Required",
+            "Please contact the teacher first before booking a lesson. This helps ensure you're a good fit and allows you to discuss your learning goals.",
+            [
+              {
+                text: "Contact Teacher",
+                onPress: () => {
+                  router.replace({
+                    pathname: "/booking/contact-detail",
+                    params: { teacherId: String(teacherId) },
+                  });
+                },
+              },
+              {
+                text: "Go Back",
+                style: "cancel",
+                onPress: () => router.back(),
+              },
+            ]
+          );
+        }
+      } catch (err: any) {
+        // If error or no messages, no conversation exists
+        setHasConversation(false);
+        Alert.alert(
+          "Contact Required",
+          "Please contact the teacher first before booking a lesson. This helps ensure you're a good fit and allows you to discuss your learning goals.",
+          [
+            {
+              text: "Contact Teacher",
+              onPress: () => {
+                router.replace({
+                  pathname: "/booking/contact-detail",
+                  params: { teacherId: String(teacherId) },
+                });
+              },
+            },
+            {
+              text: "Go Back",
+              style: "cancel",
+              onPress: () => router.back(),
+            },
+          ]
+        );
+      } finally {
+        setCheckingConversation(false);
+      }
+    };
+
+    if (teacherId) {
+      checkConversation();
+    }
+  }, [teacherId]);
 
   // Fetch teacher data
   useEffect(() => {
@@ -103,6 +171,30 @@ export default function BookingConfirmationScreen() {
 
     if (!teacher) {
       Alert.alert("Error", "Teacher information not loaded");
+      return;
+    }
+
+    // Double-check conversation exists before allowing booking
+    if (!hasConversation) {
+      Alert.alert(
+        "Contact Required",
+        "Please contact the teacher first before booking a lesson. This helps ensure you're a good fit and allows you to discuss your learning goals.",
+        [
+          {
+            text: "Contact Teacher",
+            onPress: () => {
+              router.replace({
+                pathname: "/booking/contact-detail",
+                params: { teacherId: String(teacherId) },
+              });
+            },
+          },
+          {
+            text: "Cancel",
+            style: "cancel",
+          },
+        ]
+      );
       return;
     }
 
@@ -232,12 +324,56 @@ export default function BookingConfirmationScreen() {
     }
   };
 
-  if (!teacher) {
+  if (!teacher || checkingConversation) {
     return (
       <View style={styles.container}>
         <LinearGradient colors={["#FF9076", "#FF6A5C"]} style={styles.header}>
           <Text style={styles.loadingText}>Loading...</Text>
         </LinearGradient>
+      </View>
+    );
+  }
+
+  if (!hasConversation) {
+    return (
+      <View style={styles.container}>
+        <LinearGradient colors={["#FF9076", "#FF6A5C"]} style={styles.header}>
+          <TouchableOpacity
+            onPress={() => router.back()}
+            style={styles.backButton}
+          >
+            <Ionicons name="arrow-back" size={24} color="white" />
+            <Text style={styles.backButtonText}>Back</Text>
+          </TouchableOpacity>
+          <View style={styles.headerContent}>
+            <Text style={styles.headerTitle}>Contact Required</Text>
+            <Text style={styles.headerSubtitle}>
+              Please contact the teacher first
+            </Text>
+          </View>
+        </LinearGradient>
+        <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
+          <Card style={styles.contactRequiredCard}>
+            <Ionicons name="chatbubble-ellipses-outline" size={64} color="#FF6A5C" style={{ marginBottom: 16, alignSelf: "center" }} />
+            <Text style={styles.contactRequiredTitle}>Contact Teacher First</Text>
+            <Text style={styles.contactRequiredText}>
+              Before booking a lesson, please contact the teacher to discuss your learning goals and ensure you're a good fit. This helps create a better learning experience for both of you.
+            </Text>
+            <Button
+              variant="default"
+              onPress={() => {
+                router.replace({
+                  pathname: "/booking/contact-detail",
+                  params: { teacherId: String(teacherId) },
+                });
+              }}
+              style={styles.contactRequiredButton}
+            >
+              <Ionicons name="chatbubble-outline" size={20} color="white" style={{ marginRight: 8 }} />
+              <Text style={styles.contactRequiredButtonText}>Contact Teacher</Text>
+            </Button>
+          </Card>
+        </ScrollView>
       </View>
     );
   }
@@ -577,6 +713,37 @@ const styles = StyleSheet.create({
     color: "#999",
     textAlign: "center",
     lineHeight: 18,
+  },
+  contactRequiredCard: {
+    padding: 32,
+    alignItems: "center",
+    marginTop: 40,
+  },
+  contactRequiredTitle: {
+    fontSize: 22,
+    fontWeight: "700",
+    color: "#333",
+    marginBottom: 12,
+    textAlign: "center",
+  },
+  contactRequiredText: {
+    fontSize: 16,
+    color: "#666",
+    textAlign: "center",
+    lineHeight: 24,
+    marginBottom: 24,
+  },
+  contactRequiredButton: {
+    width: "100%",
+    paddingVertical: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  contactRequiredButtonText: {
+    color: "white",
+    fontSize: 16,
+    fontWeight: "700",
   },
 });
 

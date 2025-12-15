@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useMemo } from "react";
 import {
   View,
   Text,
@@ -8,11 +8,16 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "expo-router";
+import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import { Card } from "../../../../components/ui/card";
 import { Badge } from "../../../../components/ui/badge";
 import { Avatar } from "../../../../components/ui/avatar";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "../../../../components/ui/tabs";
+import { Button } from "../../../../components/ui/button";
 import { api } from "../../../../lib/api";
+import { initSocket, getSocket } from "../../../../lib/socket";
+import { useEffect } from "react";
+import type { Socket } from "socket.io-client";
 
 type BookingData = {
   _id: string;
@@ -47,8 +52,7 @@ type TransformedBooking = {
 };
 
 export default function LessonsTab() {
-  const [bookings, setBookings] = useState<TransformedBooking[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
 
   // Helper functions - defined before they're used
   // Convert day name to next occurrence date
@@ -85,7 +89,21 @@ export default function LessonsTab() {
         return dateString;
       }
       
-      // Try to parse as date
+      // Check if it's YYYY-MM-DD format (preferred format from backend)
+      // Parse as local date to avoid timezone issues
+      const yyyyMmDdPattern = /^(\d{4})-(\d{2})-(\d{2})$/;
+      if (yyyyMmDdPattern.test(dateString)) {
+        const [year, month, day] = dateString.split('-').map(Number);
+        const date = new Date(year, month - 1, day);
+        return date.toLocaleDateString("en-US", {
+          weekday: "long",
+          month: "long",
+          day: "numeric",
+          year: "numeric",
+        });
+      }
+      
+      // Try to parse as date string (fallback for other formats)
       const date = new Date(dateString);
       if (isNaN(date.getTime())) return dateString;
       return date.toLocaleDateString("en-US", {
@@ -152,29 +170,104 @@ export default function LessonsTab() {
     });
   };
 
-  const loadBookings = useCallback(async () => {
-    try {
-      setLoading(true);
-      const data = await api("/api/bookings/student/me", { auth: true });
-      const transformed = transformBookings(data);
-      setBookings(transformed);
-    } catch (err) {
-      console.error("Failed to load bookings", err);
-      setBookings([]);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  // Bookings query with infinite pagination
+  const {
+    data: bookingsData,
+    fetchNextPage,
+    hasNextPage,
+    isFetching,
+    isFetchingNextPage,
+    refetch,
+  } = useInfiniteQuery({
+    queryKey: ["student-bookings"],
+    queryFn: async ({ pageParam = 1 }) => {
+      const params: Record<string, string> = {
+        page: pageParam.toString(),
+        limit: "20",
+      };
 
+      const response = await api("/api/bookings/student/me", {
+        auth: true,
+        params,
+      });
+
+      const bookingsData = response.bookings || response || [];
+      const pagination = response.pagination;
+      const transformed = transformBookings(Array.isArray(bookingsData) ? bookingsData : []);
+
+      return {
+        bookings: transformed,
+        pagination: pagination || { hasMore: transformed.length >= 20 },
+        nextPage: pagination?.hasMore ? pageParam + 1 : undefined,
+      };
+    },
+    getNextPageParam: (lastPage) => lastPage.nextPage,
+    initialPageParam: 1,
+  });
+
+  // Flatten all pages into a single array
+  const bookings = useMemo(() => {
+    return bookingsData?.pages.flatMap((page) => page.bookings) || [];
+  }, [bookingsData]);
+
+  const loadMoreBookings = () => {
+    if (hasNextPage && !isFetchingNextPage) {
+      fetchNextPage();
+    }
+  };
+
+  // Initialize Socket.io for real-time booking updates
   useEffect(() => {
-    loadBookings();
-  }, [loadBookings]);
+    let mounted = true;
+    let socketInstance: Socket | null = null;
+
+    async function setupSocket() {
+      try {
+        socketInstance = await initSocket();
+        if (socketInstance && mounted) {
+          // Join student bookings room
+          socketInstance.emit("join-student-bookings");
+
+          // Listen for booking status changes
+          socketInstance.on("booking-status-changed", () => {
+            if (mounted) {
+              console.log("[Student Lessons] Booking status changed");
+              queryClient.invalidateQueries({ queryKey: ["student-bookings"] });
+              refetch();
+            }
+          });
+
+          // Listen for booking updates
+          socketInstance.on("booking-updated", () => {
+            if (mounted) {
+              console.log("[Student Lessons] Booking updated");
+              queryClient.invalidateQueries({ queryKey: ["student-bookings"] });
+              refetch();
+            }
+          });
+        }
+      } catch (error) {
+        console.warn("[Student Lessons] Socket setup failed (non-critical):", error);
+      }
+    }
+
+    setupSocket();
+
+    return () => {
+      mounted = false;
+      if (socketInstance) {
+        socketInstance.emit("leave-student-bookings");
+        socketInstance.off("booking-status-changed");
+        socketInstance.off("booking-updated");
+      }
+    };
+  }, [queryClient, refetch]);
 
   // Refresh bookings when screen comes into focus
   useFocusEffect(
-    useCallback(() => {
-      loadBookings();
-    }, [loadBookings])
+    React.useCallback(() => {
+      refetch();
+    }, [refetch])
   );
 
   const isUpcoming = (booking: TransformedBooking): boolean => {
@@ -184,15 +277,36 @@ export default function LessonsTab() {
     
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    bookingDate.setHours(0, 0, 0, 0);
+    const bookingDateOnly = new Date(bookingDate);
+    bookingDateOnly.setHours(0, 0, 0, 0);
+    
+    // Compare dates as timestamps to avoid timezone issues
+    const todayTime = today.getTime();
+    const bookingTime = bookingDateOnly.getTime();
     
     // Upcoming if date is today or in the future, and status is not Completed
-    return bookingDate >= today && booking.status !== "Completed";
+    // Use strict comparison: booking must be today or later
+    const isUpcomingDate = bookingTime >= todayTime;
+    
+    if (__DEV__ && !isUpcomingDate && booking.status === "Confirmed") {
+      console.log("[Student Lessons] ⚠️ Past booking detected:", {
+        bookingId: booking.id,
+        bookingDate: bookingDateOnly.toISOString().split('T')[0],
+        today: today.toISOString().split('T')[0],
+        bookingTime,
+        todayTime,
+        diff: todayTime - bookingTime,
+      });
+    }
+    
+    return isUpcomingDate && booking.status !== "Completed";
   };
 
   // Helper function to parse booking date
   const parseBookingDate = (booking: TransformedBooking): Date | null => {
     const dateString = booking.originalDate || booking.date;
+    if (!dateString) return null;
+    
     try {
       // Check if it's a day name
       const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -201,18 +315,49 @@ export default function LessonsTab() {
         return date;
       }
       
-      // Check if it's YYYY-MM-DD format
+      // Check if it's YYYY-MM-DD format (preferred format from backend)
       const yyyyMmDdPattern = /^(\d{4})-(\d{2})-(\d{2})$/;
       if (yyyyMmDdPattern.test(dateString)) {
         // Parse as local date to avoid timezone issues
         const [year, month, day] = dateString.split('-').map(Number);
-        return new Date(year, month - 1, day);
+        const parsedDate = new Date(year, month - 1, day);
+        
+        // Validate the parsed date matches the input
+        if (parsedDate.getFullYear() === year && 
+            parsedDate.getMonth() === month - 1 && 
+            parsedDate.getDate() === day) {
+          return parsedDate;
+        }
       }
       
-      // Try to parse as date
+      // Try to parse as date string (e.g., "Saturday, December 13, 2025")
+      // This handles formatted display dates
       const parsed = new Date(dateString);
-      return isNaN(parsed.getTime()) ? null : parsed;
-    } catch {
+      if (!isNaN(parsed.getTime())) {
+        return parsed;
+      }
+      
+      // Last resort: try to extract date from formatted string
+      // Match patterns like "Saturday, December 13, 2025"
+      const formattedPattern = /(\w+day),\s+(\w+)\s+(\d+),\s+(\d{4})/;
+      const match = dateString.match(formattedPattern);
+      if (match) {
+        const monthNames = ["January", "February", "March", "April", "May", "June",
+          "July", "August", "September", "October", "November", "December"];
+        const monthName = match[2];
+        const monthIndex = monthNames.indexOf(monthName);
+        if (monthIndex !== -1) {
+          const day = parseInt(match[3], 10);
+          const year = parseInt(match[4], 10);
+          return new Date(year, monthIndex, day);
+        }
+      }
+      
+      return null;
+    } catch (error) {
+      if (__DEV__) {
+        console.error("[Student Lessons] Error parsing booking date:", dateString, error);
+      }
       return null;
     }
   };
@@ -249,8 +394,13 @@ export default function LessonsTab() {
     const bookingDateOnly = new Date(bookingDate);
     bookingDateOnly.setHours(0, 0, 0, 0);
 
-    const isToday = bookingDateOnly.getTime() === today.getTime();
-    const isTomorrow = bookingDateOnly.getTime() === tomorrow.getTime();
+    // Use timestamp comparison for accurate date matching
+    const bookingTime = bookingDateOnly.getTime();
+    const todayTime = today.getTime();
+    const tomorrowTime = tomorrow.getTime();
+    
+    const isToday = bookingTime === todayTime;
+    const isTomorrow = bookingTime === tomorrowTime;
 
     if (__DEV__) {
       console.log("[Student Lessons] 🔍 Categorizing booking:", {
@@ -271,12 +421,20 @@ export default function LessonsTab() {
       });
     }
 
-    if (isToday) {
+    // Safety check: Ensure booking is actually today (not in the past)
+    // Calculate difference in days to catch any edge cases
+    const daysDiff = Math.floor((bookingTime - todayTime) / (1000 * 60 * 60 * 24));
+    
+    if (isToday && daysDiff === 0) {
       if (__DEV__) {
-        console.log("[Student Lessons] ✅ Returning 'Today's Schedule' for booking:", booking.id);
+        console.log("[Student Lessons] ✅ Returning 'Today's Schedule' for booking:", booking.id, {
+          bookingDate: bookingDateOnly.toISOString().split('T')[0],
+          today: today.toISOString().split('T')[0],
+          daysDiff,
+        });
       }
       return "Today's Schedule";
-    } else if (isTomorrow) {
+    } else if (isTomorrow && daysDiff === 1) {
       return "Tomorrow";
     } else if (bookingDateOnly < endOfThisWeek) {
       return "This Week";
@@ -438,7 +596,7 @@ export default function LessonsTab() {
   });
 
   const renderBooking = (booking: TransformedBooking) => (
-    <Card key={booking.id} style={styles.bookingCard}>
+    <Card style={styles.bookingCard}>
       <View style={styles.bookingHeader}>
         <Avatar
           src={booking.image}
@@ -488,7 +646,7 @@ export default function LessonsTab() {
         <Text style={styles.sectionSubtitle}>Your scheduled lessons</Text>
       </View>
 
-      {loading ? (
+      {isFetching && bookings.length === 0 ? (
         <ActivityIndicator color="#FF6A5C" style={{ marginTop: 20 }} />
       ) : (
         <Tabs defaultValue="upcoming">
@@ -513,8 +671,16 @@ export default function LessonsTab() {
                     <View key={groupKey} style={styles.groupSection}>
                       <Text style={styles.groupHeader}>{groupKey}</Text>
                       {/* Show pending first, then confirmed */}
-                      {pendingInGroup.map(renderBooking)}
-                      {confirmedInGroup.map(renderBooking)}
+                      {pendingInGroup.map((booking) => (
+                        <View key={`${groupKey}-pending-${booking.id}`}>
+                          {renderBooking(booking)}
+                        </View>
+                      ))}
+                      {confirmedInGroup.map((booking) => (
+                        <View key={`${groupKey}-confirmed-${booking.id}`}>
+                          {renderBooking(booking)}
+                        </View>
+                      ))}
                     </View>
                   );
                 })}
@@ -523,6 +689,27 @@ export default function LessonsTab() {
                   <Card style={styles.emptyCard}>
                     <Text style={styles.emptyText}>No upcoming bookings</Text>
                   </Card>
+                )}
+
+                {/* Load More Button */}
+                {hasNextPage && !isFetchingNextPage && (
+                  <View style={styles.loadMoreContainer}>
+                    <Button
+                      variant="outline"
+                      onPress={loadMoreBookings}
+                      style={styles.loadMoreButton}
+                    >
+                      <Text style={styles.loadMoreText}>Load More Bookings</Text>
+                    </Button>
+                  </View>
+                )}
+
+                {/* Loading More Indicator */}
+                {isFetchingNextPage && (
+                  <View style={styles.loadingMoreContainer}>
+                    <ActivityIndicator size="small" color="#FF6A5C" />
+                    <Text style={styles.loadingMoreText}>Loading more bookings...</Text>
+                  </View>
                 )}
               </ScrollView>
             ) : (
@@ -539,7 +726,11 @@ export default function LessonsTab() {
                 {sortedPastKeys.map((groupKey) => (
                   <View key={groupKey} style={styles.groupSection}>
                     <Text style={styles.groupHeader}>{groupKey}</Text>
-                    {groupedPast[groupKey].map(renderBooking)}
+                    {groupedPast[groupKey].map((booking) => (
+                      <View key={`${groupKey}-${booking.id}`}>
+                        {renderBooking(booking)}
+                      </View>
+                    ))}
                   </View>
                 ))}
 
@@ -547,6 +738,27 @@ export default function LessonsTab() {
                   <Card style={styles.emptyCard}>
                     <Text style={styles.emptyText}>No past bookings</Text>
                   </Card>
+                )}
+
+                {/* Load More Button */}
+                {hasNextPage && !isFetchingNextPage && (
+                  <View style={styles.loadMoreContainer}>
+                    <Button
+                      variant="outline"
+                      onPress={loadMoreBookings}
+                      style={styles.loadMoreButton}
+                    >
+                      <Text style={styles.loadMoreText}>Load More Bookings</Text>
+                    </Button>
+                  </View>
+                )}
+
+                {/* Loading More Indicator */}
+                {isFetchingNextPage && (
+                  <View style={styles.loadingMoreContainer}>
+                    <ActivityIndicator size="small" color="#FF6A5C" />
+                    <Text style={styles.loadingMoreText}>Loading more bookings...</Text>
+                  </View>
                 )}
               </ScrollView>
             ) : (
@@ -646,6 +858,27 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 14,
     color: "#999",
+  },
+  loadMoreContainer: {
+    padding: 20,
+    alignItems: "center",
+  },
+  loadMoreButton: {
+    minWidth: 200,
+  },
+  loadMoreText: {
+    fontSize: 14,
+    color: "#FF6A5C",
+  },
+  loadingMoreContainer: {
+    padding: 20,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  loadingMoreText: {
+    marginTop: 8,
+    fontSize: 14,
+    color: "#666",
   },
 });
 

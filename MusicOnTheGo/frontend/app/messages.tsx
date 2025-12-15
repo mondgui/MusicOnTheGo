@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useFocusEffect } from "expo-router";
 import { useCallback } from "react";
+import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api";
 import { initSocket, getSocket } from "../lib/socket";
 import { Card } from "../components/ui/card";
@@ -58,148 +59,168 @@ type Inquiry = {
 
 export default function MessagesScreen() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState("");
-  const [userRole, setUserRole] = useState<"teacher" | "student" | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  const [contacts, setContacts] = useState<Contact[]>([]);
   const [inquiries, setInquiries] = useState<Inquiry[]>([]);
   const [inquiriesLoading, setInquiriesLoading] = useState(false);
   const [socket, setSocket] = useState<Socket | null>(null);
   const currentUserIdRef = useRef<string | null>(null);
 
-  // Function to load contacts from bookings and messages
-  const loadContacts = useCallback(async () => {
-    try {
-      const user = await api("/api/users/me", { auth: true });
-      setUserRole(user.role);
-      currentUserIdRef.current = user._id || user.id;
-      
-      const contactsMap = new Map<string, Contact>();
-      
-      // Load conversations from messages
-      try {
-        const conversations = await api("/api/messages/conversations", { auth: true });
-        (Array.isArray(conversations) ? conversations : []).forEach((conv: any) => {
-          const contactId = conv.userId;
-          const role = user.role === "teacher" ? "student" : "teacher";
-          
-          contactsMap.set(contactId, {
-            id: contactId,
-            name: conv.name || "Contact",
-            role: role,
-            instrument: "Music", // Default, can be updated from bookings
-            image: conv.profileImage || "",
-            email: conv.email || "",
-            phone: "",
-            lastMessage: conv.lastMessage || "No messages yet",
-            timestamp: conv.lastMessageTime || new Date().toISOString(),
-            unread: conv.unreadCount || 0,
-          });
-        });
-      } catch (err) {
-        console.log("Error loading conversations:", err);
+  // Load user with React Query
+  const { data: user } = useQuery({
+    queryKey: ["messages-user"],
+    queryFn: async () => {
+      const userData = await api("/api/users/me", { auth: true });
+      currentUserIdRef.current = userData._id || userData.id;
+      return userData;
+    },
+  });
+
+  const userRole = user?.role || null;
+
+  // Load bookings (for merging with conversations)
+  const { data: bookingsData } = useQuery({
+    queryKey: ["messages-bookings", userRole],
+    queryFn: async () => {
+      if (userRole === "teacher") {
+        return await api("/api/bookings/teacher/me", { auth: true });
+      } else if (userRole === "student") {
+        return await api("/api/bookings/student/me", { auth: true });
       }
-      
-      // Load contacts from bookings and merge
-      if (user.role === "teacher") {
-        try {
-          const bookings = await api("/api/bookings/teacher/me", { auth: true });
-          
-          (Array.isArray(bookings) ? bookings : []).forEach((booking: any) => {
-            if (booking.student) {
-              const studentId = booking.student._id 
-                ? String(booking.student._id) 
-                : String(booking.student);
-              
-              const student = booking.student._id ? booking.student : { _id: booking.student, name: "Student", email: "" };
-              
-              // If contact already exists from messages, update it; otherwise create new
-              if (contactsMap.has(studentId)) {
-                const existing = contactsMap.get(studentId)!;
-                existing.instrument = booking.instrument || existing.instrument || "Music";
-                existing.nextLesson = booking.date ? { date: booking.date, time: booking.time } : existing.nextLesson;
-                // Preserve image from messages, but use booking image if messages didn't have one
-                if (!existing.image && student.profileImage) {
-                  existing.image = student.profileImage;
-                }
-              } else {
-                contactsMap.set(studentId, {
-                  id: studentId,
-                  name: student.name || "Student",
-                  role: "student" as const,
-                  instrument: booking.instrument || "Music",
-                  image: student.profileImage || "",
-                  email: student.email || "",
-                  phone: student.phone || "",
-                  lastMessage: "No messages yet",
-                  timestamp: booking.date || "",
-                  unread: 0,
-                  nextLesson: booking.date ? { date: booking.date, time: booking.time } : undefined,
-                });
-              }
-            }
-          });
-        } catch (err) {
-          console.log("Error loading bookings:", err);
-        }
-      } else if (user.role === "student") {
-        try {
-          const bookings = await api("/api/bookings/student/me", { auth: true });
-          
-          (Array.isArray(bookings) ? bookings : []).forEach((booking: any) => {
-            if (booking.teacher) {
-              const teacherId = booking.teacher._id 
-                ? String(booking.teacher._id) 
-                : String(booking.teacher);
-              
-              const teacher = booking.teacher._id ? booking.teacher : { _id: booking.teacher, name: "Teacher", email: "" };
-              
-              // If contact already exists from messages, update it; otherwise create new
-              if (contactsMap.has(teacherId)) {
-                const existing = contactsMap.get(teacherId)!;
-                existing.instrument = booking.instrument || existing.instrument || "Music";
-                existing.nextLesson = booking.date ? { date: booking.date, time: booking.time } : existing.nextLesson;
-                // Preserve image from messages, but use booking image if messages didn't have one
-                if (!existing.image && teacher.profileImage) {
-                  existing.image = teacher.profileImage;
-                }
-              } else {
-                contactsMap.set(teacherId, {
-                  id: teacherId,
-                  name: teacher.name || "Teacher",
-                  role: "teacher" as const,
-                  instrument: booking.instrument || "Music",
-                  image: teacher.profileImage || "",
-                  email: teacher.email || "",
-                  phone: teacher.phone || "",
-                  lastMessage: "No messages yet",
-                  timestamp: booking.date || "",
-                  unread: 0,
-                  nextLesson: booking.date ? { date: booking.date, time: booking.time } : undefined,
-                });
-              }
-            }
-          });
-        } catch (err) {
-          console.log("Error loading bookings:", err);
-        }
-      }
-      
-      // Sort contacts by last message time (most recent first)
-      const sortedContacts = Array.from(contactsMap.values()).sort((a, b) => {
-        const timeA = new Date(a.timestamp).getTime();
-        const timeB = new Date(b.timestamp).getTime();
-        return timeB - timeA;
+      return [];
+    },
+    enabled: !!userRole,
+  });
+
+  // Conversations query with infinite pagination
+  const {
+    data: conversationsData,
+    fetchNextPage,
+    hasNextPage,
+    isFetching: loading,
+    isFetchingNextPage: loadingMoreContacts,
+    refetch: refetchContacts,
+  } = useInfiniteQuery({
+    queryKey: ["conversations", userRole],
+    queryFn: async ({ pageParam = 1 }) => {
+      const params: Record<string, string> = {
+        page: pageParam.toString(),
+        limit: "20",
+      };
+      const response = await api("/api/messages/conversations", {
+        auth: true,
+        params,
       });
       
-      setContacts(sortedContacts);
-    } catch (err) {
-      console.log("Error loading user/contacts:", err);
-    } finally {
-      setLoading(false);
+      const conversations = response.conversations || response || [];
+      const pagination = response.pagination;
+
+      return {
+        conversations: Array.isArray(conversations) ? conversations : [],
+        pagination: pagination || { hasMore: conversations.length >= 20 },
+        nextPage: pagination?.hasMore ? pageParam + 1 : undefined,
+      };
+    },
+    getNextPageParam: (lastPage) => lastPage.nextPage,
+    initialPageParam: 1,
+    enabled: !!userRole,
+  });
+
+  // Merge conversations and bookings into contacts
+  const contacts = useMemo(() => {
+    if (!userRole || !conversationsData) return [];
+
+    const contactsMap = new Map<string, Contact>();
+    const allConversations = conversationsData.pages.flatMap((page) => page.conversations);
+    
+    // Add conversations to contacts map
+    allConversations.forEach((conv: any) => {
+      const contactId = conv.userId;
+      const role = userRole === "teacher" ? "student" : "teacher";
+      
+      contactsMap.set(contactId, {
+        id: contactId,
+        name: conv.name || "Contact",
+        role: role,
+        instrument: "Music",
+        image: conv.profileImage || "",
+        email: conv.email || "",
+        phone: "",
+        lastMessage: conv.lastMessage || "No messages yet",
+        timestamp: conv.lastMessageTime || new Date().toISOString(),
+        unread: conv.unreadCount || 0,
+      });
+    });
+
+    // Merge bookings data
+    const bookings = Array.isArray(bookingsData) ? bookingsData : [];
+    bookings.forEach((booking: any) => {
+      if (userRole === "teacher" && booking.student) {
+        const studentId = booking.student._id ? String(booking.student._id) : String(booking.student);
+        const student = booking.student._id ? booking.student : { _id: booking.student, name: "Student", email: "" };
+        
+        if (contactsMap.has(studentId)) {
+          const existing = contactsMap.get(studentId)!;
+          existing.instrument = booking.instrument || existing.instrument || "Music";
+          if (!existing.image && student.profileImage) {
+            existing.image = student.profileImage;
+          }
+        } else {
+          contactsMap.set(studentId, {
+            id: studentId,
+            name: student.name || "Student",
+            role: "student" as const,
+            instrument: booking.instrument || "Music",
+            image: student.profileImage || "",
+            email: student.email || "",
+            phone: student.phone || "",
+            lastMessage: "No messages yet",
+            timestamp: booking.date || "",
+            unread: 0,
+          });
+        }
+      } else if (userRole === "student" && booking.teacher) {
+        const teacherId = booking.teacher._id ? String(booking.teacher._id) : String(booking.teacher);
+        const teacher = booking.teacher._id ? booking.teacher : { _id: booking.teacher, name: "Teacher", email: "" };
+        
+        if (contactsMap.has(teacherId)) {
+          const existing = contactsMap.get(teacherId)!;
+          existing.instrument = booking.instrument || existing.instrument || "Music";
+          if (!existing.image && teacher.profileImage) {
+            existing.image = teacher.profileImage;
+          }
+        } else {
+          contactsMap.set(teacherId, {
+            id: teacherId,
+            name: teacher.name || "Teacher",
+            role: "teacher" as const,
+            instrument: booking.instrument || "Music",
+            image: teacher.profileImage || "",
+            email: teacher.email || "",
+            phone: teacher.phone || "",
+            lastMessage: "No messages yet",
+            timestamp: booking.date || "",
+            unread: 0,
+          });
+        }
+      }
+    });
+
+    // Sort by timestamp
+    return Array.from(contactsMap.values()).sort((a, b) => {
+      const timeA = new Date(a.timestamp).getTime();
+      const timeB = new Date(b.timestamp).getTime();
+      return timeB - timeA;
+    });
+  }, [conversationsData, bookingsData, userRole]);
+
+  const hasMoreContacts = hasNextPage || false;
+
+  const loadMoreContacts = () => {
+    if (hasNextPage && !loadingMoreContacts) {
+      fetchNextPage();
     }
-  }, []);
+  };
 
   // Initialize Socket.io connection for real-time updates
   useEffect(() => {
@@ -223,38 +244,42 @@ export default function MessagesScreen() {
               const senderId = message.sender?._id || message.sender || "";
               const unreadCount = data.unreadCount || 0;
 
-              // Update the contact in the list
-              setContacts((prevContacts) => {
-                const updated = prevContacts.map((contact) => {
-                  // If this message is from this contact
-                  if (contact.id === senderId) {
-                    return {
-                      ...contact,
-                      lastMessage: message.text || contact.lastMessage,
-                      timestamp: message.createdAt || contact.timestamp,
-                      unread: unreadCount,
-                    };
-                  }
-                  return contact;
-                });
+              // Update the conversations cache in React Query
+              queryClient.setQueryData(
+                ["conversations", userRole],
+                (oldData: any) => {
+                  if (!oldData) return oldData;
 
-                // If contact doesn't exist in list, we might need to reload
-                // But for now, just update existing ones
-                const contactExists = updated.some((c) => c.id === senderId);
-                if (!contactExists) {
-                  // Contact not in list, reload to get it
-                  setTimeout(() => {
-                    if (mounted) loadContacts();
-                  }, 500);
+                  return {
+                    ...oldData,
+                    pages: oldData.pages.map((page: any) => ({
+                      ...page,
+                      conversations: page.conversations.map((conv: any) => {
+                        if (conv.userId === senderId) {
+                          return {
+                            ...conv,
+                            lastMessage: message.text || conv.lastMessage,
+                            lastMessageTime: message.createdAt || conv.lastMessageTime,
+                            unreadCount: unreadCount,
+                          };
+                        }
+                        return conv;
+                      }),
+                    })),
+                  };
                 }
+              );
 
-                // Sort by timestamp (most recent first)
-                return updated.sort((a, b) => {
-                  const timeA = new Date(a.timestamp).getTime();
-                  const timeB = new Date(b.timestamp).getTime();
-                  return timeB - timeA;
-                });
-              });
+              // If contact doesn't exist, refetch to get it
+              const currentData = queryClient.getQueryData(["conversations", userRole]) as any;
+              const allConversations = currentData?.pages?.flatMap((page: any) => page.conversations) || [];
+              const contactExists = allConversations.some((conv: any) => conv.userId === senderId);
+              
+              if (!contactExists) {
+                setTimeout(() => {
+                  if (mounted) refetchContacts();
+                }, 500);
+              }
 
               console.log("[Messages] Updated unread count for:", senderId, "unread:", unreadCount);
             }
@@ -267,53 +292,43 @@ export default function MessagesScreen() {
               const recipientId = newMessage.recipient?._id || newMessage.recipient || "";
               const currentUserId = currentUserIdRef.current;
 
-              setContacts((prevContacts) => {
-                let updated = [...prevContacts];
-                let needsSort = false;
+              // Update the conversations cache in React Query
+              queryClient.setQueryData(
+                ["conversations", userRole],
+                (oldData: any) => {
+                  if (!oldData) return oldData;
 
-                // Update recipient's conversation (if current user is the sender)
-                if (senderId && currentUserId && String(senderId) === String(currentUserId) && recipientId) {
-                  updated = updated.map((contact) => {
-                    if (contact.id === recipientId) {
-                      needsSort = true;
-                      return {
-                        ...contact,
-                        lastMessage: newMessage.text || contact.lastMessage,
-                        timestamp: newMessage.createdAt || contact.timestamp,
-                        // Don't increment unread for messages you sent
-                      };
-                    }
-                    return contact;
-                  });
+                  return {
+                    ...oldData,
+                    pages: oldData.pages.map((page: any) => ({
+                      ...page,
+                      conversations: page.conversations.map((conv: any) => {
+                        // Update recipient's conversation (if current user is the sender)
+                        if (senderId && currentUserId && String(senderId) === String(currentUserId) && recipientId && conv.userId === recipientId) {
+                          return {
+                            ...conv,
+                            lastMessage: newMessage.text || conv.lastMessage,
+                            lastMessageTime: newMessage.createdAt || conv.lastMessageTime,
+                            // Don't increment unread for messages you sent
+                          };
+                        }
+
+                        // Update sender's conversation (if current user is the recipient)
+                        if (senderId && currentUserId && String(senderId) !== String(currentUserId) && recipientId === currentUserId && conv.userId === senderId) {
+                          return {
+                            ...conv,
+                            lastMessage: newMessage.text || conv.lastMessage,
+                            lastMessageTime: newMessage.createdAt || conv.lastMessageTime,
+                            unreadCount: (conv.unreadCount || 0) + 1, // Increment unread count
+                          };
+                        }
+
+                        return conv;
+                      }),
+                    })),
+                  };
                 }
-
-                // Update sender's conversation (if current user is the recipient)
-                if (senderId && currentUserId && String(senderId) !== String(currentUserId) && recipientId === currentUserId) {
-                  updated = updated.map((contact) => {
-                    if (contact.id === senderId) {
-                      needsSort = true;
-                      return {
-                        ...contact,
-                        lastMessage: newMessage.text || contact.lastMessage,
-                        timestamp: newMessage.createdAt || contact.timestamp,
-                        unread: (contact.unread || 0) + 1, // Increment unread count
-                      };
-                    }
-                    return contact;
-                  });
-                }
-
-                // Sort by timestamp if any updates were made
-                if (needsSort) {
-                  return updated.sort((a, b) => {
-                    const timeA = new Date(a.timestamp).getTime();
-                    const timeB = new Date(b.timestamp).getTime();
-                    return timeB - timeA;
-                  });
-                }
-
-                return updated;
-              });
+              );
             }
           });
 
@@ -338,18 +353,13 @@ export default function MessagesScreen() {
     };
   }, []);
 
-  // Load user role and contacts
-  useEffect(() => {
-    loadContacts();
-  }, [loadContacts]);
-
-  // Refresh contacts when screen comes into focus (e.g., after sending a message)
+  // Refresh contacts when screen comes into focus
   useFocusEffect(
-    useCallback(() => {
+    React.useCallback(() => {
       if (userRole) {
-        loadContacts();
+        refetchContacts();
       }
-    }, [userRole, loadContacts])
+    }, [userRole, refetchContacts])
   );
 
   // Function to load inquiries
@@ -514,6 +524,9 @@ export default function MessagesScreen() {
                   setSearchQuery={setSearchQuery}
                   onSelectContact={handleSelectContact}
                   userRole={userRole}
+                  loadingMore={loadingMoreContacts}
+                  hasMore={hasMoreContacts}
+                  onLoadMore={loadMoreContacts}
                 />
               </TabsContent>
 
@@ -536,6 +549,9 @@ export default function MessagesScreen() {
               setSearchQuery={setSearchQuery}
               onSelectContact={handleSelectContact}
               userRole={userRole}
+              loadingMore={loadingMoreContacts}
+              hasMore={hasMoreContacts}
+              onLoadMore={loadMoreContacts}
             />
           )}
         </View>
@@ -551,6 +567,9 @@ type ConversationsTabProps = {
   setSearchQuery: (query: string) => void;
   onSelectContact: (contact: Contact) => void;
   userRole: "teacher" | "student" | null;
+  loadingMore?: boolean;
+  hasMore?: boolean;
+  onLoadMore?: () => void;
 };
 
 function ConversationsTab({
@@ -559,6 +578,9 @@ function ConversationsTab({
   setSearchQuery,
   onSelectContact,
   userRole,
+  loadingMore = false,
+  hasMore = false,
+  onLoadMore,
 }: ConversationsTabProps) {
   return (
     <>
@@ -638,6 +660,23 @@ function ConversationsTab({
                 : "Students who book lessons with you will appear here"}
             </Text>
           </Card>
+        )}
+
+        {/* Load More Button */}
+        {contacts.length > 0 && hasMore && !loadingMore && onLoadMore && (
+          <View style={styles.loadMoreContainer}>
+            <Button variant="outline" onPress={onLoadMore} style={styles.loadMoreButton}>
+              <Text style={styles.loadMoreText}>Load More Conversations</Text>
+            </Button>
+          </View>
+        )}
+
+        {/* Loading More Indicator */}
+        {loadingMore && (
+          <View style={styles.loadingMoreContainer}>
+            <ActivityIndicator size="small" color="#FF6A5C" />
+            <Text style={styles.loadingMoreText}>Loading more conversations...</Text>
+          </View>
         )}
       </View>
     </>
@@ -1049,5 +1088,26 @@ const styles = StyleSheet.create({
   },
   contactButton: {
     minWidth: 180,
+  },
+  loadMoreContainer: {
+    padding: 20,
+    alignItems: "center",
+  },
+  loadMoreButton: {
+    minWidth: 200,
+  },
+  loadMoreText: {
+    fontSize: 14,
+    color: "#FF6A5C",
+  },
+  loadingMoreContainer: {
+    padding: 20,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  loadingMoreText: {
+    marginTop: 8,
+    fontSize: 14,
+    color: "#666",
   },
 });

@@ -1,5 +1,5 @@
 import React from "react";
-import { TouchableOpacity, Text, StyleSheet, ViewStyle, TextStyle } from "react-native";
+import { TouchableOpacity, Text, View, StyleSheet, ViewStyle, TextStyle } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 
 type ButtonProps = {
@@ -26,6 +26,11 @@ export function Button({
   };
 
   if (variant === "primary") {
+    // Check if children contains React elements (not just text)
+    const hasReactElements = React.Children.toArray(children).some(
+      (child) => React.isValidElement(child)
+    );
+
     return (
       <TouchableOpacity
         onPress={onPress}
@@ -41,18 +46,29 @@ export function Button({
             style,
           ]}
         >
-          <Text
-            style={[
-              styles.buttonText,
-              { fontSize: sizeStyles[size].fontSize },
-            ]}
-          >
-            {children}
-          </Text>
+          {hasReactElements ? (
+            <View style={styles.buttonContent}>
+              {children}
+            </View>
+          ) : (
+            <Text
+              style={[
+                styles.buttonText,
+                { fontSize: sizeStyles[size].fontSize },
+              ]}
+            >
+              {children}
+            </Text>
+          )}
         </LinearGradient>
       </TouchableOpacity>
     );
   }
+
+  // Check if children contains React elements (not just text)
+  const hasReactElements = React.Children.toArray(children).some(
+    (child) => React.isValidElement(child)
+  );
 
   return (
     <TouchableOpacity
@@ -66,15 +82,21 @@ export function Button({
       ]}
       activeOpacity={0.7}
     >
-      <Text
-        style={[
-          styles.buttonText,
-          styles[`${variant}Text`],
-          { fontSize: sizeStyles[size].fontSize },
-        ]}
-      >
-        {children}
-      </Text>
+      {hasReactElements ? (
+        <View style={styles.buttonContent}>
+          {children}
+        </View>
+      ) : (
+        <Text
+          style={[
+            styles.buttonText,
+            styles[`${variant}Text`],
+            { fontSize: sizeStyles[size].fontSize },
+          ]}
+        >
+          {children}
+        </Text>
+      )}
     </TouchableOpacity>
   );
 }
@@ -82,6 +104,11 @@ export function Button({
 const styles = StyleSheet.create({
   button: {
     borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  buttonContent: {
+    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
   },

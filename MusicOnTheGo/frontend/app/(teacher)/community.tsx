@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
   View,
   Text,
@@ -12,12 +12,15 @@ import {
   Modal,
   Image,
   Linking,
+  KeyboardAvoidingView,
+  Platform,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
 import * as DocumentPicker from "expo-document-picker";
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -30,7 +33,7 @@ interface CommunityPost {
   title: string;
   description: string;
   mediaUrl: string;
-  mediaType: "video" | "audio";
+  mediaType: "video" | "audio" | "image";
   thumbnailUrl?: string;
   instrument: string;
   level: "Beginner" | "Intermediate" | "Advanced";
@@ -86,19 +89,13 @@ const LEVEL_OPTIONS = ["All", "Beginner", "Intermediate", "Advanced"];
 
 export default function CommunityScreen() {
   const router = useRouter();
-  const [posts, setPosts] = useState<CommunityPost[]>([]);
-  const [allPosts, setAllPosts] = useState<CommunityPost[]>([]);
-  const [studentPosts, setStudentPosts] = useState<CommunityPost[]>([]);
-  const [teacherPosts, setTeacherPosts] = useState<CommunityPost[]>([]);
-  const [myPosts, setMyPosts] = useState<CommunityPost[]>([]);
-  const [loading, setLoading] = useState(false);
+  const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<"all" | "students" | "teachers" | "myPosts">("all");
   const [selectedInstrument, setSelectedInstrument] = useState("All");
   const [showPostModal, setShowPostModal] = useState(false);
   const [showCommentsModal, setShowCommentsModal] = useState(false);
   const [selectedPost, setSelectedPost] = useState<CommunityPost | null>(null);
   const [commentText, setCommentText] = useState("");
-  const [user, setUser] = useState<any>(null);
 
   // Post form state
   const [postTitle, setPostTitle] = useState("");
@@ -106,31 +103,35 @@ export default function CommunityScreen() {
   const [postInstrument, setPostInstrument] = useState("");
   const [postLevel, setPostLevel] = useState<"Beginner" | "Intermediate" | "Advanced">("Beginner");
   const [postMediaUrl, setPostMediaUrl] = useState("");
-  const [postMediaType, setPostMediaType] = useState<"video" | "audio" | null>(null);
-  const [selectedMediaFile, setSelectedMediaFile] = useState<any>(null); // Store the actual file object
-  const [uploading, setUploading] = useState(false);
+  const [postMediaType, setPostMediaType] = useState<"video" | "audio" | "image" | null>(null);
+  const [selectedMediaFile, setSelectedMediaFile] = useState<any>(null);
 
-  useEffect(() => {
-    loadUser();
-    loadPosts();
-  }, [activeTab, selectedInstrument]);
+  // Load user with React Query
+  const { data: user } = useQuery({
+    queryKey: ["user"],
+    queryFn: async () => {
+      return await getStoredUser();
+    },
+  });
 
-  const loadUser = async () => {
-    try {
-      const currentUser = await getStoredUser();
-      setUser(currentUser);
-    } catch (error) {
-      console.error("Error loading user:", error);
-    }
-  };
-
-  const loadPosts = async () => {
-    try {
-      setLoading(true);
+  // Posts query with infinite pagination
+  const {
+    data: postsData,
+    fetchNextPage,
+    hasNextPage,
+    isFetching,
+    isFetchingNextPage,
+    refetch,
+  } = useInfiniteQuery({
+    queryKey: ["community-posts", activeTab, selectedInstrument],
+    queryFn: async ({ pageParam = 1 }) => {
       const filter = activeTab === "myPosts" ? "me" : activeTab;
       const endpoint = activeTab === "myPosts" ? "/api/community/me" : "/api/community";
       
-      const params: Record<string, string> = {};
+      const params: Record<string, string> = {
+        page: pageParam.toString(),
+        limit: "20",
+      };
       if (activeTab !== "myPosts" && filter !== "me") {
         params.filter = filter;
       }
@@ -144,204 +145,137 @@ export default function CommunityScreen() {
         params,
       });
 
-      const postsData = response || [];
+      const postsData = response.posts || response || [];
+      const pagination = response.pagination;
 
-      if (activeTab === "all") {
-        setAllPosts(postsData);
-        setPosts(postsData);
-      } else if (activeTab === "students") {
-        setStudentPosts(postsData);
-        setPosts(postsData);
-      } else if (activeTab === "teachers") {
-        setTeacherPosts(postsData);
-        setPosts(postsData);
-      } else if (activeTab === "myPosts") {
-        setMyPosts(postsData);
-        setPosts(postsData);
-      }
-    } catch (error: any) {
-      console.error("Error loading posts:", error);
-      setPosts([]);
-    } finally {
-      setLoading(false);
+      return {
+        posts: postsData,
+        pagination: pagination || { hasMore: postsData.length >= 20 },
+        nextPage: pagination?.hasMore ? pageParam + 1 : undefined,
+      };
+    },
+    getNextPageParam: (lastPage) => lastPage.nextPage,
+    initialPageParam: 1,
+  });
+
+  // Flatten all pages into a single array
+  const posts = useMemo(() => {
+    return postsData?.pages.flatMap((page) => page.posts) || [];
+  }, [postsData]);
+
+  const loadMorePosts = () => {
+    if (hasNextPage && !isFetchingNextPage) {
+      fetchNextPage();
     }
   };
 
-  const handleLike = async (postId: string) => {
-    // Find the post to get current state
-    const post = posts.find((p) => p._id === postId);
-    if (!post) return;
-
-    // Optimistic update: Update UI immediately for better UX
-    const wasLiked = post.isLiked;
-    const previousLikeCount = post.likeCount;
-
-    setPosts((prevPosts) =>
-      prevPosts.map((p) =>
-        p._id === postId
-          ? {
-              ...p,
-              isLiked: !wasLiked,
-              likeCount: wasLiked ? p.likeCount - 1 : p.likeCount + 1,
-            }
-          : p
-      )
-    );
-
-    try {
-      const response = await api(`/api/community/${postId}/like`, {
+  // Like mutation with optimistic updates
+  const likeMutation = useMutation({
+    mutationFn: async (postId: string) => {
+      return await api(`/api/community/${postId}/like`, {
         method: "POST",
         auth: true,
       });
+    },
+    onMutate: async (postId) => {
+      await queryClient.cancelQueries({ queryKey: ["community-posts", activeTab, selectedInstrument] });
+      const previousData = queryClient.getQueryData(["community-posts", activeTab, selectedInstrument]);
 
-      // Update with server response (in case of any differences)
-      setPosts((prevPosts) =>
-        prevPosts.map((p) =>
-          p._id === postId
-            ? {
-                ...p,
-                isLiked: response.isLiked,
-                likeCount: response.likeCount,
-                likes: response.likes || p.likes,
-              }
-            : p
-        )
-      );
+      queryClient.setQueryData(["community-posts", activeTab, selectedInstrument], (old: any) => {
+        if (!old) return old;
+        return {
+          ...old,
+          pages: old.pages.map((page: any) => ({
+            ...page,
+            posts: page.posts.map((post: CommunityPost) =>
+              post._id === postId
+                ? {
+                    ...post,
+                    isLiked: !post.isLiked,
+                    likeCount: post.isLiked ? post.likeCount - 1 : post.likeCount + 1,
+                  }
+                : post
+            ),
+          })),
+        };
+      });
 
-      // Update in specific tab lists
-      if (activeTab === "all") {
-        setAllPosts((prev) =>
-          prev.map((post) =>
-            post._id === postId
-              ? {
-                  ...post,
-                  isLiked: response.isLiked,
-                  likeCount: response.likeCount,
-                  likes: response.likes,
-                }
-              : post
-          )
-        );
-      } else if (activeTab === "students") {
-        setStudentPosts((prev) =>
-          prev.map((post) =>
-            post._id === postId
-              ? {
-                  ...post,
-                  isLiked: response.isLiked,
-                  likeCount: response.likeCount,
-                  likes: response.likes,
-                }
-              : post
-          )
-        );
-      } else if (activeTab === "teachers") {
-        setTeacherPosts((prev) =>
-          prev.map((post) =>
-            post._id === postId
-              ? {
-                  ...post,
-                  isLiked: response.isLiked,
-                  likeCount: response.likeCount,
-                  likes: response.likes,
-                }
-              : post
-          )
-        );
-      } else if (activeTab === "myPosts") {
-        setMyPosts((prev) =>
-          prev.map((post) =>
-            post._id === postId
-              ? {
-                  ...post,
-                  isLiked: response.isLiked,
-                  likeCount: response.likeCount,
-                  likes: response.likes,
-                }
-              : post
-          )
-        );
+      return { previousData };
+    },
+    onError: (err, postId, context) => {
+      if (context?.previousData) {
+        queryClient.setQueryData(["community-posts", activeTab, selectedInstrument], context.previousData);
       }
-    } catch (error: any) {
-      // Rollback optimistic update on error
-      setPosts((prevPosts) =>
-        prevPosts.map((p) =>
-          p._id === postId
-            ? {
-                ...p,
-                isLiked: wasLiked,
-                likeCount: previousLikeCount,
-              }
-            : p
-        )
-      );
-      alert("Failed to like post. Please try again.");
-    }
+      Alert.alert("Error", "Failed to like post. Please try again.");
+    },
+    onSuccess: (response, postId) => {
+      queryClient.setQueryData(["community-posts", activeTab, selectedInstrument], (old: any) => {
+        if (!old) return old;
+        return {
+          ...old,
+          pages: old.pages.map((page: any) => ({
+            ...page,
+            posts: page.posts.map((post: CommunityPost) =>
+              post._id === postId
+                ? {
+                    ...post,
+                    isLiked: response.isLiked,
+                    likeCount: response.likeCount,
+                    likes: response.likes || post.likes,
+                  }
+                : post
+            ),
+          })),
+        };
+      });
+    },
+  });
+
+  const handleLike = (postId: string) => {
+    likeMutation.mutate(postId);
   };
 
-  const handleAddComment = async () => {
+  // Comment mutation
+  const commentMutation = useMutation({
+    mutationFn: async ({ postId, text }: { postId: string; text: string }) => {
+      return await api(`/api/community/${postId}/comment`, {
+        method: "POST",
+        auth: true,
+        body: JSON.stringify({ text }),
+      });
+    },
+    onSuccess: (response, variables) => {
+      queryClient.setQueryData(["community-posts", activeTab, selectedInstrument], (old: any) => {
+        if (!old) return old;
+        return {
+          ...old,
+          pages: old.pages.map((page: any) => ({
+            ...page,
+            posts: page.posts.map((post: CommunityPost) =>
+              post._id === variables.postId ? response : post
+            ),
+          })),
+        };
+      });
+      setCommentText("");
+      setSelectedPost(response);
+    },
+    onError: () => {
+      Alert.alert("Error", "Failed to add comment. Please try again.");
+    },
+  });
+
+  const handleAddComment = () => {
     if (!selectedPost || !commentText.trim()) {
       Alert.alert("Error", "Please enter a comment");
       return;
     }
 
     const trimmedText = commentText.trim();
-    console.log("[Community] Adding comment:", {
-      postId: selectedPost._id,
-      commentText: trimmedText,
-      length: trimmedText.length,
-    });
-
-    try {
-      const response = await api(`/api/community/${selectedPost._id}/comment`, {
-        method: "POST",
-        auth: true,
-        body: { text: trimmedText },
-      });
-
-      // Update the post
-      setPosts((prevPosts) =>
-        prevPosts.map((post) =>
-          post._id === selectedPost._id ? response : post
-        )
-      );
-
-      // Update tab-specific lists
-      if (activeTab === "all") {
-        setAllPosts((prev) =>
-          prev.map((post) =>
-            post._id === selectedPost._id ? response : post
-          )
-        );
-      } else if (activeTab === "students") {
-        setStudentPosts((prev) =>
-          prev.map((post) =>
-            post._id === selectedPost._id ? response : post
-          )
-        );
-      } else if (activeTab === "teachers") {
-        setTeacherPosts((prev) =>
-          prev.map((post) =>
-            post._id === selectedPost._id ? response : post
-          )
-        );
-      } else if (activeTab === "myPosts") {
-        setMyPosts((prev) =>
-          prev.map((post) =>
-            post._id === selectedPost._id ? response : post
-          )
-        );
-      }
-
-      setCommentText("");
-      setSelectedPost(response);
-    } catch (error: any) {
-      console.error("[Community] Error adding comment:", error);
-      Alert.alert("Error", error.message || "Failed to add comment");
-    }
+    commentMutation.mutate({ postId: selectedPost._id, text: trimmedText });
   };
 
-  const pickMedia = async (type: "video" | "audio") => {
+  const pickMedia = async (type: "video" | "audio" | "image") => {
     try {
       if (type === "video") {
         // Request permissions first
@@ -372,6 +306,24 @@ export default function CommunityScreen() {
             name: asset.fileName || asset.uri.split("/").pop() || "video.mp4",
           });
         }
+      } else if (type === "image") {
+        // Use DocumentPicker to allow both images and PDFs (for music sheets)
+        // This allows users to upload long music sheets without cropping
+        const result = await DocumentPicker.getDocumentAsync({
+          type: ["image/*", "application/pdf"],
+          copyToCacheDirectory: true,
+        });
+
+        if (!result.canceled && result.assets && result.assets[0]) {
+          const asset = result.assets[0];
+          setPostMediaUrl(asset.uri);
+          setPostMediaType("image");
+          setSelectedMediaFile({
+            uri: asset.uri,
+            type: asset.mimeType || (asset.name?.endsWith('.pdf') ? "application/pdf" : "image/jpeg"),
+            name: asset.name || asset.uri.split("/").pop() || "file",
+          });
+        }
       } else {
         const result = await DocumentPicker.getDocumentAsync({
           type: ["audio/*"],
@@ -398,20 +350,17 @@ export default function CommunityScreen() {
     }
   };
 
-  const uploadPost = async () => {
-    if (!postTitle || !postInstrument || !postMediaType) {
-      Alert.alert("Error", "Please fill in all required fields (Title, Instrument, and Media)");
-      return;
-    }
+  // Create post mutation
+  const createPostMutation = useMutation({
+    mutationFn: async () => {
+      if (!postTitle || !postInstrument || !postMediaType) {
+        throw new Error("Please fill in all required fields (Title, Instrument, and Media)");
+      }
 
-    if (!selectedMediaFile) {
-      Alert.alert("Error", "Please select a media file (video or audio)");
-      return;
-    }
+      if (!selectedMediaFile) {
+        throw new Error("Please select a media file (video, audio, or image)");
+      }
 
-    try {
-      setUploading(true);
-      
       // Step 1: Upload media to Cloudinary first
       const formData = new FormData();
       formData.append("file", {
@@ -420,43 +369,28 @@ export default function CommunityScreen() {
         name: selectedMediaFile.name,
       } as any);
 
-      let uploadResponse;
-      try {
-        uploadResponse = await api("/api/uploads/resource-file", {
-          method: "POST",
-          auth: true,
-          body: formData,
-        });
+      const uploadResponse = await api("/api/uploads/resource-file", {
+        method: "POST",
+        auth: true,
+        body: formData,
+      });
 
-        if (!uploadResponse || !uploadResponse.url) {
-          throw new Error("Upload failed: No URL returned from server");
-        }
-      } catch (uploadError: any) {
-        console.error("Upload error:", uploadError);
-        Alert.alert(
-          "Upload Failed",
-          uploadError.message || "Failed to upload media file. Please check your connection and try again."
-        );
-        setUploading(false);
-        return;
+      if (!uploadResponse || !uploadResponse.url) {
+        throw new Error("Upload failed: No URL returned from server");
       }
 
       const mediaUrl = uploadResponse.url;
-      if (!mediaUrl) {
-        throw new Error("Upload succeeded but no media URL was returned");
-      }
-
       let thumbnailUrl = "";
 
       // For videos, try to get thumbnail from Cloudinary (if available)
+      // For images, use the image URL as thumbnail
       if (postMediaType === "video" && mediaUrl) {
-        // Cloudinary automatically generates thumbnails for videos
-        // Format: https://res.cloudinary.com/.../video/upload/v1234567/.../video.jpg
-        // Replace video extension with .jpg for thumbnail
         thumbnailUrl = mediaUrl.replace(/\.(mp4|mov|avi|webm)$/i, ".jpg");
+      } else if (postMediaType === "image" && mediaUrl) {
+        thumbnailUrl = mediaUrl; // Use image URL as thumbnail
       }
 
-      // Validate all required fields before sending
+      // Step 2: Create the post with the Cloudinary URL
       const postData = {
         title: postTitle.trim(),
         description: (postDescription || "").trim(),
@@ -468,45 +402,49 @@ export default function CommunityScreen() {
         visibility: "public",
       };
 
-      // Double-check required fields
       if (!postData.title || !postData.mediaUrl || !postData.mediaType || !postData.instrument) {
         throw new Error("Missing required fields: title, mediaUrl, mediaType, or instrument");
       }
 
-      console.log("[Community] Creating post with data:", {
-        title: postData.title,
-        hasDescription: !!postData.description,
-        mediaUrl: postData.mediaUrl.substring(0, 50) + "...",
-        mediaType: postData.mediaType,
-        instrument: postData.instrument,
-        level: postData.level,
+      return await api("/api/community", {
+        method: "POST",
+        auth: true,
+        body: JSON.stringify(postData),
       });
+    },
+    onSuccess: () => {
+      Alert.alert("Success", "Post created successfully!");
+      resetPostForm();
+      setShowPostModal(false);
+      queryClient.invalidateQueries({ queryKey: ["community-posts"] });
+      refetch();
+    },
+    onError: (error: any) => {
+      console.error("Post creation error:", error);
+      Alert.alert("Error", error.message || "Failed to create post. Please try again.");
+    },
+  });
 
-      // Step 2: Create the post with the Cloudinary URL
-      try {
-        await api("/api/community", {
-          method: "POST",
-          auth: true,
-          body: JSON.stringify(postData),
-        });
-
-        Alert.alert("Success", "Post created successfully!");
-        resetPostForm();
-        setShowPostModal(false);
-        await loadPosts();
-      } catch (postError: any) {
-        console.error("Post creation error:", postError);
-        Alert.alert(
-          "Error Creating Post",
-          postError.message || "Failed to create post. The media was uploaded but the post could not be created. Please try again."
-        );
-      }
-    } catch (error: any) {
-      console.error("Unexpected error:", error);
-      Alert.alert("Error", error.message || "An unexpected error occurred. Please try again.");
-    } finally {
-      setUploading(false);
+  const uploadPost = () => {
+    // Client-side validation with helpful messages
+    if (!postTitle || !postTitle.trim()) {
+      Alert.alert("Missing Field", "Please enter a title for your post.");
+      return;
     }
+    if (!postInstrument || postInstrument.trim() === "") {
+      Alert.alert("Missing Field", "Please select an instrument.");
+      return;
+    }
+    if (!postMediaType) {
+      Alert.alert("Missing Field", "Please select a media type (Video, Audio, or Image).");
+      return;
+    }
+    if (!selectedMediaFile) {
+      Alert.alert("Missing Media", "Please select a media file to upload.");
+      return;
+    }
+    
+    createPostMutation.mutate();
   };
 
   const resetPostForm = () => {
@@ -574,7 +512,29 @@ export default function CommunityScreen() {
 
       {/* Media Preview */}
       <View style={styles.mediaContainer}>
-        {post.mediaType === "video" ? (
+        {post.mediaType === "image" ? (
+          post.mediaUrl.toLowerCase().endsWith('.pdf') ? (
+            <TouchableOpacity
+              style={styles.pdfContainer}
+              onPress={() => Linking.openURL(post.mediaUrl)}
+            >
+              <Ionicons name="document-text" size={48} color="#FF6A5C" />
+              <Text style={styles.pdfText}>Tap to view PDF</Text>
+              <Text style={styles.pdfSubtext}>Music Sheet</Text>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              style={styles.imageContainer}
+              onPress={() => Linking.openURL(post.mediaUrl)}
+            >
+              <Image
+                source={{ uri: post.mediaUrl }}
+                style={styles.postImage}
+                resizeMode="contain"
+              />
+            </TouchableOpacity>
+          )
+        ) : post.mediaType === "video" ? (
           <TouchableOpacity
             style={styles.videoThumbnail}
             onPress={() => Linking.openURL(post.mediaUrl)}
@@ -716,7 +676,7 @@ export default function CommunityScreen() {
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Community</Text>
         <Text style={styles.headerSubtitle}>
-          Share your performances and inspire students
+          Share your performances and inspire students and teachers!
         </Text>
       </LinearGradient>
 
@@ -759,7 +719,7 @@ export default function CommunityScreen() {
       </View>
 
       {/* Optimized FlatList for Posts */}
-      {loading && posts.length === 0 ? (
+      {isFetching && posts.length === 0 ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#FF6A5C" />
           <Text style={styles.loadingText}>Loading...</Text>
@@ -779,6 +739,18 @@ export default function CommunityScreen() {
           windowSize={10}
           initialNumToRender={10}
           updateCellsBatchingPeriod={50}
+          // Pagination
+          onEndReached={loadMorePosts}
+          onEndReachedThreshold={0.5}
+          // Loading more indicator
+          ListFooterComponent={
+            isFetchingNextPage ? (
+              <View style={styles.loadingMoreContainer}>
+                <ActivityIndicator size="small" color="#FF6A5C" />
+                <Text style={styles.loadingMoreText}>Loading more posts...</Text>
+              </View>
+            ) : null
+          }
           // Empty state
           ListEmptyComponent={
             activeTab === "all"
@@ -810,7 +782,11 @@ export default function CommunityScreen() {
           resetPostForm();
         }}
       >
-        <View style={styles.modalOverlay}>
+        <KeyboardAvoidingView
+          style={styles.modalOverlay}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
+        >
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Create Post</Text>
@@ -824,7 +800,12 @@ export default function CommunityScreen() {
               </TouchableOpacity>
             </View>
 
-            <ScrollView style={styles.modalBody}>
+            <ScrollView
+              style={styles.modalBody}
+              contentContainerStyle={styles.modalBodyContent}
+              showsVerticalScrollIndicator={true}
+              keyboardShouldPersistTaps="handled"
+            >
               <Text style={styles.label}>Title *</Text>
               <TextInput
                 style={styles.input}
@@ -911,20 +892,39 @@ export default function CommunityScreen() {
                   <Ionicons name="musical-notes-outline" size={20} color="#FF6A5C" />
                   <Text style={styles.mediaButtonText}>Audio</Text>
                 </Button>
+                <Button
+                  onPress={() => pickMedia("image")}
+                  style={styles.mediaButton}
+                  variant="outline"
+                >
+                  <Ionicons name="image-outline" size={20} color="#FF6A5C" />
+                  <Text style={styles.mediaButtonText}>Image</Text>
+                </Button>
               </View>
               <Text style={styles.fileSizeHint}>
-                Maximum file size: 1GB (suitable for long recordings)
+                Maximum file size: 1GB (for videos/audio), 20MB (for images/PDFs). PDFs are great for music sheets!
               </Text>
 
               {postMediaUrl ? (
                 <View style={styles.selectedMedia}>
                   <Ionicons
-                    name={postMediaType === "video" ? "videocam" : "musical-notes"}
+                    name={
+                      postMediaType === "video"
+                        ? "videocam"
+                        : postMediaType === "audio"
+                        ? "musical-notes"
+                        : "image"
+                    }
                     size={20}
                     color="#10B981"
                   />
                   <Text style={styles.selectedMediaText}>
-                    {postMediaType === "video" ? "Video" : "Audio"} selected
+                    {postMediaType === "video"
+                      ? "Video"
+                      : postMediaType === "audio"
+                      ? "Audio"
+                      : "Image"}{" "}
+                    selected
                   </Text>
                 </View>
               ) : null}
@@ -934,9 +934,9 @@ export default function CommunityScreen() {
               <Button
                 onPress={uploadPost}
                 style={styles.submitButton}
-                disabled={uploading}
+                disabled={createPostMutation.isPending}
               >
-                {uploading ? (
+                {createPostMutation.isPending ? (
                   <ActivityIndicator size="small" color="white" />
                 ) : (
                   <Text style={styles.submitButtonText}>Post</Text>
@@ -944,7 +944,7 @@ export default function CommunityScreen() {
               </Button>
             </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* Comments Modal */}
@@ -1112,6 +1112,16 @@ const styles = StyleSheet.create({
     marginTop: 12,
     color: "#666",
   },
+  loadingMoreContainer: {
+    padding: 20,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  loadingMoreText: {
+    marginTop: 8,
+    fontSize: 14,
+    color: "#666",
+  },
   emptyCard: {
     padding: 40,
     alignItems: "center",
@@ -1227,6 +1237,37 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#666",
   },
+  imageContainer: {
+    width: "100%",
+    borderRadius: 12,
+    overflow: "hidden",
+    marginTop: 8,
+  },
+  postImage: {
+    width: "100%",
+    height: 300,
+    borderRadius: 12,
+  },
+  pdfContainer: {
+    backgroundColor: "#F5F5F5",
+    borderRadius: 12,
+    padding: 32,
+    alignItems: "center",
+    justifyContent: "center",
+    minHeight: 200,
+    marginTop: 8,
+  },
+  pdfText: {
+    marginTop: 12,
+    fontSize: 16,
+    color: "#333",
+    fontWeight: "600",
+  },
+  pdfSubtext: {
+    marginTop: 4,
+    fontSize: 14,
+    color: "#666",
+  },
   postMeta: {
     flexDirection: "row",
     gap: 8,
@@ -1298,6 +1339,8 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     maxHeight: "90%",
+    flex: 1,
+    flexDirection: "column",
   },
   modalHeader: {
     flexDirection: "row",
@@ -1313,8 +1356,11 @@ const styles = StyleSheet.create({
     color: "#333",
   },
   modalBody: {
+    flex: 1,
+  },
+  modalBodyContent: {
     padding: 20,
-    maxHeight: 500,
+    paddingBottom: 100,
   },
   label: {
     fontSize: 14,

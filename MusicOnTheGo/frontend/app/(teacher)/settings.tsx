@@ -12,6 +12,8 @@ import { useRouter } from "expo-router";
 import { Card } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
+import { clearAuth } from "../../lib/auth";
+import { useQueryClient } from "@tanstack/react-query";
 
 export default function TeacherSettingsScreen() {
   const router = useRouter();
@@ -22,10 +24,18 @@ export default function TeacherSettingsScreen() {
   const [darkMode, setDarkMode] = useState(false);
 
   const handleLogout = async () => {
-    // TODO: Implement logout logic
-    // Clear auth tokens, navigate to login, etc.
-    console.log("Logout pressed");
-    router.replace("/(auth)/login");
+    try {
+      // Clear all auth data
+      await clearAuth();
+      // Clear React Query cache to prevent data leakage
+      queryClient.clear();
+      // Navigate to login
+      router.replace("/(auth)/login");
+    } catch (error) {
+      console.error("Logout error:", error);
+      // Still navigate to login even if clearing fails
+      router.replace("/(auth)/login");
+    }
   };
 
   return (

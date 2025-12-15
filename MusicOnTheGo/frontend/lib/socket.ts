@@ -76,17 +76,23 @@ export async function initSocket(): Promise<Socket | null> {
       });
 
       socket.on("connect_error", (error) => {
-        console.error("[Socket] Connection error:", error.message);
+        // Log as warning instead of error - socket is optional for app functionality
+        console.warn("[Socket] Connection error (non-critical):", error.message);
+        // Don't throw or block - socket is for real-time features only
       });
 
       socket.on("error", (error) => {
-        console.error("[Socket] Error:", error);
+        // Log as warning instead of error - socket is optional for app functionality
+        console.warn("[Socket] Error (non-critical):", error);
+        // Don't throw or block - socket is for real-time features only
       });
     }
 
     return socket;
   } catch (error) {
-    console.error("[Socket] Failed to initialize:", error);
+    // Log as warning - socket is optional, app should work without it
+    console.warn("[Socket] Failed to initialize (non-critical):", error);
+    // Return null gracefully - don't throw, app can work without socket
     return null;
   }
 }

@@ -10,6 +10,8 @@ const TabsContext = createContext<TabsContextType | null>(null);
 
 type TabsProps = {
   defaultValue?: string;
+  value?: string;
+  onValueChange?: (value: string) => void;
   children: React.ReactNode;
   className?: string;
 };
@@ -30,23 +32,39 @@ type TabsContentProps = {
   children: React.ReactNode;
 };
 
-export function Tabs({ defaultValue = "", children }: TabsProps) {
-  const [activeTab, setActiveTab] = useState(defaultValue);
+export function Tabs({ defaultValue = "", value, onValueChange, children }: TabsProps) {
+  const [internalActiveTab, setInternalActiveTab] = useState(defaultValue || value || "");
+  const activeTab = value !== undefined ? value : internalActiveTab;
+  const setActiveTab = (newValue: string) => {
+    if (value === undefined) {
+      setInternalActiveTab(newValue);
+    }
+    if (onValueChange) {
+      onValueChange(newValue);
+    }
+  };
 
-  // Find the first TabsTrigger value if no defaultValue
+  // Find the first TabsTrigger value if no defaultValue or value
   React.useEffect(() => {
-    if (!defaultValue) {
+    if (!defaultValue && value === undefined) {
       const childrenArray = React.Children.toArray(children) as React.ReactElement<TabsListProps>[];
       const tabsList = childrenArray.find((child) => child.type === TabsList);
       if (tabsList && tabsList.props) {
         const triggers = React.Children.toArray(tabsList.props.children) as React.ReactElement<TabsTriggerProps>[];
         const firstTrigger = triggers[0];
         if (firstTrigger?.props?.value) {
-          setActiveTab(firstTrigger.props.value);
+          setInternalActiveTab(firstTrigger.props.value);
         }
       }
     }
-  }, []);
+  }, [defaultValue, value, children]);
+
+  // Sync internal state when value prop changes
+  React.useEffect(() => {
+    if (value !== undefined) {
+      setInternalActiveTab(value);
+    }
+  }, [value]);
 
   return (
     <TabsContext.Provider value={{ activeTab, setActiveTab }}>
@@ -132,4 +150,5 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
 });
+
 

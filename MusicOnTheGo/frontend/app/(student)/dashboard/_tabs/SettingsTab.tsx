@@ -12,9 +12,12 @@ import { api } from "../../../../lib/api";
 import { Card } from "../../../../components/ui/card";
 import { Switch } from "../../../../components/ui/switch";
 import { Separator } from "../../../../components/ui/separator";
+import { clearAuth } from "../../../../lib/auth";
+import { useQueryClient } from "@tanstack/react-query";
 
 export default function SettingsTab() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [userRole, setUserRole] = useState<"teacher" | "student" | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -40,10 +43,18 @@ export default function SettingsTab() {
   }, []);
 
   const handleLogout = async () => {
-    // TODO: Implement logout logic
-    // Clear auth tokens, navigate to login, etc.
-    console.log("Logout pressed");
-    router.replace("/(auth)/login");
+    try {
+      // Clear all auth data
+      await clearAuth();
+      // Clear React Query cache to prevent data leakage
+      queryClient.clear();
+      // Navigate to login
+      router.replace("/(auth)/login");
+    } catch (error) {
+      console.error("Logout error:", error);
+      // Still navigate to login even if clearing fails
+      router.replace("/(auth)/login");
+    }
   };
 
   if (loading) {

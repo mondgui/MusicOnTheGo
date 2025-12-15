@@ -14,10 +14,12 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { api } from "../../lib/api";
-import { saveAuth } from "../../lib/auth";
+import { saveAuth, clearAuth } from "../../lib/auth";
+import { useQueryClient } from "@tanstack/react-query";
 
 export default function LoginScreen() {
   const router = useRouter();
+  const queryClient = useQueryClient();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -32,10 +34,23 @@ export default function LoginScreen() {
     try {
       setLoading(true);
 
+      // IMPORTANT: Clear any existing auth data and cache before logging in
+      // This prevents account mixing issues
+      await clearAuth();
+      queryClient.clear(); // Clear all React Query cache
+
       const result = await api("/api/auth/login", {
         method: "POST",
         body: JSON.stringify({ email, password }),
       });
+
+      // Verify the response contains the expected user data
+      if (!result || !result.token || !result.user) {
+        throw new Error("Invalid login response");
+      }
+
+      // Double-check: Clear again before saving new auth (defensive)
+      await clearAuth();
 
       // result should contain { token, user }
       await saveAuth(result.token, {

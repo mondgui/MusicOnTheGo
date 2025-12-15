@@ -19,6 +19,9 @@ export type Booking = {
 type Props = {
   bookings: Booking[];
   loading?: boolean;
+  loadingMore?: boolean;
+  hasMore?: boolean;
+  onLoadMore?: () => void;
   onAccept?: (id: string) => void;
   onReject?: (id: string) => void;
 };
@@ -203,7 +206,15 @@ const BookingCard = ({
   </Card>
 );
 
-export default function BookingsTab({ bookings, loading, onAccept, onReject }: Props) {
+export default function BookingsTab({
+  bookings,
+  loading,
+  loadingMore = false,
+  hasMore = false,
+  onLoadMore,
+  onAccept,
+  onReject,
+}: Props) {
   // Separate bookings into upcoming and past
   const upcomingBookings = bookings.filter(b => !isPastBooking(b));
   const pastBookings = bookings.filter(b => isPastBooking(b));
@@ -295,7 +306,9 @@ export default function BookingsTab({ bookings, loading, onAccept, onReject }: P
         <Badge>{bookings.length} total</Badge>
       </View>
 
-      {loading && <ActivityIndicator color="#FF6A5C" style={{ marginBottom: 12 }} />}
+      {loading && bookings.length === 0 && (
+        <ActivityIndicator color="#FF6A5C" style={{ marginBottom: 12 }} />
+      )}
 
       {!loading && bookings.length === 0 && (
         <Text style={{ color: "#777" }}>No bookings yet.</Text>
@@ -342,6 +355,23 @@ export default function BookingsTab({ bookings, loading, onAccept, onReject }: P
             {pendingBookings.length === 0 && sortedUpcomingKeys.length === 0 && (
               <Text style={{ color: "#777", marginTop: 20 }}>No upcoming bookings.</Text>
             )}
+
+            {/* Load More Button */}
+            {hasMore && !loadingMore && onLoadMore && (
+              <View style={styles.loadMoreContainer}>
+                <Button variant="outline" onPress={onLoadMore} style={styles.loadMoreButton}>
+                  <Text style={styles.loadMoreText}>Load More Bookings</Text>
+                </Button>
+              </View>
+            )}
+
+            {/* Loading More Indicator */}
+            {loadingMore && (
+              <View style={styles.loadingMoreContainer}>
+                <ActivityIndicator size="small" color="#FF6A5C" />
+                <Text style={styles.loadingMoreText}>Loading more bookings...</Text>
+              </View>
+            )}
           </TabsContent>
 
           <TabsContent value="past">
@@ -377,6 +407,23 @@ export default function BookingsTab({ bookings, loading, onAccept, onReject }: P
 
             {sortedPastKeys.length === 0 && rejectedBookings.length === 0 && (
               <Text style={{ color: "#777", marginTop: 20 }}>No past bookings.</Text>
+            )}
+
+            {/* Load More Button */}
+            {hasMore && !loadingMore && onLoadMore && (
+              <View style={styles.loadMoreContainer}>
+                <Button variant="outline" onPress={onLoadMore} style={styles.loadMoreButton}>
+                  <Text style={styles.loadMoreText}>Load More Bookings</Text>
+                </Button>
+              </View>
+            )}
+
+            {/* Loading More Indicator */}
+            {loadingMore && (
+              <View style={styles.loadingMoreContainer}>
+                <ActivityIndicator size="small" color="#FF6A5C" />
+                <Text style={styles.loadingMoreText}>Loading more bookings...</Text>
+              </View>
             )}
           </TabsContent>
         </Tabs>
@@ -475,6 +522,27 @@ const styles = StyleSheet.create({
   },
   tabsList: {
     marginBottom: 16,
+  },
+  loadMoreContainer: {
+    padding: 20,
+    alignItems: "center",
+  },
+  loadMoreButton: {
+    minWidth: 200,
+  },
+  loadMoreText: {
+    fontSize: 14,
+    color: "#FF6A5C",
+  },
+  loadingMoreContainer: {
+    padding: 20,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  loadingMoreText: {
+    marginTop: 8,
+    fontSize: 14,
+    color: "#666",
   },
 });
 

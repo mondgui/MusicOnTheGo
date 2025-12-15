@@ -1,6 +1,6 @@
 // app/(student)/dashboard/index.tsx
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useMemo } from "react";
 import {
   View,
   Text,
@@ -12,6 +12,7 @@ import {
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useFocusEffect } from "expo-router";
+import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../../lib/api";
 
 import HomeTab from "./_tabs/HomeTab";
@@ -52,46 +53,69 @@ const TABS: TabConfig[] = [
 
 export default function StudentDashboard() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<TabKey>("home");
 
-  const [teachers, setTeachers] = useState<Teacher[]>([]);
-  const [loadingTeachers, setLoadingTeachers] = useState<boolean>(false);
-  const [user, setUser] = useState<any | null>(null);
+  // Load user with React Query
+  const { data: user } = useQuery({
+    queryKey: ["student-user"],
+    queryFn: async () => {
+      return await api("/api/users/me", { auth: true });
+    },
+  });
 
-  // Load user data
-  const loadUser = useCallback(async () => {
-    try {
-      const me = await api("/api/users/me", { auth: true });
-      setUser(me);
-    } catch (err) {
-      console.log("Error loading user:", err);
+  // Teachers query with infinite pagination
+  const {
+    data: teachersData,
+    fetchNextPage,
+    hasNextPage,
+    isFetching: loadingTeachers,
+    isFetchingNextPage: loadingMoreTeachers,
+    refetch: refetchTeachers,
+  } = useInfiniteQuery({
+    queryKey: ["teachers"],
+    queryFn: async ({ pageParam = 1 }) => {
+      const params: Record<string, string> = {
+        page: pageParam.toString(),
+        limit: "20",
+      };
+
+      const response = await api("/api/teachers", {
+        method: "GET",
+        params,
+      });
+
+      const teachersData = response.teachers || response || [];
+      const pagination = response.pagination;
+
+      return {
+        teachers: Array.isArray(teachersData) ? teachersData : [],
+        pagination: pagination || { hasMore: teachersData.length >= 20 },
+        nextPage: pagination?.hasMore ? pageParam + 1 : undefined,
+      };
+    },
+    getNextPageParam: (lastPage) => lastPage.nextPage,
+    initialPageParam: 1,
+  });
+
+  // Flatten all pages into a single array
+  const teachers = useMemo(() => {
+    return teachersData?.pages.flatMap((page) => page.teachers) || [];
+  }, [teachersData]);
+
+  const hasMoreTeachers = hasNextPage || false;
+
+  const loadMoreTeachers = () => {
+    if (hasNextPage && !loadingMoreTeachers) {
+      fetchNextPage();
     }
-  }, []);
+  };
 
-  // Load teachers from backend
-  useEffect(() => {
-    async function loadTeachers() {
-      try {
-        setLoadingTeachers(true);
-        const response = await api("/api/teachers");
-        setTeachers(Array.isArray(response) ? response : []);
-      } catch (err: any) {
-        console.log("Error loading teachers:", err.message);
-        setTeachers([]);
-      } finally {
-        setLoadingTeachers(false);
-      }
-    }
-
-    loadTeachers();
-    loadUser();
-  }, [loadUser]);
-
-  // Refresh user data when screen comes into focus (e.g., after editing profile)
+  // Refresh user data when screen comes into focus
   useFocusEffect(
-    useCallback(() => {
-      loadUser();
-    }, [loadUser])
+    React.useCallback(() => {
+      queryClient.invalidateQueries({ queryKey: ["student-user"] });
+    }, [queryClient])
   );
 
   return (
@@ -144,9 +168,15 @@ export default function StudentDashboard() {
 
         {/* Screen content depending on active tab */}
         <View style={styles.contentWrapper}>
-          {activeTab === "home" && (
-            <HomeTab teachers={teachers} loading={loadingTeachers} />
-          )}
+            {activeTab === "home" && (
+              <HomeTab
+                teachers={teachers}
+                loading={loadingTeachers}
+                loadingMore={loadingMoreTeachers}
+                hasMore={hasMoreTeachers}
+                onLoadMore={loadMoreTeachers}
+              />
+            )}
           {activeTab === "lessons" && <LessonsTab />}
           {activeTab === "settings" && <SettingsTab />}
         </View>

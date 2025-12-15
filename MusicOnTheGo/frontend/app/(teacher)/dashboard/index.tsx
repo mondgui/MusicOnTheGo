@@ -1,5 +1,5 @@
 // app/(teacher)/dashboard/index.tsx
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 import {
   View,
   Text,
@@ -11,9 +11,12 @@ import {
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useFocusEffect, useLocalSearchParams } from "expo-router";
+import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../../lib/api";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { initSocket, getSocket } from "../../../lib/socket";
+import type { Socket } from "socket.io-client";
 
 import ScheduleTab from "./_tabs/ScheduleTab";
 import BookingsTab from "./_tabs/BookingsTab";
@@ -79,13 +82,9 @@ const availabilityData: AvailabilityDay[] = [
 export default function TeacherDashboard() {
   const router = useRouter();
   const params = useLocalSearchParams();
+  const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<TabKey>("home");
   const [innerTab, setInnerTab] = useState<string>("schedule");
-  const [user, setUser] = useState<any | null>(null);
-  const [bookings, setBookings] = useState<any[]>([]);
-  const [bookingsLoading, setBookingsLoading] = useState(false);
-  const [userId, setUserId] = useState<string | null>(null);
-  const [scheduleData, setScheduleData] = useState<ScheduleItem[]>([]);
   
   // Get the tab parameter from query string
   const getTabParam = (): string => {
@@ -184,134 +183,201 @@ export default function TeacherDashboard() {
     return day; // If not a day name or date, return as is
   }, []);
 
-  // Load user data
-  const loadUser = useCallback(async () => {
-    try {
-      const me = await api("/api/users/me", { auth: true });
-      setUser(me);
-      setUserId(me?._id || null);
-    } catch (err) {
-      console.error("Failed to load user", err);
-    }
-  }, []);
+  // Load user with React Query
+  const { data: user } = useQuery({
+    queryKey: ["teacher-user"],
+    queryFn: async () => {
+      return await api("/api/users/me", { auth: true });
+    },
+  });
 
-  // Load bookings from backend
-  const loadBookings = useCallback(async () => {
-    try {
-      setBookingsLoading(true);
-      const data = await api("/api/bookings/teacher/me", { auth: true });
+  const userId = user?._id || user?.id || null;
+
+  // Bookings query with infinite pagination
+  const {
+    data: bookingsData,
+    fetchNextPage,
+    hasNextPage,
+    isFetching: bookingsLoading,
+    isFetchingNextPage: bookingsLoadingMore,
+    refetch: refetchBookings,
+  } = useInfiniteQuery({
+    queryKey: ["teacher-bookings", userId],
+    queryFn: async ({ pageParam = 1 }) => {
+      const params: Record<string, string> = {
+        page: pageParam.toString(),
+        limit: "20",
+      };
+
+      const response = await api("/api/bookings/teacher/me", {
+        auth: true,
+        params,
+      });
+
+      const data = response.bookings || response || [];
+      const pagination = response.pagination;
       
       // Transform backend booking data to display format
+      // Note: user is available from the useQuery hook above
+      const currentUser = queryClient.getQueryData(["teacher-user"]) as any;
       const transformed = (Array.isArray(data) ? data : []).map((booking: any) => ({
         _id: booking._id,
         studentName: booking.student?.name || "Student",
-        instrument: user?.instruments?.[0] || "Music",
+        instrument: currentUser?.instruments?.[0] || "Music",
         date: formatDay(booking.day),
         time: formatTimeSlot(booking.timeSlot),
         status: booking.status === "approved" ? "Confirmed" : booking.status === "pending" ? "Pending" : "Rejected",
-        createdAt: booking.createdAt || new Date().toISOString(), // Preserve creation timestamp for sorting
-        originalDay: booking.day, // Preserve original day for date parsing
+        createdAt: booking.createdAt || new Date().toISOString(),
+        originalDay: booking.day,
+        rawBooking: booking, // Keep raw data for schedule processing
       }));
       
-      // Sort bookings: Pending first (newest first), then Confirmed (newest first), then Rejected (newest first)
+      // Sort bookings
       const sorted = transformed.sort((a: any, b: any) => {
-        // First, sort by status priority: Pending > Confirmed > Rejected
         const statusPriority: { [key: string]: number } = {
           "Pending": 0,
           "Confirmed": 1,
           "Rejected": 2,
         };
-        
         const statusDiff = statusPriority[a.status] - statusPriority[b.status];
-        if (statusDiff !== 0) {
-          return statusDiff;
-        }
-        
-        // If same status, sort by creation date (newest first)
+        if (statusDiff !== 0) return statusDiff;
         const dateA = new Date(a.createdAt).getTime();
         const dateB = new Date(b.createdAt).getTime();
-        return dateB - dateA; // Descending order (newest first)
+        return dateB - dateA;
       });
-      
-      setBookings(sorted);
-      
-      // Filter and transform bookings for today's schedule
-      const today = new Date();
-      const todayDayName = today.toLocaleDateString("en-US", { weekday: "long" });
-      // Get today's date in YYYY-MM-DD format using local timezone (not UTC)
-      const todayYear = today.getFullYear();
-      const todayMonth = String(today.getMonth() + 1).padStart(2, '0');
-      const todayDay = String(today.getDate()).padStart(2, '0');
-      const todayDateString = `${todayYear}-${todayMonth}-${todayDay}`;
-      
-      // Get today's approved bookings
-      const todaySchedule: ScheduleItem[] = (Array.isArray(data) ? data : [])
-        .filter((booking: any) => {
-          if (booking.status !== "approved") return false;
-          
-          // Check if booking.day is a date string (YYYY-MM-DD format)
-          const yyyyMmDdPattern = /^(\d{4})-(\d{2})-(\d{2})$/;
-          if (yyyyMmDdPattern.test(booking.day)) {
-            // Compare date strings directly
-            return booking.day === todayDateString;
-          } else {
-            // Compare day names (for old recurring weekly bookings)
-            return booking.day === todayDayName;
-          }
-        })
-        .map((booking: any, index: number) => {
-          const timeRange = formatTimeSlot(booking.timeSlot || {});
-          const formattedDate = formatDay(booking.day);
-          return {
-            id: booking._id || index,
-            student: booking.student?.name || "Student",
-            instrument: user?.instruments?.[0] || "Music",
-            time: timeRange,
-            date: formattedDate,
-          };
-        })
-        .sort((a: ScheduleItem, b: ScheduleItem) => {
-          // Sort by time (convert to 24-hour for comparison)
-          const parseTime = (timeStr: string): number => {
-            const [time, period] = timeStr.split(" ");
-            const [hours, minutes] = time.split(":");
-            let hour = parseInt(hours);
-            if (period === "PM" && hour !== 12) hour += 12;
-            if (period === "AM" && hour === 12) hour = 0;
-            return hour * 60 + parseInt(minutes || "0");
-          };
-          return parseTime(a.time) - parseTime(b.time);
-        });
-      
-      setScheduleData(todaySchedule);
-    } catch (err) {
-      console.error("Failed to load bookings", err);
-      setBookings([]);
-      setScheduleData([]);
-    } finally {
-      setBookingsLoading(false);
+
+      return {
+        bookings: sorted,
+        rawData: data, // Keep raw data for schedule
+        pagination: pagination || { hasMore: sorted.length >= 20 },
+        nextPage: pagination?.hasMore ? pageParam + 1 : undefined,
+      };
+    },
+    getNextPageParam: (lastPage) => lastPage.nextPage,
+    initialPageParam: 1,
+    enabled: !!userId,
+  });
+
+  // Flatten all pages into a single array
+  const bookings = useMemo(() => {
+    return bookingsData?.pages.flatMap((page) => page.bookings) || [];
+  }, [bookingsData]);
+
+  // Compute schedule data from bookings
+  const scheduleData = useMemo(() => {
+    if (!bookingsData) return [];
+    
+    const today = new Date();
+    const todayDayName = today.toLocaleDateString("en-US", { weekday: "long" });
+    const todayYear = today.getFullYear();
+    const todayMonth = String(today.getMonth() + 1).padStart(2, '0');
+    const todayDay = String(today.getDate()).padStart(2, '0');
+    const todayDateString = `${todayYear}-${todayMonth}-${todayDay}`;
+    
+    // Get all raw booking data from all pages
+    const allRawData = bookingsData.pages.flatMap((page) => page.rawData);
+    const currentUser = user; // user is from useQuery
+    
+    const todaySchedule: ScheduleItem[] = allRawData
+      .filter((booking: any) => {
+        if (booking.status !== "approved") return false;
+        const yyyyMmDdPattern = /^(\d{4})-(\d{2})-(\d{2})$/;
+        if (yyyyMmDdPattern.test(booking.day)) {
+          return booking.day === todayDateString;
+        } else {
+          return booking.day === todayDayName;
+        }
+      })
+      .map((booking: any, index: number) => {
+        const timeRange = formatTimeSlot(booking.timeSlot || {});
+        const formattedDate = formatDay(booking.day);
+        return {
+          id: booking._id || index,
+          student: booking.student?.name || "Student",
+          instrument: currentUser?.instruments?.[0] || "Music",
+          time: timeRange,
+          date: formattedDate,
+        };
+      })
+      .sort((a: ScheduleItem, b: ScheduleItem) => {
+        const parseTime = (timeStr: string): number => {
+          const [time, period] = timeStr.split(" ");
+          const [hours, minutes] = time.split(":");
+          let hour = parseInt(hours);
+          if (period === "PM" && hour !== 12) hour += 12;
+          if (period === "AM" && hour === 12) hour = 0;
+          return hour * 60 + parseInt(minutes || "0");
+        };
+        return parseTime(a.time) - parseTime(b.time);
+      });
+    
+    return todaySchedule;
+  }, [bookingsData, user, formatDay, formatTimeSlot]);
+
+  const loadMoreBookings = () => {
+    if (hasNextPage && !bookingsLoadingMore) {
+      fetchNextPage();
     }
-  }, [user, formatDay, formatTimeSlot]);
+  };
 
-  // Load data on mount
-  useEffect(() => {
-    loadUser();
-  }, [loadUser]);
+  const hasMoreBookings = hasNextPage || false;
 
-  // Load bookings after user is loaded
+  // Initialize Socket.io for real-time booking updates
   useEffect(() => {
+    let mounted = true;
+    let socketInstance: Socket | null = null;
+
+    async function setupSocket() {
+      try {
+        socketInstance = await initSocket();
+        if (socketInstance && mounted && userId) {
+          // Join teacher bookings room
+          socketInstance.emit("join-teacher-bookings");
+
+          // Listen for new booking requests
+          socketInstance.on("new-booking-request", () => {
+            if (mounted) {
+              console.log("[Teacher Dashboard] New booking request received");
+              queryClient.invalidateQueries({ queryKey: ["teacher-bookings"] });
+              refetchBookings();
+            }
+          });
+
+          // Listen for booking updates
+          socketInstance.on("booking-updated", () => {
+            if (mounted) {
+              console.log("[Teacher Dashboard] Booking updated");
+              queryClient.invalidateQueries({ queryKey: ["teacher-bookings"] });
+              refetchBookings();
+            }
+          });
+        }
+      } catch (error) {
+        console.warn("[Teacher Dashboard] Socket setup failed (non-critical):", error);
+      }
+    }
+
     if (userId) {
-      loadBookings();
+      setupSocket();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId]); // Only reload when user ID changes
 
-  // Refresh data when screen comes into focus
+    return () => {
+      mounted = false;
+      if (socketInstance) {
+        socketInstance.emit("leave-teacher-bookings");
+        socketInstance.off("new-booking-request");
+        socketInstance.off("booking-updated");
+      }
+    };
+  }, [userId, queryClient, refetchBookings]);
+
+  // Refresh bookings when screen comes into focus
   useFocusEffect(
-    useCallback(() => {
-      loadUser();
-      // Load bookings will be triggered by the useEffect above when user changes
-    }, [loadUser])
+    React.useCallback(() => {
+      if (userId) {
+        refetchBookings();
+      }
+    }, [userId, refetchBookings])
   );
 
   // Handle accept booking
@@ -322,13 +388,14 @@ export default function TeacherDashboard() {
         auth: true,
         body: JSON.stringify({ status: "approved" }),
       });
-      // Reload bookings to reflect the change
-      loadBookings();
+      // Invalidate and refetch bookings
+      queryClient.invalidateQueries({ queryKey: ["teacher-bookings"] });
+      refetchBookings();
     } catch (err: any) {
       console.error("Failed to accept booking", err);
       alert(err.message || "Failed to accept booking");
     }
-  }, [loadBookings]);
+  }, [queryClient, refetchBookings]);
 
   // Handle reject booking
   const handleRejectBooking = useCallback(async (bookingId: string) => {
@@ -338,13 +405,14 @@ export default function TeacherDashboard() {
         auth: true,
         body: JSON.stringify({ status: "rejected" }),
       });
-      // Reload bookings to reflect the change
-      loadBookings();
+      // Invalidate and refetch bookings
+      queryClient.invalidateQueries({ queryKey: ["teacher-bookings"] });
+      refetchBookings();
     } catch (err: any) {
       console.error("Failed to reject booking", err);
       alert(err.message || "Failed to reject booking");
     }
-  }, [loadBookings]);
+  }, [queryClient, refetchBookings]);
 
   return (
     <View style={styles.container}>
@@ -407,11 +475,14 @@ export default function TeacherDashboard() {
             <HomeTabContent
               user={user}
               scheduleData={scheduleData}
-              bookingsData={bookingsData}
+              bookingsData={[]}
               availabilityData={availabilityData}
               defaultTab={innerTab}
               bookings={bookings}
               bookingsLoading={bookingsLoading}
+              bookingsLoadingMore={bookingsLoadingMore}
+              hasMoreBookings={hasMoreBookings}
+              onLoadMoreBookings={loadMoreBookings}
               onAccept={handleAcceptBooking}
               onReject={handleRejectBooking}
             />
@@ -420,6 +491,9 @@ export default function TeacherDashboard() {
             <BookingsTab
               bookings={bookings}
               loading={bookingsLoading}
+              loadingMore={bookingsLoadingMore}
+              hasMore={hasMoreBookings}
+              onLoadMore={loadMoreBookings}
               onAccept={handleAcceptBooking}
               onReject={handleRejectBooking}
             />
@@ -443,6 +517,9 @@ type HomeTabContentProps = {
   defaultTab?: string;
   bookings: any[];
   bookingsLoading: boolean;
+  bookingsLoadingMore?: boolean;
+  hasMoreBookings?: boolean;
+  onLoadMoreBookings?: () => void;
   onAccept?: (id: string) => void;
   onReject?: (id: string) => void;
 };
@@ -455,6 +532,9 @@ function HomeTabContent({
   defaultTab = "schedule",
   bookings,
   bookingsLoading,
+  bookingsLoadingMore = false,
+  hasMoreBookings = false,
+  onLoadMoreBookings,
   onAccept,
   onReject,
 }: HomeTabContentProps) {
@@ -520,6 +600,9 @@ function HomeTabContent({
             <BookingsTab
               bookings={bookings}
               loading={bookingsLoading}
+              loadingMore={bookingsLoadingMore}
+              hasMore={hasMoreBookings}
+              onLoadMore={onLoadMoreBookings}
               onAccept={onAccept}
               onReject={onReject}
             />

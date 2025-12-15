@@ -1,10 +1,11 @@
-import React, { useState } from "react";
+import React, { useState, useCallback } from "react";
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
   ActivityIndicator,
+  FlatList,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter, type Href } from "expo-router";
@@ -31,9 +32,18 @@ type Teacher = {
 type HomeTabProps = {
   teachers: Teacher[];
   loading: boolean;
+  loadingMore?: boolean;
+  hasMore?: boolean;
+  onLoadMore?: () => void;
 };
 
-export default function HomeTab({ teachers, loading }: HomeTabProps) {
+export default function HomeTab({
+  teachers,
+  loading,
+  loadingMore = false,
+  hasMore = false,
+  onLoadMore,
+}: HomeTabProps) {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedInstrument, setSelectedInstrument] = useState("all");
@@ -66,6 +76,88 @@ export default function HomeTab({ teachers, loading }: HomeTabProps) {
 
     return matchesSearch && matchesInstrument && matchesPrice;
   });
+
+  // Render teacher card
+  const renderTeacher = useCallback(
+    ({ item: teacher }: { item: Teacher }) => (
+      <Card
+        key={teacher._id}
+        style={styles.teacherCard}
+        onPress={() => router.push(`/(student)/teacher/${teacher._id}` as Href)}
+      >
+        <View style={styles.teacherCardContent}>
+          <Avatar
+            src={teacher.profileImage}
+            fallback={teacher.name.charAt(0)}
+            size={64}
+          />
+
+          <View style={styles.teacherInfo}>
+            <View>
+              <Text style={styles.cardTitle}>{teacher.name}</Text>
+              <Text style={styles.cardSubtitle}>
+                {teacher.instruments?.length
+                  ? teacher.instruments.join(", ")
+                  : "No instruments listed"}
+              </Text>
+            </View>
+
+            <View style={styles.teacherMeta}>
+              <View style={styles.ratingRow}>
+                <Ionicons name="star" size={14} color="#FFB800" />
+                <Text style={styles.ratingText}>4.5</Text>
+                <Text style={styles.reviewsText}>(12)</Text>
+              </View>
+              <View style={styles.locationRow}>
+                <Ionicons name="location-outline" size={12} color="#666" />
+                <Text style={styles.locationText}>
+                  {teacher.location
+                    ? teacher.location.split(",")[0]
+                    : "Location TBD"}
+                </Text>
+              </View>
+            </View>
+
+            {teacher.specialties && teacher.specialties.length > 0 && (
+              <View style={styles.specialtiesRow}>
+                {teacher.specialties.slice(0, 3).map((specialty, index) => (
+                  <Badge
+                    key={index}
+                    variant={index % 2 === 0 ? "default" : "warning"}
+                    style={styles.specialtyBadge}
+                  >
+                    {specialty}
+                  </Badge>
+                ))}
+                {teacher.specialties.length > 3 && (
+                  <Text style={styles.moreSpecialtiesText}>
+                    +{teacher.specialties.length - 3} more
+                  </Text>
+                )}
+              </View>
+            )}
+
+            <View style={styles.teacherFooter}>
+              <Text style={styles.priceText}>
+                {teacher.rate ? `$${teacher.rate}/hour` : "Rate TBD"}
+              </Text>
+              <Button
+                size="sm"
+                onPress={() => {
+                  router.push(`/(student)/teacher/${teacher._id}` as Href);
+                }}
+              >
+                View Profile
+              </Button>
+            </View>
+          </View>
+        </View>
+      </Card>
+    ),
+    [router]
+  );
+
+  const keyExtractor = useCallback((item: Teacher) => item._id, []);
 
   return (
     <View style={styles.section}>
@@ -179,95 +271,41 @@ export default function HomeTab({ teachers, loading }: HomeTabProps) {
         </View>
       )}
 
-      {!loading && filteredTeachers.length === 0 && (
+      {loading && filteredTeachers.length === 0 ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#FF6A5C" />
+          <Text style={styles.loadingText}>Loading teachers...</Text>
+        </View>
+      ) : filteredTeachers.length === 0 ? (
         <View style={styles.emptyContainer}>
           <Ionicons name="search-outline" size={48} color="#CCC" />
           <Text style={styles.emptyText}>
             {teachers.length === 0
               ? "No teachers available yet. Check back soon."
               : "No teachers match your search criteria."}
-          </Text>
+        </Text>
         </View>
-      )}
-
-      {!loading &&
-        filteredTeachers.map((teacher) => (
-          <Card
-            key={teacher._id}
-            style={styles.teacherCard}
-            onPress={() =>
-              router.push(`/(student)/teacher/${teacher._id}` as Href)
-            }
-          >
-            <View style={styles.teacherCardContent}>
-              <Avatar
-                src={teacher.profileImage}
-                fallback={teacher.name.charAt(0)}
-                size={64}
-              />
-
-              <View style={styles.teacherInfo}>
-                <View>
-                  <Text style={styles.cardTitle}>{teacher.name}</Text>
-                  <Text style={styles.cardSubtitle}>
-                    {teacher.instruments?.length
-                      ? teacher.instruments.join(", ")
-                      : "No instruments listed"}
-                  </Text>
-                </View>
-
-                <View style={styles.teacherMeta}>
-                  <View style={styles.ratingRow}>
-                    <Ionicons name="star" size={14} color="#FFB800" />
-                    <Text style={styles.ratingText}>4.5</Text>
-                    <Text style={styles.reviewsText}>(12)</Text>
-                  </View>
-                  <View style={styles.locationRow}>
-                    <Ionicons name="location-outline" size={12} color="#666" />
-                    <Text style={styles.locationText}>
-                      {teacher.location
-                        ? teacher.location.split(",")[0]
-                        : "Location TBD"}
-                    </Text>
-                  </View>
-                </View>
-
-                {teacher.specialties && teacher.specialties.length > 0 && (
-                  <View style={styles.specialtiesRow}>
-                    {teacher.specialties.slice(0, 3).map((specialty, index) => (
-                      <Badge
-                        key={index}
-                        variant={index % 2 === 0 ? "default" : "warning"}
-                        style={styles.specialtyBadge}
-                      >
-                        {specialty}
-                      </Badge>
-                    ))}
-                    {teacher.specialties.length > 3 && (
-                      <Text style={styles.moreSpecialtiesText}>
-                        +{teacher.specialties.length - 3} more
-                      </Text>
-                    )}
-                  </View>
-                )}
-
-                <View style={styles.teacherFooter}>
-                  <Text style={styles.priceText}>
-                    {teacher.rate ? `$${teacher.rate}/hour` : "Rate TBD"}
-                  </Text>
-                  <Button
-                    size="sm"
-                    onPress={() => {
-                      router.push(`/(student)/teacher/${teacher._id}` as Href);
-                    }}
-                  >
-                    View Profile
-                  </Button>
-                </View>
+      ) : (
+        <FlatList
+          data={filteredTeachers}
+          renderItem={renderTeacher}
+          keyExtractor={keyExtractor}
+          scrollEnabled={false}
+          showsVerticalScrollIndicator={false}
+          // Pagination
+          onEndReached={onLoadMore}
+          onEndReachedThreshold={0.5}
+          // Loading more indicator
+          ListFooterComponent={
+            loadingMore ? (
+              <View style={styles.loadingMoreContainer}>
+                <ActivityIndicator size="small" color="#FF6A5C" />
+                <Text style={styles.loadingMoreText}>Loading more teachers...</Text>
               </View>
-            </View>
-          </Card>
-        ))}
+            ) : null
+          }
+        />
+      )}
     </View>
   );
 }
@@ -348,6 +386,16 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 12,
     color: "#777",
+  },
+  loadingMoreContainer: {
+    padding: 20,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  loadingMoreText: {
+    marginTop: 8,
+    fontSize: 14,
+    color: "#666",
   },
   emptyContainer: {
     alignItems: "center",
