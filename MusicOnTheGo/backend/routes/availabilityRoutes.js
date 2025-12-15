@@ -6,6 +6,12 @@ import roleMiddleware from "../middleware/roleMiddleware.js";
 
 const router = express.Router();
 
+// Get io instance from server (will be set by server.js)
+let io = null;
+export function setSocketIO(socketIO) {
+  io = socketIO;
+}
+
 /**
  * TEACHER: Create availability
  */
@@ -35,6 +41,15 @@ router.post(
       const availability = new Availability(availabilityData);
 
       await availability.save();
+
+      // Emit real-time event for availability update
+      if (io) {
+        const teacherIdStr = String(req.user.id);
+        // Emit to teacher's availability room
+        io.to(`teacher-availability:${teacherIdStr}`).emit("availability-updated");
+        console.log(`📅 Emitted availability-updated for teacher: ${teacherIdStr}`);
+      }
+
       res.status(201).json(availability);
     } catch (err) {
       res.status(500).json({ message: err.message });
@@ -70,6 +85,15 @@ router.put(
       }
 
       await availability.save();
+
+      // Emit real-time event for availability update
+      if (io) {
+        const teacherIdStr = String(req.user.id);
+        // Emit to teacher's availability room
+        io.to(`teacher-availability:${teacherIdStr}`).emit("availability-updated");
+        console.log(`📅 Emitted availability-updated for teacher: ${teacherIdStr}`);
+      }
+
       res.json(availability);
     } catch (err) {
       res.status(500).json({ message: err.message });
@@ -190,6 +214,15 @@ router.delete(
       }
 
       await availability.deleteOne();
+
+      // Emit real-time event for availability update
+      if (io) {
+        const teacherIdStr = String(req.user.id);
+        // Emit to teacher's availability room
+        io.to(`teacher-availability:${teacherIdStr}`).emit("availability-updated");
+        console.log(`📅 Emitted availability-updated for teacher: ${teacherIdStr}`);
+      }
+
       res.json({ message: "Availability deleted." });
     } catch (err) {
       res.status(500).json({ message: err.message });

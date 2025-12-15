@@ -36,10 +36,10 @@ const communityPostSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
-    // Media type: "video" | "audio"
+    // Media type: "video" | "audio" | "image"
     mediaType: {
       type: String,
-      enum: ["video", "audio"],
+      enum: ["video", "audio", "image"],
       required: true,
     },
     // Thumbnail URL for video previews

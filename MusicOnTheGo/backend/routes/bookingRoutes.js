@@ -6,6 +6,12 @@ import roleMiddleware from "../middleware/roleMiddleware.js";
 
 const router = express.Router();
 
+// Get io instance from server (will be set by server.js)
+let io = null;
+export function setSocketIO(socketIO) {
+  io = socketIO;
+}
+
 /**
  * STUDENT: Create a booking request
  */
@@ -19,6 +25,21 @@ router.post(
 
       if (!teacher || !day || !timeSlot) {
         return res.status(400).json({ message: "Missing required fields." });
+      }
+
+      // Check if student has had a conversation with the teacher
+      const Message = (await import("../models/Message.js")).default;
+      const conversationExists = await Message.findOne({
+        $or: [
+          { sender: req.user.id, recipient: teacher },
+          { sender: teacher, recipient: req.user.id },
+        ],
+      });
+
+      if (!conversationExists) {
+        return res.status(403).json({ 
+          message: "Please contact the teacher first before booking a lesson. This helps ensure you're a good fit and allows you to discuss your learning goals." 
+        });
       }
 
       // Check if there's already an approved booking for this time slot
@@ -73,6 +94,21 @@ router.post(
 
         await booking.save();
 
+        // Populate booking for socket emission
+        const populatedBooking = await Booking.findById(booking._id)
+          .populate("student", "name email profileImage")
+          .populate("teacher", "name email profileImage");
+
+        // Emit real-time event to teacher
+        if (io) {
+          const teacherIdStr = String(teacher);
+          // Emit to teacher's personal room
+          io.to(`user:${teacherIdStr}`).emit("new-booking-request", populatedBooking);
+          // Also emit to teacher's bookings room (if they're viewing bookings)
+          io.to(`teacher-bookings:${teacherIdStr}`).emit("booking-updated", populatedBooking);
+          console.log(`📅 Emitted new-booking-request to teacher: ${teacherIdStr} (with conflict)`);
+        }
+
         return res.status(201).json({
           ...booking.toObject(),
           conflictWarning: "Another student has also requested this time slot. The teacher will review all requests.",
@@ -87,6 +123,21 @@ router.post(
       });
 
       await booking.save();
+
+      // Populate booking for socket emission
+      const populatedBooking = await Booking.findById(booking._id)
+        .populate("student", "name email profileImage")
+        .populate("teacher", "name email profileImage");
+
+      // Emit real-time event to teacher
+      if (io) {
+        const teacherIdStr = String(teacher);
+        // Emit to teacher's personal room
+        io.to(`user:${teacherIdStr}`).emit("new-booking-request", populatedBooking);
+        // Also emit to teacher's bookings room (if they're viewing bookings)
+        io.to(`teacher-bookings:${teacherIdStr}`).emit("booking-updated", populatedBooking);
+        console.log(`📅 Emitted new-booking-request to teacher: ${teacherIdStr}`);
+      }
 
       res.status(201).json(booking);
     } catch (err) {
@@ -155,6 +206,35 @@ router.put(
       booking.status = status;
       await booking.save();
 
+      // Populate booking for socket emission
+      const populatedBooking = await Booking.findById(booking._id)
+        .populate("student", "name email profileImage")
+        .populate("teacher", "name email profileImage");
+
+      // Emit real-time events
+      if (io) {
+        const studentIdStr = String(booking.student);
+        const teacherIdStr = String(booking.teacher);
+        
+        // Emit to student's personal room
+        io.to(`user:${studentIdStr}`).emit("booking-status-changed", {
+          booking: populatedBooking,
+          status: status,
+        });
+        // Also emit to student's bookings room
+        io.to(`student-bookings:${studentIdStr}`).emit("booking-updated", populatedBooking);
+        
+        // Emit to teacher's bookings room
+        io.to(`teacher-bookings:${teacherIdStr}`).emit("booking-updated", populatedBooking);
+        
+        // If approved, emit availability update to teacher
+        if (status === "approved") {
+          io.to(`teacher-availability:${teacherIdStr}`).emit("availability-updated");
+        }
+        
+        console.log(`📅 Emitted booking-status-changed to student: ${studentIdStr}, status: ${status}`);
+      }
+
       res.json(booking);
     } catch (err) {
       res.status(500).json({ message: err.message });
@@ -171,9 +251,37 @@ router.get(
   roleMiddleware("student"),
   async (req, res) => {
     try {
+      const { page, limit } = req.query;
+      
+      // Pagination parameters
+      const pageNum = parseInt(page) || 1;
+      const limitNum = parseInt(limit) || 20;
+      const skip = (pageNum - 1) * limitNum;
+
+      // Get total count
+      const totalCount = await Booking.countDocuments({ student: req.user.id });
+
+      // Fetch bookings with pagination
       const bookings = await Booking.find({ student: req.user.id })
-        .populate("teacher", "name email profileImage");
-      res.json(bookings);
+        .populate("teacher", "name email profileImage")
+        .sort({ createdAt: -1 }) // Most recent first
+        .skip(skip)
+        .limit(limitNum);
+
+      // Calculate pagination info
+      const totalPages = Math.ceil(totalCount / limitNum);
+      const hasMore = pageNum < totalPages;
+
+      res.json({
+        bookings,
+        pagination: {
+          page: pageNum,
+          limit: limitNum,
+          total: totalCount,
+          totalPages,
+          hasMore,
+        },
+      });
     } catch (err) {
       res.status(500).json({ message: err.message });
     }
@@ -189,9 +297,37 @@ router.get(
   roleMiddleware("teacher"),
   async (req, res) => {
     try {
+      const { page, limit } = req.query;
+      
+      // Pagination parameters
+      const pageNum = parseInt(page) || 1;
+      const limitNum = parseInt(limit) || 20;
+      const skip = (pageNum - 1) * limitNum;
+
+      // Get total count
+      const totalCount = await Booking.countDocuments({ teacher: req.user.id });
+
+      // Fetch bookings with pagination
       const bookings = await Booking.find({ teacher: req.user.id })
-        .populate("student", "name email profileImage");
-      res.json(bookings);
+        .populate("student", "name email profileImage")
+        .sort({ createdAt: -1 }) // Most recent first
+        .skip(skip)
+        .limit(limitNum);
+
+      // Calculate pagination info
+      const totalPages = Math.ceil(totalCount / limitNum);
+      const hasMore = pageNum < totalPages;
+
+      res.json({
+        bookings,
+        pagination: {
+          page: pageNum,
+          limit: limitNum,
+          total: totalCount,
+          totalPages,
+          hasMore,
+        },
+      });
     } catch (err) {
       res.status(500).json({ message: err.message });
     }

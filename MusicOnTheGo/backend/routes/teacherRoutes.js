@@ -9,6 +9,13 @@ const router = express.Router();
  */
 router.get("/", async (req, res) => {
   try {
+    const { page, limit } = req.query;
+    
+    // Pagination parameters
+    const pageNum = parseInt(page) || 1;
+    const limitNum = parseInt(limit) || 20;
+    const skip = (pageNum - 1) * limitNum;
+
     const filter = { role: "teacher" };
 
     if (req.query.instrument) {
@@ -19,11 +26,30 @@ router.get("/", async (req, res) => {
       filter.location = new RegExp(req.query.city, "i");
     }
 
-    const teachers = await User.find(filter).select(
-      "name instruments experience location email createdAt rate about specialties profileImage"
-    );
+    // Get total count
+    const totalCount = await User.countDocuments(filter);
 
-    res.json(teachers);
+    // Fetch teachers with pagination
+    const teachers = await User.find(filter)
+      .select("name instruments experience location email createdAt rate about specialties profileImage")
+      .skip(skip)
+      .limit(limitNum)
+      .sort({ createdAt: -1 }); // Most recent first
+
+    // Calculate pagination info
+    const totalPages = Math.ceil(totalCount / limitNum);
+    const hasMore = pageNum < totalPages;
+
+    res.json({
+      teachers,
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        total: totalCount,
+        totalPages,
+        hasMore,
+      },
+    });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

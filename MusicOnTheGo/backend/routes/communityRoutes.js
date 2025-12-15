@@ -12,9 +12,14 @@ const router = express.Router();
  */
 router.get("/", authMiddleware, async (req, res) => {
   try {
-    const { filter, instrument, sort = "recent" } = req.query;
+    const { filter, instrument, sort = "recent", page, limit } = req.query;
     const userId = req.user.id;
     const userRole = req.user.role;
+
+    // Pagination parameters
+    const pageNum = parseInt(page) || 1;
+    const limitNum = parseInt(limit) || 20;
+    const skip = (pageNum - 1) * limitNum;
 
     // Build filter based on visibility and user role
     const queryFilter = {};
@@ -47,11 +52,17 @@ router.get("/", authMiddleware, async (req, res) => {
       sortOption = { commentCount: -1, createdAt: -1 }; // Most commented first
     }
 
+    // Get total count for pagination (before filtering by role)
+    const totalCount = await CommunityPost.countDocuments(queryFilter);
+
+    // Fetch posts with pagination
     const posts = await CommunityPost.find(queryFilter)
       .populate("author", "name profileImage role")
       .populate("likes", "name")
       .populate("comments.author", "name profileImage")
-      .sort(sortOption);
+      .sort(sortOption)
+      .skip(skip)
+      .limit(limitNum);
 
     // Filter by author role if needed (after population)
     let filteredPosts = posts;
@@ -70,7 +81,20 @@ router.get("/", authMiddleware, async (req, res) => {
       return postObj;
     });
 
-    res.json(postsWithLikeStatus);
+    // Calculate pagination info
+    const totalPages = Math.ceil(totalCount / limitNum);
+    const hasMore = pageNum < totalPages;
+
+    res.json({
+      posts: postsWithLikeStatus,
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        total: totalCount,
+        totalPages,
+        hasMore,
+      },
+    });
   } catch (err) {
     console.error("[Community] Error:", err);
     res.status(500).json({ message: err.message });
@@ -83,11 +107,24 @@ router.get("/", authMiddleware, async (req, res) => {
  */
 router.get("/me", authMiddleware, async (req, res) => {
   try {
+    const { page, limit } = req.query;
+    
+    // Pagination parameters
+    const pageNum = parseInt(page) || 1;
+    const limitNum = parseInt(limit) || 20;
+    const skip = (pageNum - 1) * limitNum;
+
+    // Get total count
+    const totalCount = await CommunityPost.countDocuments({ author: req.user.id });
+
+    // Fetch posts with pagination
     const posts = await CommunityPost.find({ author: req.user.id })
       .populate("author", "name profileImage role")
       .populate("likes", "name")
       .populate("comments.author", "name profileImage")
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limitNum);
 
     const postsWithLikeStatus = posts.map((post) => {
       const postObj = post.toObject();
@@ -97,7 +134,20 @@ router.get("/me", authMiddleware, async (req, res) => {
       return postObj;
     });
 
-    res.json(postsWithLikeStatus);
+    // Calculate pagination info
+    const totalPages = Math.ceil(totalCount / limitNum);
+    const hasMore = pageNum < totalPages;
+
+    res.json({
+      posts: postsWithLikeStatus,
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        total: totalCount,
+        totalPages,
+        hasMore,
+      },
+    });
   } catch (err) {
     console.error("[Community] Error:", err);
     res.status(500).json({ message: err.message });
@@ -166,9 +216,9 @@ router.post("/", authMiddleware, async (req, res) => {
       });
     }
 
-    if (!["video", "audio"].includes(mediaType)) {
+    if (!["video", "audio", "image"].includes(mediaType)) {
       return res.status(400).json({
-        message: "mediaType must be 'video' or 'audio'.",
+        message: "mediaType must be 'video', 'audio', or 'image'.",
       });
     }
 

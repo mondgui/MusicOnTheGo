@@ -10,8 +10,8 @@ import mongoose from "mongoose";
 import jwt from "jsonwebtoken";
 import userRoutes from "./routes/userRoutes.js"; // 
 import authRoutes from "./routes/authRoutes.js";
-import availabilityRoutes from "./routes/availabilityRoutes.js";
-import bookingRoutes from "./routes/bookingRoutes.js";
+import availabilityRoutes, { setSocketIO as setAvailabilitySocketIO } from "./routes/availabilityRoutes.js";
+import bookingRoutes, { setSocketIO as setBookingSocketIO } from "./routes/bookingRoutes.js";
 import inquiryRoutes from "./routes/inquiryRoutes.js";
 import teacherRoutes from "./routes/teacherRoutes.js";
 import practiceRoutes from "./routes/practiceRoutes.js";
@@ -72,6 +72,10 @@ const io = new Server(httpServer, {
     credentials: true,
   },
 });
+
+// Pass io instance to routes that need it
+setBookingSocketIO(io);
+setAvailabilitySocketIO(io);
 
 // Socket.io authentication middleware
 io.use((socket, next) => {
@@ -200,11 +204,50 @@ io.on("connection", (socket) => {
     }
   });
 
+  // Handle joining teacher availability room
+  socket.on("join-teacher-availability", () => {
+    socket.join(`teacher-availability:${socket.user.id}`);
+    console.log(`📅 Teacher ${socket.user.id} joined availability room`);
+  });
+
+  // Handle leaving teacher availability room
+  socket.on("leave-teacher-availability", () => {
+    socket.leave(`teacher-availability:${socket.user.id}`);
+    console.log(`📅 Teacher ${socket.user.id} left availability room`);
+  });
+
+  // Handle joining teacher bookings room
+  socket.on("join-teacher-bookings", () => {
+    socket.join(`teacher-bookings:${socket.user.id}`);
+    console.log(`📅 Teacher ${socket.user.id} joined bookings room`);
+  });
+
+  // Handle leaving teacher bookings room
+  socket.on("leave-teacher-bookings", () => {
+    socket.leave(`teacher-bookings:${socket.user.id}`);
+    console.log(`📅 Teacher ${socket.user.id} left bookings room`);
+  });
+
+  // Handle joining student bookings room
+  socket.on("join-student-bookings", () => {
+    socket.join(`student-bookings:${socket.user.id}`);
+    console.log(`📅 Student ${socket.user.id} joined bookings room`);
+  });
+
+  // Handle leaving student bookings room
+  socket.on("leave-student-bookings", () => {
+    socket.leave(`student-bookings:${socket.user.id}`);
+    console.log(`📅 Student ${socket.user.id} left bookings room`);
+  });
+
   // Handle disconnection
   socket.on("disconnect", () => {
     console.log(`❌ User disconnected: ${socket.user.id}`);
   });
 });
+
+// Export io instance for use in routes
+export { io };
 
 // Start the server
 const PORT = process.env.PORT || 5050;

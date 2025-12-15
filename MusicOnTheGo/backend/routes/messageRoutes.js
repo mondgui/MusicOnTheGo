@@ -77,9 +77,11 @@ router.post("/", authMiddleware, async (req, res) => {
  */
 router.get("/conversations", authMiddleware, async (req, res) => {
   try {
+    const { page, limit } = req.query;
     const currentUserId = req.user.id;
 
     // Get all messages where current user is sender or recipient
+    // Note: We still need all messages to build conversations, but we'll paginate the final list
     const messages = await Message.find({
       $or: [
         { sender: currentUserId },
@@ -128,10 +130,34 @@ router.get("/conversations", authMiddleware, async (req, res) => {
     });
 
     // Convert map to array and sort by last message time
-    const conversations = Array.from(conversationsMap.values())
+    const allConversations = Array.from(conversationsMap.values())
       .sort((a, b) => new Date(b.lastMessageTime) - new Date(a.lastMessageTime));
 
-    res.json(conversations);
+    // Pagination parameters
+    const pageNum = parseInt(page) || 1;
+    const limitNum = parseInt(limit) || 20;
+    const skip = (pageNum - 1) * limitNum;
+
+    // Get total count
+    const totalCount = allConversations.length;
+
+    // Apply pagination to conversations
+    const conversations = allConversations.slice(skip, skip + limitNum);
+
+    // Calculate pagination info
+    const totalPages = Math.ceil(totalCount / limitNum);
+    const hasMore = pageNum < totalPages;
+
+    res.json({
+      conversations,
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        total: totalCount,
+        totalPages,
+        hasMore,
+      },
+    });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

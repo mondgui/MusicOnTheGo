@@ -1,3 +1,260 @@
+# Setup & Configuration Guide
+
+This guide covers all setup steps, configuration, and troubleshooting for external services and network connectivity.
+
+---
+
+# ============================================
+# CLOUDINARY SETUP
+# ============================================
+
+## ✅ What You've Already Done:
+1. ✅ Got Cloudinary credentials (Cloud Name, API Key, API Secret)
+2. ✅ Created `backend/routes/uploadRoutes.js`
+3. ✅ Added environment variables to `.env`
+4. ✅ Registered the route in `server.js`
+5. ✅ Installed `multer` and `cloudinary` packages
+6. ✅ Fixed `uploadRoutes.js` (removed extra code)
+7. ✅ Added import for `uploadRoutes` in `server.js`
+8. ✅ Updated `api.ts` to handle FormData
+9. ✅ Updated both `edit-profile.tsx` files to upload images
+
+## 🔧 Final Steps:
+
+### Step 1: Verify Your `.env` File
+Make sure your `MusicOnTheGo/backend/.env` file has these variables:
+```
+CLOUDINARY_CLOUD_NAME=your_cloud_name_here
+CLOUDINARY_API_KEY=your_api_key_here
+CLOUDINARY_API_SECRET=your_api_secret_here
+```
+
+### Step 2: Restart Your Backend Server
+```bash
+cd MusicOnTheGo/backend
+npm run dev
+```
+Or if using `npm start`:
+```bash
+npm start
+```
+
+### Step 3: Test the Upload
+1. Open your app in Expo
+2. Go to Edit Profile (either teacher or student)
+3. Tap on the profile picture
+4. Select an image from your gallery
+5. Wait for the upload to complete
+6. You should see "Profile picture uploaded successfully!"
+7. Save your profile
+
+### Step 4: Verify It Works
+1. After saving, check that the image appears
+2. **Restart the app** (this is the key test!)
+3. Log back in
+4. The profile picture should still be there! 🎉
+
+## 🐛 Troubleshooting:
+
+### If upload fails:
+1. **Check backend console** for error messages
+2. **Verify `.env` variables** are correct (no quotes, no spaces)
+3. **Check Cloudinary dashboard** - images should appear in "Media Library" under "profile-images" folder
+4. **Check network** - make sure backend is running and accessible
+
+### Common Issues:
+
+**Error: "No image provided"**
+- Make sure you're selecting an image (not canceling)
+- Check that FormData is being created correctly
+
+**Error: "Failed to upload image"**
+- Check Cloudinary credentials in `.env`
+- Verify backend server is running
+- Check backend console for detailed error
+
+**Error: Network request failed**
+- Make sure backend server is running
+- Check that `EXPO_PUBLIC_API_URL` in frontend `.env` points to correct backend URL
+
+## 📝 What Happens Now:
+
+1. **When user picks image**: Image is uploaded to Cloudinary immediately
+2. **Cloudinary returns URL**: Like `https://res.cloudinary.com/your-cloud/image/upload/...`
+3. **URL is saved to database**: This URL persists forever (unlike local file paths)
+4. **Image displays from Cloudinary**: Works on any device, anytime
+
+## ✨ You're All Set!
+
+The implementation is complete. Just restart your backend server and test it out!
+
+---
+
+# ============================================
+# PROFILE IMAGE UPLOAD GUIDE
+# ============================================
+
+## Current Problem
+
+Right now, when users pick a profile image, the app saves the **local file URI** (like `file:///Users/...`) to the database. This is a temporary path that:
+- ❌ Only works on the device where it was picked
+- ❌ Gets deleted when the app restarts
+- ❌ Won't work on other devices
+- ❌ Won't work in production
+
+## Solution: Use Cloud Storage
+
+You need to upload images to a cloud storage service and save the permanent URL. Here are the best options:
+
+### Option 1: Cloudinary (Recommended - Easiest)
+- **Free tier**: 25GB storage, 25GB bandwidth/month
+- **Easy setup**: Just need API keys
+- **Automatic image optimization**: Resizing, compression, etc.
+
+### Option 2: AWS S3
+- **Free tier**: 5GB storage, 20,000 GET requests/month
+- **More complex setup**: Requires AWS account and configuration
+- **More control**: Full control over storage and CDN
+
+### Option 3: Firebase Storage
+- **Free tier**: 5GB storage, 1GB/day downloads
+- **Good if using Firebase**: Integrates well with Firebase Auth
+- **Easy setup**: Similar to Cloudinary
+
+## Quick Fix: Cloudinary Implementation
+
+### Step 1: Install Cloudinary SDK
+```bash
+cd MusicOnTheGo/frontend
+npm install cloudinary-react-native
+```
+
+### Step 2: Create Cloudinary Account
+1. Go to https://cloudinary.com/users/register/free
+2. Sign up for free account
+3. Get your:
+   - Cloud Name
+   - API Key
+   - API Secret
+
+### Step 3: Add Environment Variables
+Add to your `.env` file:
+```
+CLOUDINARY_CLOUD_NAME=your_cloud_name
+CLOUDINARY_API_KEY=your_api_key
+CLOUDINARY_API_SECRET=your_api_secret
+```
+
+### Step 4: Create Upload Endpoint (Backend)
+Create `backend/routes/uploadRoutes.js`:
+```javascript
+import express from "express";
+import multer from "multer";
+import { v2 as cloudinary } from "cloudinary";
+import { CloudinaryStorage } from "multer-storage-cloudinary";
+import authMiddleware from "../middleware/authMiddleware.js";
+
+const router = express.Router();
+
+// Configure Cloudinary
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
+
+// Configure multer for memory storage
+const storage = multer.memoryStorage();
+const upload = multer({ storage });
+
+// Upload profile image
+router.post("/profile-image", authMiddleware, upload.single("image"), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: "No image provided" });
+    }
+
+    // Convert buffer to base64
+    const base64Image = `data:${req.file.mimetype};base64,${req.file.buffer.toString("base64")}`;
+
+    // Upload to Cloudinary
+    const result = await cloudinary.uploader.upload(base64Image, {
+      folder: "profile-images",
+      transformation: [
+        { width: 400, height: 400, crop: "fill", gravity: "face" },
+        { quality: "auto" },
+      ],
+    });
+
+    res.json({ url: result.secure_url });
+  } catch (err) {
+    console.error("Upload error:", err);
+    res.status(500).json({ message: "Failed to upload image" });
+  }
+});
+
+export default router;
+```
+
+### Step 5: Update Frontend to Upload Images
+In `edit-profile.tsx`, replace the `pickImage` function to upload after picking:
+
+```typescript
+const pickImage = async () => {
+  try {
+    // ... existing permission code ...
+    
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+
+    if (result.canceled || !result.assets?.[0]?.uri) return;
+
+    const imageUri = result.assets[0].uri;
+    
+    // Upload to backend
+    const formData = new FormData();
+    formData.append("image", {
+      uri: imageUri,
+      type: "image/jpeg",
+      name: "profile.jpg",
+    } as any);
+
+    const uploadResponse = await api("/api/upload/profile-image", {
+      method: "POST",
+      auth: true,
+      body: formData,
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    });
+
+    // Save the cloud URL, not the local URI
+    setProfileImage(uploadResponse.url);
+  } catch (err: any) {
+    Alert.alert("Error", err.message || "Failed to upload image");
+  }
+};
+```
+
+## Alternative: Base64 Encoding (Temporary Solution)
+
+If you can't set up cloud storage right now, you can encode images as base64 and store them in the database. **Warning**: This is not recommended for production as it:
+- Makes database very large
+- Slows down queries
+- Has size limits
+
+But it will work for testing. The images will persist because they're stored in the database, not as files.
+
+---
+
+# ============================================
+# EMAIL SETUP GUIDE
+# ============================================
+
 # 📧 Complete Email Setup Guide
 
 This guide covers everything you need to set up email sending for password reset functionality in MusicOnTheGo.
@@ -519,4 +776,165 @@ This is used to generate the password reset links that are sent to users.
 
 **For Development:**
 - No email setup needed - links will be logged to console
+
+---
+
+# ============================================
+# NETWORK TROUBLESHOOTING
+# ============================================
+
+# Network Request Failed - Troubleshooting Guide
+
+## Error: "Network request failed"
+
+This error means your app cannot reach the backend server. Follow these steps:
+
+## Step 1: Verify Backend Server is Running
+
+1. Open a terminal and navigate to the backend folder:
+   ```bash
+   cd MusicOnTheGo/backend
+   ```
+
+2. Start the server:
+   ```bash
+   npm run dev
+   ```
+
+3. You should see:
+   ```
+   ✅ Connected to MongoDB Atlas
+   🚀 Server running on port 5050
+   ```
+
+4. Test the server in your browser:
+   - Open: `http://localhost:5050`
+   - You should see: "Welcome to MusicOnTheGo Backend API!"
+
+## Step 2: Check Your API URL Configuration
+
+### For iOS Simulator (Mac):
+- ✅ Uses: `http://localhost:5050` (default)
+- No configuration needed
+
+### For Android Emulator:
+- ✅ Uses: `http://10.0.2.2:5050` (default)
+- No configuration needed
+
+### For Physical Device (iPhone/Android):
+- ❌ `localhost` won't work!
+- You need your computer's IP address
+
+#### Find Your IP Address:
+
+**On Mac:**
+```bash
+ipconfig getifaddr en0
+# or
+ifconfig | grep "inet " | grep -v 127.0.0.1
+```
+
+**On Windows:**
+```bash
+ipconfig
+# Look for IPv4 Address (usually 192.168.x.x)
+```
+
+**On Linux:**
+```bash
+hostname -I
+# or
+ip addr show
+```
+
+#### Set the API URL:
+
+1. Create or edit `.env` file in `MusicOnTheGo/frontend/`:
+   ```
+   EXPO_PUBLIC_API_URL=http://YOUR_IP_ADDRESS:5050
+   ```
+   
+   Example:
+   ```
+   EXPO_PUBLIC_API_URL=http://192.168.1.100:5050
+   ```
+
+2. **Restart Expo** after changing `.env`:
+   ```bash
+   # Stop Expo (Ctrl+C)
+   # Then restart:
+   npx expo start -c
+   ```
+
+## Step 3: Verify Network Connection
+
+1. **Both devices must be on the same WiFi network**
+   - Your computer and phone must be on the same network
+   - Check WiFi settings on both devices
+
+2. **Check Firewall**
+   - Make sure your computer's firewall allows connections on port 5050
+   - On Mac: System Settings → Network → Firewall
+   - On Windows: Windows Defender Firewall
+
+3. **Test Connection**
+   - On your phone's browser, try: `http://YOUR_IP:5050`
+   - You should see the backend welcome message
+   - If not, the server isn't reachable from your phone
+
+## Step 4: Check Backend CORS Configuration
+
+Make sure your backend allows requests from your frontend. Check `MusicOnTheGo/backend/server.js`:
+
+```javascript
+app.use(cors()); // This should allow all origins in development
+```
+
+## Step 5: Check Console Logs
+
+The app now logs the API URL being used. Check your Expo console for:
+```
+[API] POST http://localhost:5050/api/uploads/profile-image
+```
+
+This will show you:
+- What URL is being used
+- What method is being called
+- The platform (iOS/Android)
+
+## Common Issues & Solutions
+
+### Issue: "Network request failed" on physical device
+**Solution:** Set `EXPO_PUBLIC_API_URL` to your computer's IP address (not localhost)
+
+### Issue: Server not reachable from phone
+**Solution:** 
+1. Check both devices are on same WiFi
+2. Check firewall settings
+3. Try accessing `http://YOUR_IP:5050` in phone's browser
+
+### Issue: Works on simulator but not physical device
+**Solution:** Simulators use `localhost`, physical devices need your IP address
+
+### Issue: Backend shows connection but request fails
+**Solution:** Check CORS configuration in `server.js`
+
+## Quick Test
+
+1. **Backend running?** → Visit `http://localhost:5050` in browser
+2. **On same network?** → Check WiFi on both devices
+3. **Correct IP?** → Check `.env` file has correct IP
+4. **Firewall blocking?** → Temporarily disable to test
+
+## Still Not Working?
+
+1. Check the Expo console for the exact URL being used
+2. Check the backend console for incoming requests
+3. Try using `http://` instead of `https://`
+4. Make sure port 5050 is not blocked
+5. Try a different port (change in `server.js` and `.env`)
+
+---
+
+**Last Updated**: Based on current codebase analysis
 
