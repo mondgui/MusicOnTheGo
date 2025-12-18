@@ -205,15 +205,23 @@ io.on("connection", (socket) => {
   });
 
   // Handle joining teacher availability room
-  socket.on("join-teacher-availability", () => {
-    socket.join(`teacher-availability:${socket.user.id}`);
-    console.log(`📅 Teacher ${socket.user.id} joined availability room`);
+  // - Teachers can join their own room (no argument)
+  // - Students/viewers can join a specific teacher's room by passing teacherId
+  socket.on("join-teacher-availability", (teacherId) => {
+    const targetTeacherId = teacherId || socket.user.id;
+    socket.join(`teacher-availability:${targetTeacherId}`);
+    console.log(
+      `📅 User ${socket.user.id} joined availability room for teacher ${targetTeacherId}`
+    );
   });
 
   // Handle leaving teacher availability room
-  socket.on("leave-teacher-availability", () => {
-    socket.leave(`teacher-availability:${socket.user.id}`);
-    console.log(`📅 Teacher ${socket.user.id} left availability room`);
+  socket.on("leave-teacher-availability", (teacherId) => {
+    const targetTeacherId = teacherId || socket.user.id;
+    socket.leave(`teacher-availability:${targetTeacherId}`);
+    console.log(
+      `📅 User ${socket.user.id} left availability room for teacher ${targetTeacherId}`
+    );
   });
 
   // Handle joining teacher bookings room

@@ -97,7 +97,8 @@ export default function MessagesScreen() {
     data: conversationsData,
     fetchNextPage,
     hasNextPage,
-    isFetching: loading,
+    isFetching,
+    isLoading,
     isFetchingNextPage: loadingMoreContacts,
     refetch: refetchContacts,
   } = useInfiniteQuery({
@@ -125,6 +126,9 @@ export default function MessagesScreen() {
     initialPageParam: 1,
     enabled: !!userRole,
   });
+
+  // Use isLoading only for the initial load; background refetches shouldn't show full-screen spinner
+  const loading = isLoading;
 
   // Merge conversations and bookings into contacts
   const contacts = useMemo(() => {

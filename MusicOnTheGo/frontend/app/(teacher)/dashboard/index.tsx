@@ -193,6 +193,23 @@ export default function TeacherDashboard() {
 
   const userId = user?._id || user?.id || null;
 
+  // Header subtitle personalization for teachers
+  const teacherInstrumentsArray = Array.isArray(user?.instruments)
+    ? user.instruments.filter(Boolean)
+    : [];
+
+  let teacherInstrumentPhrase: string | null = null;
+  if (teacherInstrumentsArray.length === 1) {
+    teacherInstrumentPhrase = teacherInstrumentsArray[0];
+  } else if (teacherInstrumentsArray.length >= 2) {
+    // Show first two instruments
+    teacherInstrumentPhrase = `${teacherInstrumentsArray[0]} & ${teacherInstrumentsArray[1]}`;
+  }
+
+  const headerSubtitle = teacherInstrumentPhrase
+    ? `Discover new ${teacherInstrumentPhrase} students, manage your lesson calendar, and build your teaching career inside a thriving music community.`
+    : "Discover new music students, manage your lesson calendar, and build your teaching career inside a thriving music community.";
+
   // Bookings query with infinite pagination
   const {
     data: bookingsData,
@@ -455,6 +472,9 @@ export default function TeacherDashboard() {
               <Text style={styles.headerTeacherRate}>
                 {user?.rate ? `$${user.rate}/hour` : "$45/hour"}
               </Text>
+            <Text style={styles.headerSubtitle}>
+              {headerSubtitle}
+            </Text>
             </View>
 
             {/* Messages Button */}
@@ -724,6 +744,12 @@ const styles = StyleSheet.create({
     color: "white",
     opacity: 0.9,
     fontSize: 14,
+  },
+  headerSubtitle: {
+    color: "white",
+    opacity: 0.9,
+    fontSize: 12,
+    marginTop: 6,
   },
   headerButtons: {
     flexDirection: "row",

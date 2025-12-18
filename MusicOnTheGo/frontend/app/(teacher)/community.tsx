@@ -971,7 +971,10 @@ export default function CommunityScreen() {
               </TouchableOpacity>
             </View>
 
-            <ScrollView style={styles.modalBody}>
+            <ScrollView 
+              style={styles.modalBody}
+              contentContainerStyle={styles.commentsScrollContent}
+            >
               {selectedPost?.comments.length === 0 ? (
                 <Text style={styles.noCommentsText}>No comments yet</Text>
               ) : (
@@ -1456,8 +1459,12 @@ const styles = StyleSheet.create({
     color: "white",
     fontWeight: "600",
   },
+  commentsScrollContent: {
+    padding: 20,
+    paddingBottom: 100,
+  },
   commentItem: {
-    marginBottom: 16,
+    marginBottom: 20,
     paddingBottom: 16,
     borderBottomWidth: 1,
     borderBottomColor: "#E5E5E5",
@@ -1466,17 +1473,17 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
-    marginBottom: 8,
+    marginBottom: 10,
   },
   commentAvatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
   },
   commentAvatarPlaceholder: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: "#FF6A5C",
     alignItems: "center",
     justifyContent: "center",
@@ -1499,6 +1506,8 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#666",
     lineHeight: 20,
+    marginLeft: 52, // Align with author info (avatar width 40 + gap 12)
+    paddingRight: 4,
   },
   noCommentsText: {
     fontSize: 14,

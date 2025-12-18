@@ -19,10 +19,11 @@ const BASE_URL =
     ? "http://10.0.2.2:5050"
     : "http://localhost:5050");
 
-type ApiInit = RequestInit & {
+type ApiInit = Omit<RequestInit, 'body'> & {
   headers?: HeadersInit;
   auth?: boolean; // when true → automatically attach JWT token
   params?: Record<string, string>; // query parameters for GET requests
+  body?: BodyInit | Record<string, any>; // Allow plain objects in addition to BodyInit types
 };
 
 // --------------------------------------------
@@ -104,13 +105,22 @@ export async function api(path: string, init: ApiInit = {}) {
     if (token) headers.Authorization = `Bearer ${token}`;
   }
   
-  // Remove params from init before passing to fetch (not a valid RequestInit property)
-  const { params, ...fetchInit } = init;
+  // Remove params and body from init before passing to fetch
+  const { params, body: rawBody, ...fetchInit } = init;
 
-  // Stringify JSON body if it's an object and Content-Type is application/json
-  let body = fetchInit.body;
-  if (!isFormData && body && typeof body === 'object' && headers['Content-Type'] === 'application/json') {
-    body = JSON.stringify(body);
+  // Convert body to proper format
+  let body: BodyInit | null | undefined = undefined;
+  if (rawBody !== undefined) {
+    if (isFormData || rawBody instanceof FormData || rawBody instanceof Blob || rawBody instanceof ArrayBuffer || rawBody instanceof URLSearchParams) {
+      // Already a valid BodyInit type
+      body = rawBody as BodyInit;
+    } else if (typeof rawBody === 'object' && headers['Content-Type'] === 'application/json') {
+      // Convert plain object to JSON string
+      body = JSON.stringify(rawBody);
+    } else {
+      // Fallback: try to use as-is (shouldn't happen, but TypeScript needs this)
+      body = rawBody as BodyInit;
+    }
   }
 
   try {

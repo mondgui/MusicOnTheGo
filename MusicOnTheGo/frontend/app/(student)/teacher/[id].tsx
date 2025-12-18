@@ -173,16 +173,20 @@ export default function TeacherProfileScreen() {
       try {
         socketInstance = await initSocket();
         if (socketInstance && mounted && id) {
+          const teacherId = Array.isArray(id) ? id[0] : id;
+
+          // Join this teacher's availability room so we get real-time updates
+          socketInstance.emit("join-teacher-availability", teacherId);
+
           // Listen for availability updates
           socketInstance.on("availability-updated", () => {
             if (mounted) {
-              console.log("[Teacher Profile] Availability updated");
               fetchAvailability();
             }
           });
         }
       } catch (error) {
-        console.warn("[Teacher Profile] Socket setup failed (non-critical):", error);
+        // Silent fail – availability will still refresh on focus
       }
     }
 
@@ -193,6 +197,9 @@ export default function TeacherProfileScreen() {
     return () => {
       mounted = false;
       if (socketInstance) {
+        const teacherId = Array.isArray(id) ? id[0] : id;
+        // Leave this teacher's availability room when unmounting
+        socketInstance.emit("leave-teacher-availability", teacherId);
         socketInstance.off("availability-updated");
       }
     };
@@ -372,19 +379,17 @@ export default function TeacherProfileScreen() {
               </Text>
             ) : !hasConversation ? (
               <View style={styles.contactFirstContainer}>
-                <Ionicons name="chatbubble-ellipses-outline" size={48} color="#FF6A5C" style={{ marginBottom: 12 }} />
+                <Ionicons
+                  name="chatbubble-ellipses-outline"
+                  size={48}
+                  color="#FF6A5C"
+                  style={{ marginBottom: 12 }}
+                />
                 <Text style={styles.contactFirstTitle}>Contact Teacher First</Text>
                 <Text style={styles.contactFirstText}>
-                  Please contact the teacher before booking a lesson. This helps ensure you're a good fit and allows you to discuss your learning goals.
+                  Please contact the teacher before booking a lesson. This helps ensure you're a good
+                  fit and allows you to discuss your learning goals.
                 </Text>
-                <Button
-                  variant="primary"
-                  onPress={handleContact}
-                  style={styles.contactFirstButton}
-                >
-                  <Ionicons name="chatbubble-outline" size={20} color="white" style={{ marginRight: 8 }} />
-                  <Text style={styles.contactFirstButtonText}>Contact Teacher</Text>
-                </Button>
               </View>
             ) : (
               <View style={styles.slotsGrid}>

@@ -17,6 +17,9 @@ let socket: Socket | null = null;
 // Track the token used for the current socket connection
 let currentToken: string | null = null;
 
+// Toggle verbose socket debug logs
+const DEBUG_SOCKET = false;
+
 /**
  * Initialize Socket.io connection with authentication
  */
@@ -26,7 +29,9 @@ export async function initSocket(): Promise<Socket | null> {
     const token = await storage.getItem("token");
     
     if (!token) {
-      console.log("[Socket] No token found, skipping connection");
+      if (__DEV__ && DEBUG_SOCKET) {
+        console.log("[Socket] No token found, skipping connection");
+      }
       // Disconnect existing socket if no token
       if (socket) {
         socket.disconnect();
@@ -38,13 +43,17 @@ export async function initSocket(): Promise<Socket | null> {
 
     // If socket exists and is connected with the same token, return it
     if (socket?.connected && currentToken === token) {
-      console.log("[Socket] Using existing connection");
+      if (__DEV__ && DEBUG_SOCKET) {
+        console.log("[Socket] Using existing connection");
+      }
       return socket;
     }
 
     // If token changed or socket doesn't exist, create new connection
     if (currentToken !== token || !socket) {
-      console.log("[Socket] Creating new connection (token changed or no socket)");
+      if (__DEV__ && DEBUG_SOCKET) {
+        console.log("[Socket] Creating new connection (token changed or no socket)");
+      }
       
       // Disconnect existing socket if any
       if (socket) {
@@ -68,30 +77,35 @@ export async function initSocket(): Promise<Socket | null> {
       currentToken = token;
 
       socket.on("connect", () => {
-        console.log("[Socket] ✅ Connected to server");
+        if (__DEV__ && DEBUG_SOCKET) {
+          console.log("[Socket] ✅ Connected to server");
+        }
       });
 
       socket.on("disconnect", (reason) => {
-        console.log("[Socket] ❌ Disconnected:", reason);
+        if (__DEV__ && DEBUG_SOCKET) {
+          console.log("[Socket] ❌ Disconnected:", reason);
+        }
       });
 
       socket.on("connect_error", (error) => {
-        // Log as warning instead of error - socket is optional for app functionality
-        console.warn("[Socket] Connection error (non-critical):", error.message);
-        // Don't throw or block - socket is for real-time features only
+        if (__DEV__ && DEBUG_SOCKET) {
+          console.log("[Socket] Connection error (non-critical):", error.message);
+        }
       });
 
       socket.on("error", (error) => {
-        // Log as warning instead of error - socket is optional for app functionality
-        console.warn("[Socket] Error (non-critical):", error);
-        // Don't throw or block - socket is for real-time features only
+        if (__DEV__ && DEBUG_SOCKET) {
+          console.log("[Socket] Error (non-critical):", error);
+        }
       });
     }
 
     return socket;
   } catch (error) {
-    // Log as warning - socket is optional, app should work without it
-    console.warn("[Socket] Failed to initialize (non-critical):", error);
+    if (__DEV__ && DEBUG_SOCKET) {
+      console.log("[Socket] Failed to initialize (non-critical):", error);
+    }
     // Return null gracefully - don't throw, app can work without socket
     return null;
   }
@@ -113,7 +127,9 @@ export function disconnectSocket() {
     socket.disconnect();
     socket = null;
     currentToken = null;
-    console.log("[Socket] Disconnected");
+    if (__DEV__ && DEBUG_SOCKET) {
+      console.log("[Socket] Disconnected");
+    }
   }
 }
 

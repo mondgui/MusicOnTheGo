@@ -118,6 +118,24 @@ export default function StudentDashboard() {
     }, [queryClient])
   );
 
+  // Header text personalization for students
+  const studentName = user?.name || "Find Your Teacher";
+  const instrumentsArray = Array.isArray(user?.instruments)
+    ? user.instruments.filter(Boolean)
+    : [];
+
+  let instrumentPhrase: string | null = null;
+  if (instrumentsArray.length === 1) {
+    instrumentPhrase = instrumentsArray[0];
+  } else if (instrumentsArray.length >= 2) {
+    // Use the first two instruments for the header
+    instrumentPhrase = `${instrumentsArray[0]} & ${instrumentsArray[1]}`;
+  }
+
+  const headerSubtitle = instrumentPhrase
+    ? `Find inspiring ${instrumentPhrase} teachers, organize your lessons, and stay motivated with a supportive music community.`
+    : "Find inspiring music teachers, organize your lessons, and stay motivated with a supportive music community.";
+
   return (
     <View style={styles.container}>
       {/* Scrollable content */}
@@ -148,10 +166,8 @@ export default function StudentDashboard() {
 
             {/* Text Content */}
             <View style={styles.headerTextContainer}>
-              <Text style={styles.appTitle}>Find Your Teacher</Text>
-              <Text style={styles.welcomeSub}>
-                Discover expert music instructors near you
-              </Text>
+              <Text style={styles.appTitle}>{studentName}</Text>
+              <Text style={styles.welcomeSub}>{headerSubtitle}</Text>
             </View>
 
             {/* Messages Button */}

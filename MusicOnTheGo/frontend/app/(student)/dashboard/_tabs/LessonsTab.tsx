@@ -51,6 +51,9 @@ type TransformedBooking = {
   phone?: string;
 };
 
+// Toggle for verbose debug logging in this tab
+const DEBUG_STUDENT_LESSONS = false;
+
 export default function LessonsTab() {
   const queryClient = useQueryClient();
 
@@ -231,7 +234,9 @@ export default function LessonsTab() {
           // Listen for booking status changes
           socketInstance.on("booking-status-changed", () => {
             if (mounted) {
-              console.log("[Student Lessons] Booking status changed");
+              if (__DEV__ && DEBUG_STUDENT_LESSONS) {
+                console.log("[Student Lessons] Booking status changed");
+              }
               queryClient.invalidateQueries({ queryKey: ["student-bookings"] });
               refetch();
             }
@@ -240,14 +245,18 @@ export default function LessonsTab() {
           // Listen for booking updates
           socketInstance.on("booking-updated", () => {
             if (mounted) {
-              console.log("[Student Lessons] Booking updated");
+              if (__DEV__ && DEBUG_STUDENT_LESSONS) {
+                console.log("[Student Lessons] Booking updated");
+              }
               queryClient.invalidateQueries({ queryKey: ["student-bookings"] });
               refetch();
             }
           });
         }
       } catch (error) {
-        console.warn("[Student Lessons] Socket setup failed (non-critical):", error);
+        if (__DEV__ && DEBUG_STUDENT_LESSONS) {
+          console.log("[Student Lessons] Socket setup failed (non-critical):", error);
+        }
       }
     }
 
@@ -288,7 +297,7 @@ export default function LessonsTab() {
     // Use strict comparison: booking must be today or later
     const isUpcomingDate = bookingTime >= todayTime;
     
-    if (__DEV__ && !isUpcomingDate && booking.status === "Confirmed") {
+    if (__DEV__ && DEBUG_STUDENT_LESSONS && !isUpcomingDate && booking.status === "Confirmed") {
       console.log("[Student Lessons] ⚠️ Past booking detected:", {
         bookingId: booking.id,
         bookingDate: bookingDateOnly.toISOString().split('T')[0],
@@ -355,7 +364,7 @@ export default function LessonsTab() {
       
       return null;
     } catch (error) {
-      if (__DEV__) {
+      if (__DEV__ && DEBUG_STUDENT_LESSONS) {
         console.error("[Student Lessons] Error parsing booking date:", dateString, error);
       }
       return null;
@@ -366,7 +375,7 @@ export default function LessonsTab() {
   const getUpcomingTimePeriod = (booking: TransformedBooking): string | null => {
     const bookingDate = parseBookingDate(booking);
     if (!bookingDate) {
-      if (__DEV__) {
+      if (__DEV__ && DEBUG_STUDENT_LESSONS) {
         console.log("[Student Lessons] ❌ Could not parse booking date:", {
           bookingId: booking.id,
           originalDate: booking.originalDate,
@@ -402,7 +411,7 @@ export default function LessonsTab() {
     const isToday = bookingTime === todayTime;
     const isTomorrow = bookingTime === tomorrowTime;
 
-    if (__DEV__) {
+    if (__DEV__ && DEBUG_STUDENT_LESSONS) {
       console.log("[Student Lessons] 🔍 Categorizing booking:", {
         bookingId: booking.id,
         originalDate: booking.originalDate,
@@ -426,7 +435,7 @@ export default function LessonsTab() {
     const daysDiff = Math.floor((bookingTime - todayTime) / (1000 * 60 * 60 * 24));
     
     if (isToday && daysDiff === 0) {
-      if (__DEV__) {
+      if (__DEV__ && DEBUG_STUDENT_LESSONS) {
         console.log("[Student Lessons] ✅ Returning 'Today's Schedule' for booking:", booking.id, {
           bookingDate: bookingDateOnly.toISOString().split('T')[0],
           today: today.toISOString().split('T')[0],
@@ -506,7 +515,7 @@ export default function LessonsTab() {
   // This ensures "Today" section appears for both pending and confirmed bookings
   const groupedUpcoming = upcomingBookings.reduce((groups, booking) => {
     const period = getUpcomingTimePeriod(booking);
-    if (__DEV__) {
+    if (__DEV__ && DEBUG_STUDENT_LESSONS) {
       console.log("[Student Lessons] Grouping booking:", {
         bookingId: booking.id,
         originalDate: booking.originalDate,
@@ -522,7 +531,7 @@ export default function LessonsTab() {
     return groups;
   }, {} as Record<string, TransformedBooking[]>);
 
-  if (__DEV__) {
+  if (__DEV__ && DEBUG_STUDENT_LESSONS) {
     console.log("[Student Lessons] 📊 Grouping summary:", {
       totalUpcoming: upcomingBookings.length,
       pendingCount: pendingUpcoming.length,
