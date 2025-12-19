@@ -34,7 +34,39 @@ export default function StudentsScreen() {
   const loadStudents = useCallback(async () => {
     try {
       setLoading(true);
-      const bookings = await api("/api/bookings/teacher/me", { auth: true });
+      const response = await api("/api/bookings/teacher/me", { auth: true });
+      
+      // Handle paginated response - extract bookings array
+      const bookings = response?.bookings || response || [];
+      
+      // If we have pagination, fetch all pages to get all students
+      let allBookings = Array.isArray(bookings) ? bookings : [];
+      
+      // Check if there are more pages
+      if (response?.pagination?.hasMore) {
+        let page = 2;
+        let hasMore = true;
+        
+        while (hasMore) {
+          try {
+            const nextResponse = await api("/api/bookings/teacher/me", {
+              auth: true,
+              params: { page: page.toString(), limit: "20" },
+            });
+            const nextBookings = nextResponse?.bookings || nextResponse || [];
+            if (Array.isArray(nextBookings) && nextBookings.length > 0) {
+              allBookings = [...allBookings, ...nextBookings];
+              hasMore = nextResponse?.pagination?.hasMore || false;
+              page++;
+            } else {
+              hasMore = false;
+            }
+          } catch (err) {
+            console.error("Error fetching additional booking pages:", err);
+            hasMore = false;
+          }
+        }
+      }
       
       // Group bookings by student and extract unique students
       const studentMap = new Map<string, {
@@ -42,12 +74,18 @@ export default function StudentsScreen() {
         bookings: any[];
       }>();
 
-      (Array.isArray(bookings) ? bookings : []).forEach((booking: any) => {
+      allBookings.forEach((booking: any) => {
         if (booking.student) {
           // Handle both populated student object and student ID string
           const studentId = booking.student._id 
             ? String(booking.student._id) 
             : String(booking.student);
+          
+          // If student is just an ID string, skip (shouldn't happen if API populates correctly)
+          if (typeof booking.student === "string") {
+            console.warn(`Student not populated for booking ${booking._id}`);
+            return;
+          }
           
           if (!studentMap.has(studentId)) {
             studentMap.set(studentId, {
@@ -55,8 +93,20 @@ export default function StudentsScreen() {
               bookings: [],
             });
           }
+          // Add all bookings to track total lessons
           studentMap.get(studentId)!.bookings.push(booking);
         }
+      });
+      
+      // Filter to only show students with at least one approved or pending booking
+      const activeStudents = Array.from(studentMap.entries()).filter(([_, { bookings }]) => {
+        return bookings.some((b: any) => b.status === "approved" || b.status === "pending");
+      });
+      
+      // Update studentMap to only include active students
+      studentMap.clear();
+      activeStudents.forEach(([studentId, data]) => {
+        studentMap.set(studentId, data);
       });
 
       // Transform to student list with stats

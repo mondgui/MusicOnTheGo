@@ -106,7 +106,6 @@ router.post(
           io.to(`user:${teacherIdStr}`).emit("new-booking-request", populatedBooking);
           // Also emit to teacher's bookings room (if they're viewing bookings)
           io.to(`teacher-bookings:${teacherIdStr}`).emit("booking-updated", populatedBooking);
-          console.log(`📅 Emitted new-booking-request to teacher: ${teacherIdStr} (with conflict)`);
         }
 
         return res.status(201).json({
@@ -136,7 +135,6 @@ router.post(
         io.to(`user:${teacherIdStr}`).emit("new-booking-request", populatedBooking);
         // Also emit to teacher's bookings room (if they're viewing bookings)
         io.to(`teacher-bookings:${teacherIdStr}`).emit("booking-updated", populatedBooking);
-        console.log(`📅 Emitted new-booking-request to teacher: ${teacherIdStr}`);
       }
 
       res.status(201).json(booking);
@@ -231,8 +229,6 @@ router.put(
         if (status === "approved") {
           io.to(`teacher-availability:${teacherIdStr}`).emit("availability-updated");
         }
-        
-        console.log(`📅 Emitted booking-status-changed to student: ${studentIdStr}, status: ${status}`);
       }
 
       res.json(booking);

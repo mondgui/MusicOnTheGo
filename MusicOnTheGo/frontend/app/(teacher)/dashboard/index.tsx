@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   ScrollView,
   Image,
+  Dimensions,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
@@ -19,7 +20,7 @@ import { initSocket, getSocket } from "../../../lib/socket";
 import type { Socket } from "socket.io-client";
 
 import ScheduleTab from "./_tabs/ScheduleTab";
-import BookingsTab from "./_tabs/BookingsTab";
+import BookingsTab, { type Booking } from "./_tabs/BookingsTab";
 import TimesTab from "./_tabs/TimesTab";
 import AnalyticsTab from "./_tabs/AnalyticsTab";
 import SettingsTab from "./_tabs/SettingsTab";
@@ -237,17 +238,27 @@ export default function TeacherDashboard() {
       // Transform backend booking data to display format
       // Note: user is available from the useQuery hook above
       const currentUser = queryClient.getQueryData(["teacher-user"]) as any;
-      const transformed = (Array.isArray(data) ? data : []).map((booking: any) => ({
-        _id: booking._id,
-        studentName: booking.student?.name || "Student",
-        instrument: currentUser?.instruments?.[0] || "Music",
-        date: formatDay(booking.day),
-        time: formatTimeSlot(booking.timeSlot),
-        status: booking.status === "approved" ? "Confirmed" : booking.status === "pending" ? "Pending" : "Rejected",
-        createdAt: booking.createdAt || new Date().toISOString(),
-        originalDay: booking.day,
-        rawBooking: booking, // Keep raw data for schedule processing
-      }));
+      const transformed: Booking[] = (Array.isArray(data) ? data : []).map((booking: any) => {
+        // Convert backend status to frontend status
+        let status: "Confirmed" | "Pending" | "Rejected" = "Pending";
+        if (booking.status === "approved") {
+          status = "Confirmed";
+        } else if (booking.status === "pending") {
+          status = "Pending";
+        } else {
+          status = "Rejected";
+        }
+        
+        return {
+          _id: booking._id,
+          studentName: booking.student?.name || "Student",
+          instrument: currentUser?.instruments?.[0] || "Music",
+          date: formatDay(booking.day),
+          time: formatTimeSlot(booking.timeSlot),
+          status,
+          originalDay: booking.day,
+        };
+      });
       
       // Sort bookings
       const sorted = transformed.sort((a: any, b: any) => {
@@ -354,7 +365,6 @@ export default function TeacherDashboard() {
           // Listen for new booking requests
           socketInstance.on("new-booking-request", () => {
             if (mounted) {
-              console.log("[Teacher Dashboard] New booking request received");
               queryClient.invalidateQueries({ queryKey: ["teacher-bookings"] });
               refetchBookings();
             }
@@ -363,7 +373,6 @@ export default function TeacherDashboard() {
           // Listen for booking updates
           socketInstance.on("booking-updated", () => {
             if (mounted) {
-              console.log("[Teacher Dashboard] Booking updated");
               queryClient.invalidateQueries({ queryKey: ["teacher-bookings"] });
               refetchBookings();
             }
@@ -571,7 +580,7 @@ function HomeTabContent({
           }}
         >
           <Ionicons name="people-outline" size={20} color="#FF6A5C" />
-          <Text style={styles.quickAccessText}>Students</Text>
+          <Text style={styles.quickAccessText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>My Students</Text>
         </Card>
         <Card
           style={styles.quickAccessCard}
@@ -580,7 +589,7 @@ function HomeTabContent({
           }}
         >
           <Ionicons name="book-outline" size={20} color="#FF9076" />
-          <Text style={styles.quickAccessText}>Resources</Text>
+          <Text style={styles.quickAccessText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>Resources</Text>
         </Card>
         <Card
           style={styles.quickAccessCard}
@@ -589,7 +598,7 @@ function HomeTabContent({
           }}
         >
           <Ionicons name="people-circle-outline" size={20} color="#10B981" />
-          <Text style={styles.quickAccessText}>Community</Text>
+          <Text style={styles.quickAccessText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>Community</Text>
         </Card>
         <Card
           style={styles.quickAccessCard}
@@ -598,7 +607,7 @@ function HomeTabContent({
           }}
         >
           <Ionicons name="construct-outline" size={20} color="#4A90E2" />
-          <Text style={styles.quickAccessText}>Tools</Text>
+          <Text style={styles.quickAccessText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>Tools</Text>
         </Card>
       </View>
 
@@ -787,12 +796,15 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 12,
     alignItems: "center",
+    minWidth: 0, // Allow flex shrinking
   },
   quickAccessText: {
     fontSize: 12,
     color: "#333",
     marginTop: 4,
     fontWeight: "500",
+    textAlign: "center",
+    width: "100%",
   },
   innerTabsWrapper: {
     marginTop: 8,

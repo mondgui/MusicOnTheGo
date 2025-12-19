@@ -424,8 +424,9 @@ router.post("/:id/leave", authMiddleware, async (req, res) => {
  * POST /api/challenges/update-progress
  * Internal endpoint to update challenge progress based on practice sessions
  * This can be called periodically or when practice sessions are created
+ * Requires authentication to prevent unauthorized access
  */
-router.post("/update-progress", async (req, res) => {
+router.post("/update-progress", authMiddleware, async (req, res) => {
   try {
     // Get all active challenges
     const activeChallenges = await Challenge.find({ status: "active" });

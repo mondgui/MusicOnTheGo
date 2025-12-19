@@ -170,7 +170,7 @@ export default function HomeTab({
           }}
         >
           <Ionicons name="trending-up-outline" size={20} color="#FF6A5C" />
-          <Text style={styles.quickAccessText}>Progress</Text>
+          <Text style={styles.quickAccessText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>Progress</Text>
         </Card>
 
         <Card
@@ -180,7 +180,7 @@ export default function HomeTab({
           }}
         >
           <Ionicons name="book-outline" size={20} color="#FF9076" />
-          <Text style={styles.quickAccessText}>Resources</Text>
+          <Text style={styles.quickAccessText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>Resources</Text>
         </Card>
 
         <Card
@@ -190,7 +190,7 @@ export default function HomeTab({
           }}
         >
           <Ionicons name="people-outline" size={20} color="#10B981" />
-          <Text style={styles.quickAccessText}>Community</Text>
+          <Text style={styles.quickAccessText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>Community</Text>
         </Card>
 
         <Card
@@ -200,7 +200,7 @@ export default function HomeTab({
           }}
         >
           <Ionicons name="construct-outline" size={20} color="#4A90E2" />
-          <Text style={styles.quickAccessText}>Tools</Text>
+          <Text style={styles.quickAccessText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>Tools</Text>
         </Card>
       </View>
 
@@ -325,6 +325,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     minHeight: 70,
     justifyContent: "center",
+    minWidth: 0, // Allow flex shrinking
   },
   quickAccessText: {
     fontSize: 12,
@@ -332,6 +333,7 @@ const styles = StyleSheet.create({
     color: "#333",
     marginTop: 6,
     textAlign: "center",
+    width: "100%",
   },
   searchContainer: {
     position: "relative",

@@ -96,8 +96,6 @@ io.use((socket, next) => {
 
 // Socket.io connection handling
 io.on("connection", (socket) => {
-  console.log(`✅ User connected: ${socket.user.id} (${socket.user.role})`);
-
   // Join user's personal room for notifications
   socket.join(`user:${socket.user.id}`);
 
@@ -210,47 +208,37 @@ io.on("connection", (socket) => {
   socket.on("join-teacher-availability", (teacherId) => {
     const targetTeacherId = teacherId || socket.user.id;
     socket.join(`teacher-availability:${targetTeacherId}`);
-    console.log(
-      `📅 User ${socket.user.id} joined availability room for teacher ${targetTeacherId}`
-    );
   });
 
   // Handle leaving teacher availability room
   socket.on("leave-teacher-availability", (teacherId) => {
     const targetTeacherId = teacherId || socket.user.id;
     socket.leave(`teacher-availability:${targetTeacherId}`);
-    console.log(
-      `📅 User ${socket.user.id} left availability room for teacher ${targetTeacherId}`
-    );
   });
 
   // Handle joining teacher bookings room
   socket.on("join-teacher-bookings", () => {
     socket.join(`teacher-bookings:${socket.user.id}`);
-    console.log(`📅 Teacher ${socket.user.id} joined bookings room`);
   });
 
   // Handle leaving teacher bookings room
   socket.on("leave-teacher-bookings", () => {
     socket.leave(`teacher-bookings:${socket.user.id}`);
-    console.log(`📅 Teacher ${socket.user.id} left bookings room`);
   });
 
   // Handle joining student bookings room
   socket.on("join-student-bookings", () => {
     socket.join(`student-bookings:${socket.user.id}`);
-    console.log(`📅 Student ${socket.user.id} joined bookings room`);
   });
 
   // Handle leaving student bookings room
   socket.on("leave-student-bookings", () => {
     socket.leave(`student-bookings:${socket.user.id}`);
-    console.log(`📅 Student ${socket.user.id} left bookings room`);
   });
 
   // Handle disconnection
   socket.on("disconnect", () => {
-    console.log(`❌ User disconnected: ${socket.user.id}`);
+    // User disconnected
   });
 });
 

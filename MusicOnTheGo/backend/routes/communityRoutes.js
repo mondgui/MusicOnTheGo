@@ -52,28 +52,68 @@ router.get("/", authMiddleware, async (req, res) => {
       sortOption = { commentCount: -1, createdAt: -1 }; // Most commented first
     }
 
-    // Get total count for pagination (before filtering by role)
-    const totalCount = await CommunityPost.countDocuments(queryFilter);
-
-    // Fetch posts with pagination
-    const posts = await CommunityPost.find(queryFilter)
-      .populate("author", "name profileImage role")
-      .populate("likes", "name")
-      .populate("comments.author", "name profileImage")
-      .sort(sortOption)
-      .skip(skip)
-      .limit(limitNum);
-
-    // Filter by author role if needed (after population)
-    let filteredPosts = posts;
-    if (filter === "students") {
-      filteredPosts = posts.filter((post) => post.author?.role === "student");
-    } else if (filter === "teachers") {
-      filteredPosts = posts.filter((post) => post.author?.role === "teacher");
+    // If filtering by author role, we need to use aggregation to join with User collection
+    // Otherwise, use regular query for better performance
+    let posts, totalCount;
+    
+    if (filter === "students" || filter === "teachers") {
+      // Use aggregation pipeline to filter by author role before pagination
+      const roleToFilter = filter === "students" ? "student" : "teacher";
+      
+      const pipeline = [
+        { $match: queryFilter },
+        {
+          $lookup: {
+            from: "users",
+            localField: "author",
+            foreignField: "_id",
+            as: "authorData"
+          }
+        },
+        { $unwind: "$authorData" },
+        { $match: { "authorData.role": roleToFilter } },
+        {
+          $project: {
+            authorData: 0 // Remove temporary authorData field
+          }
+        }
+      ];
+      
+      // Get total count with role filter
+      const countPipeline = [...pipeline, { $count: "total" }];
+      const countResult = await CommunityPost.aggregate(countPipeline);
+      totalCount = countResult[0]?.total || 0;
+      
+      // Add sorting, skip, and limit
+      pipeline.push({ $sort: sortOption });
+      pipeline.push({ $skip: skip });
+      pipeline.push({ $limit: limitNum });
+      
+      // Execute aggregation
+      const aggregatedPosts = await CommunityPost.aggregate(pipeline);
+      
+      // Convert to Mongoose documents and populate remaining fields
+      const postIds = aggregatedPosts.map(p => p._id);
+      posts = await CommunityPost.find({ _id: { $in: postIds } })
+        .populate("author", "name profileImage role")
+        .populate("likes", "name")
+        .populate("comments.author", "name profileImage")
+        .sort(sortOption);
+    } else {
+      // No role filtering - use regular query
+      totalCount = await CommunityPost.countDocuments(queryFilter);
+      
+      posts = await CommunityPost.find(queryFilter)
+        .populate("author", "name profileImage role")
+        .populate("likes", "name")
+        .populate("comments.author", "name profileImage")
+        .sort(sortOption)
+        .skip(skip)
+        .limit(limitNum);
     }
 
     // Check if current user liked each post
-    const postsWithLikeStatus = filteredPosts.map((post) => {
+    const postsWithLikeStatus = posts.map((post) => {
       const postObj = post.toObject();
       postObj.isLiked = post.likes.some(
         (likeId) => likeId.toString() === userId

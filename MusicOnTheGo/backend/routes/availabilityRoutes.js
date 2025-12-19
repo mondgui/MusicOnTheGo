@@ -47,7 +47,6 @@ router.post(
         const teacherIdStr = String(req.user.id);
         // Emit to teacher's availability room
         io.to(`teacher-availability:${teacherIdStr}`).emit("availability-updated");
-        console.log(`📅 Emitted availability-updated for teacher: ${teacherIdStr}`);
       }
 
       res.status(201).json(availability);
@@ -91,7 +90,6 @@ router.put(
         const teacherIdStr = String(req.user.id);
         // Emit to teacher's availability room
         io.to(`teacher-availability:${teacherIdStr}`).emit("availability-updated");
-        console.log(`📅 Emitted availability-updated for teacher: ${teacherIdStr}`);
       }
 
       res.json(availability);
@@ -112,23 +110,25 @@ router.get("/teacher/:teacherId", async (req, res) => {
       teacher: req.params.teacherId,
     });
     
-    // Filter out past dates and old recurring weekly availability (entries without date field)
+    // Filter availability: keep date-based items that are today or future, and all recurring weekly items
+    // Use UTC to ensure consistent date comparisons regardless of server timezone
     const today = new Date();
-    today.setHours(0, 0, 0, 0); // Set to start of today
+    const todayUTC = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
     
     let availability = allAvailability.filter((item) => {
-      // Only keep entries with a date field (new calendar-based availability)
-      if (!item.date) {
-        return false; // Filter out old recurring weekly availability
+      // If item has a date field, it's date-based availability - filter out past dates
+      if (item.date) {
+        const itemDate = new Date(item.date);
+        // Validate that the date is valid before using it
+        if (isNaN(itemDate.getTime())) {
+          return false; // Invalid date, filter it out
+        }
+        // Compare dates in UTC to avoid timezone issues
+        const itemDateUTC = new Date(Date.UTC(itemDate.getUTCFullYear(), itemDate.getUTCMonth(), itemDate.getUTCDate()));
+        return itemDateUTC >= todayUTC; // Keep if today or future
       }
-      // Check if the date is today or in the future
-      const itemDate = new Date(item.date);
-      // Validate that the date is valid before using it
-      if (isNaN(itemDate.getTime())) {
-        return false; // Invalid date, filter it out
-      }
-      itemDate.setHours(0, 0, 0, 0);
-      return itemDate >= today; // Keep if today or future
+      // If no date field, it's recurring weekly availability (e.g., "Monday") - keep it
+      return true;
     });
     
     // Get all approved bookings for this teacher to filter out booked slots
@@ -141,16 +141,15 @@ router.get("/teacher/:teacherId", async (req, res) => {
     // Normalize day/date format for consistent comparison
     const bookedSlots = new Set();
     approvedBookings.forEach((booking) => {
-      // Normalize booking.day: if it's a date string (YYYY-MM-DD), use it as-is
-      // If it's a day name, we need to match it with availability items that have the same day name
-      // For date-based availability, we need to compare the actual date
+      // Normalize booking.day to a consistent format
       let bookingDayKey = booking.day;
       
-      // If booking.day looks like a date (YYYY-MM-DD format), normalize it
+      // If booking.day is a date string (YYYY-MM-DD format), use it as-is
       if (booking.day && /^\d{4}-\d{2}-\d{2}$/.test(booking.day)) {
-        // It's a date string, use it directly
         bookingDayKey = booking.day;
       }
+      // If booking.day is a day name (e.g., "Monday"), use it as-is for recurring availability matching
+      // Note: bookingDayKey will be the day name in this case
       
       const key = `${bookingDayKey}-${booking.timeSlot.start}-${booking.timeSlot.end}`;
       bookedSlots.add(key);
@@ -159,24 +158,27 @@ router.get("/teacher/:teacherId", async (req, res) => {
     // Filter out booked time slots from availability
     availability = availability.map((item) => {
       const availableTimeSlots = (item.timeSlots || []).filter((slot) => {
-        // Normalize item.day for comparison
+        // Normalize item.day for comparison - must match booking normalization logic
         let itemDayKey = item.day;
         
-        // If item has a date field and item.day is a date string, use the date string
-        // Otherwise, use item.day as-is (could be day name or date string)
-        if (item.date && item.day && /^\d{4}-\d{2}-\d{2}$/.test(item.day)) {
-          // item.day is already a date string, use it
-          itemDayKey = item.day;
-        } else if (item.date) {
-          // item has a date field, convert it to YYYY-MM-DD format for comparison
-          const dateObj = new Date(item.date);
-          if (!isNaN(dateObj.getTime())) {
-            const year = dateObj.getFullYear();
-            const month = String(dateObj.getMonth() + 1).padStart(2, '0');
-            const day = String(dateObj.getDate()).padStart(2, '0');
-            itemDayKey = `${year}-${month}-${day}`;
+        if (item.date) {
+          // Date-based availability: convert date to YYYY-MM-DD format
+          // If item.day is already a date string, use it; otherwise convert from item.date
+          if (item.day && /^\d{4}-\d{2}-\d{2}$/.test(item.day)) {
+            // item.day is already a date string, use it
+            itemDayKey = item.day;
+          } else {
+            // Convert item.date to YYYY-MM-DD format using UTC to ensure consistency
+            const dateObj = new Date(item.date);
+            if (!isNaN(dateObj.getTime())) {
+              const year = dateObj.getUTCFullYear();
+              const month = String(dateObj.getUTCMonth() + 1).padStart(2, '0');
+              const day = String(dateObj.getUTCDate()).padStart(2, '0');
+              itemDayKey = `${year}-${month}-${day}`;
+            }
           }
         }
+        // If no date field, item.day is a day name (e.g., "Monday") - use it as-is for recurring availability
         
         const key = `${itemDayKey}-${slot.start}-${slot.end}`;
         return !bookedSlots.has(key);
@@ -220,7 +222,6 @@ router.delete(
         const teacherIdStr = String(req.user.id);
         // Emit to teacher's availability room
         io.to(`teacher-availability:${teacherIdStr}`).emit("availability-updated");
-        console.log(`📅 Emitted availability-updated for teacher: ${teacherIdStr}`);
       }
 
       res.json({ message: "Availability deleted." });
@@ -244,8 +245,9 @@ router.get(
       });
       
       // Filter out past dates (keep recurring weekly availability and future dates)
+      // Use UTC to ensure consistent date comparisons regardless of server timezone
       const today = new Date();
-      today.setHours(0, 0, 0, 0); // Set to start of today
+      const todayUTC = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
       
       const availability = allAvailability.filter((item) => {
         // If it has a specific date, check if it's in the past
@@ -255,8 +257,9 @@ router.get(
           if (isNaN(itemDate.getTime())) {
             return false; // Invalid date, filter it out
           }
-          itemDate.setHours(0, 0, 0, 0);
-          return itemDate >= today; // Keep if today or future
+          // Compare dates in UTC to avoid timezone issues
+          const itemDateUTC = new Date(Date.UTC(itemDate.getUTCFullYear(), itemDate.getUTCMonth(), itemDate.getUTCDate()));
+          return itemDateUTC >= todayUTC; // Keep if today or future
         }
         // If no date field, it's recurring weekly availability - keep it
         return true;

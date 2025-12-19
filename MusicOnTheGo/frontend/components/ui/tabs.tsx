@@ -1,5 +1,5 @@
 import React, { useState, createContext, useContext } from "react";
-import { View, Text, TouchableOpacity, StyleSheet, ViewStyle } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet, ViewStyle, Dimensions } from "react-native";
 
 type TabsContextType = {
   activeTab: string;
@@ -95,13 +95,26 @@ export function TabsTrigger({ value, children }: TabsTriggerProps) {
 
   const { activeTab, setActiveTab } = context;
   const active = activeTab === value;
+  
+  // Get screen width for responsive font sizing
+  const screenWidth = Dimensions.get("window").width;
+  const isSmallScreen = screenWidth < 375; // iPhone SE and smaller
 
   return (
     <TouchableOpacity
       style={[styles.tabTrigger, active && styles.tabTriggerActive]}
       onPress={() => setActiveTab(value)}
     >
-      <Text style={[styles.tabTriggerText, active && styles.tabTriggerTextActive]}>
+      <Text 
+        style={[
+          styles.tabTriggerText, 
+          active && styles.tabTriggerTextActive,
+          isSmallScreen && styles.tabTriggerTextSmall
+        ]}
+        numberOfLines={1}
+        adjustsFontSizeToFit
+        minimumFontScale={0.7}
+      >
         {children}
       </Text>
     </TouchableOpacity>
@@ -125,15 +138,16 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     padding: 4,
     gap: 4,
-    flexWrap: "wrap",
+    flexWrap: "nowrap", // Prevent wrapping to keep tabs on one row
   },
   tabTrigger: {
-    flexShrink: 1,
+    flex: 1, // Distribute evenly
     paddingVertical: 10,
-    paddingHorizontal: 12,
+    paddingHorizontal: 8, // Reduced padding for smaller screens
     borderRadius: 8,
     alignItems: "center",
-    minWidth: 60,
+    justifyContent: "center",
+    minWidth: 0, // Allow flex shrinking
   },
   tabTriggerActive: {
     backgroundColor: "#FF6A5C",
@@ -142,6 +156,10 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "600",
     color: "#666",
+    textAlign: "center",
+  },
+  tabTriggerTextSmall: {
+    fontSize: 11, // Smaller font for small screens
   },
   tabTriggerTextActive: {
     color: "white",
