@@ -20,6 +20,7 @@ import uploadRoutes from "./routes/uploadRoutes.js";
 import resourceRoutes from "./routes/resourceRoutes.js";
 import challengeRoutes from "./routes/challengeRoutes.js";
 import communityRoutes from "./routes/communityRoutes.js";
+import adminRoutes from "./routes/adminRoutes.js";
 import Message from "./models/Message.js";
 
 const app = express();
@@ -43,6 +44,7 @@ app.use("/api/uploads", uploadRoutes);
 app.use("/api/resources", resourceRoutes);
 app.use("/api/challenges", challengeRoutes);
 app.use("/api/community", communityRoutes);
+app.use("/api/admin", adminRoutes);
 
 
 
