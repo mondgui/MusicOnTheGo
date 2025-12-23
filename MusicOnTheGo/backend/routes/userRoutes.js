@@ -82,6 +82,9 @@ router.put("/me", authMiddleware, async (req, res) => {
     if (req.body.availability !== undefined) updates.availability = req.body.availability;
     if (req.body.goals !== undefined) updates.goals = req.body.goals;
 
+    // notification preferences
+    if (req.body.pushNotificationsEnabled !== undefined) updates.pushNotificationsEnabled = req.body.pushNotificationsEnabled;
+
     const user = await User.findByIdAndUpdate(
       req.user.id,
       { $set: updates },

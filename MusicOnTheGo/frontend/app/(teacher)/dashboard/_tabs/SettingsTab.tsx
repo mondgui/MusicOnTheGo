@@ -20,15 +20,15 @@ export default function SettingsTab() {
   const queryClient = useQueryClient();
   const [loading, setLoading] = useState(true);
 
-  // Notification states
+  // Notification state
   const [pushNotifications, setPushNotifications] = useState(true);
-  const [emailNotifications, setEmailNotifications] = useState(true);
 
-  // Load user data
+  // Load user data and preferences
   useEffect(() => {
     async function loadUser() {
       try {
-        await api("/api/users/me", { auth: true });
+        const user = await api("/api/users/me", { auth: true });
+        setPushNotifications(user.pushNotificationsEnabled !== false); // Default to true if not set
       } catch (err) {
         console.log("Error loading user:", err);
       } finally {
@@ -37,6 +37,22 @@ export default function SettingsTab() {
     }
     loadUser();
   }, []);
+
+  // Save notification preference
+  const handlePushNotificationsChange = async (value: boolean) => {
+    setPushNotifications(value);
+    try {
+      await api("/api/users/me", {
+        method: "PUT",
+        auth: true,
+        body: JSON.stringify({ pushNotificationsEnabled: value }),
+      });
+    } catch (err) {
+      console.error("Failed to update notification preference:", err);
+      // Revert on error
+      setPushNotifications(!value);
+    }
+  };
 
   const handleLogout = async () => {
     try {
@@ -136,50 +152,15 @@ export default function SettingsTab() {
                 <View style={styles.settingTextContainer}>
                   <Text style={styles.settingTitle}>Push Notifications</Text>
                   <Text style={styles.settingSubtitle}>
-                    Receive push notifications
+                    Receive notifications for messages, bookings, and inquiries
                   </Text>
                 </View>
               </View>
               <Switch
                 value={pushNotifications}
-                onValueChange={setPushNotifications}
+                onValueChange={handlePushNotificationsChange}
               />
             </View>
-
-            <Separator style={styles.separator} />
-
-            <View style={styles.settingItem}>
-              <View style={styles.settingLeft}>
-                <Ionicons name="mail-outline" size={20} color="#FF6A5C" />
-                <View style={styles.settingTextContainer}>
-                  <Text style={styles.settingTitle}>Email Notifications</Text>
-                  <Text style={styles.settingSubtitle}>
-                    Lesson reminders & messages
-                  </Text>
-                </View>
-              </View>
-              <Switch
-                value={emailNotifications}
-                onValueChange={setEmailNotifications}
-              />
-            </View>
-          </View>
-        </Card>
-
-        {/* Preferences */}
-        <Card style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>Preferences</Text>
-          <View style={styles.sectionContent}>
-            <TouchableOpacity style={styles.settingItem}>
-              <View style={styles.settingLeft}>
-                <Ionicons name="globe-outline" size={20} color="#FF6A5C" />
-                <View style={styles.settingTextContainer}>
-                  <Text style={styles.settingTitle}>Language</Text>
-                  <Text style={styles.settingSubtitle}>English</Text>
-                </View>
-              </View>
-              <Ionicons name="chevron-forward" size={20} color="#999" />
-            </TouchableOpacity>
           </View>
         </Card>
 

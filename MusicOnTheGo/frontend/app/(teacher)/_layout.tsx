@@ -9,7 +9,6 @@ export default function TeacherLayout() {
       <Stack.Screen name="student-portfolio" />
       <Stack.Screen name="resources" />
       <Stack.Screen name="community" />
-      <Stack.Screen name="settings" />
       <Stack.Screen name="edit-profile" />
     </Stack>
   );

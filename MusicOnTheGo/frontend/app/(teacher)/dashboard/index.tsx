@@ -372,7 +372,7 @@ export default function TeacherDashboard() {
             {/* Profile Picture */}
             <TouchableOpacity
               style={styles.profilePictureContainer}
-              onPress={() => router.push("/(teacher)/settings")}
+              onPress={() => setActiveTab("settings")}
               activeOpacity={0.7}
             >
               {user?.profileImage ? (
