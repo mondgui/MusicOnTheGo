@@ -11,9 +11,12 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
+  Image,
+  Alert,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
-  import { useRouter, useLocalSearchParams } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
+import * as ImagePicker from "expo-image-picker";
 import { api } from "../../lib/api";
 import { Ionicons } from "@expo/vector-icons";
 import { Badge } from "@/components/ui/badge";
@@ -32,6 +35,9 @@ export default function ProfileSetup() {
   const [about, setAbout] = useState("");
   const [specialties, setSpecialties] = useState<string[]>([]);
   const [customSpecialty, setCustomSpecialty] = useState("");
+  const [profileImageUri, setProfileImageUri] = useState<string | null>(null);
+  const [profileImageUrl, setProfileImageUrl] = useState<string | null>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   const SPECIALTY_OPTIONS = [
     "Beginners Welcome",
@@ -66,6 +72,74 @@ export default function ProfileSetup() {
     setSpecialties(specialties.filter((s) => s !== specialty));
   };
 
+  const pickImage = async () => {
+    try {
+      // Request permissions
+      if (Platform.OS !== "web") {
+        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (status !== "granted") {
+          Alert.alert(
+            "Permission needed",
+            "Please grant camera roll permissions to change your profile picture."
+          );
+          return;
+        }
+      }
+
+      // Launch image picker
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: 'images',
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+        allowsMultipleSelection: false,
+      });
+
+      // Check if user canceled
+      if (result.canceled) {
+        return;
+      }
+
+      // Check if we have an asset
+      if (result.assets && result.assets.length > 0 && result.assets[0]?.uri) {
+        const imageUri = result.assets[0].uri;
+        setProfileImageUri(imageUri);
+        
+        // Upload image immediately
+        setUploadingImage(true);
+        try {
+          const formData = new FormData();
+          formData.append("file", {
+            uri: imageUri,
+            type: "image/jpeg",
+            name: "profile.jpg",
+          } as any);
+
+          const uploadResponse = await api("/api/uploads/profile-image", {
+            method: "POST",
+            auth: true,
+            body: formData,
+            headers: {
+              "Content-Type": "multipart/form-data",
+            },
+          });
+
+          if (uploadResponse?.url) {
+            // Image uploaded successfully, store the URL to save with profile
+            setProfileImageUrl(uploadResponse.url);
+          }
+        } catch (uploadError: any) {
+          Alert.alert("Upload error", uploadError.message || "Failed to upload image");
+          setProfileImageUri(null);
+        } finally {
+          setUploadingImage(false);
+        }
+      }
+    } catch (error: any) {
+      Alert.alert("Image picker error", error.message || "Failed to pick image");
+    }
+  };
+
   const saveProfile = async () => {
     try {
       await api("/api/users/me", {
@@ -78,6 +152,7 @@ export default function ProfileSetup() {
           rate: rate ? Number(rate) : undefined,
           about,
           specialties,
+          ...(profileImageUrl && { profileImage: profileImageUrl }),
         }),
       });
 
@@ -104,8 +179,17 @@ export default function ProfileSetup() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <TouchableOpacity style={styles.photoCircle}>
-            <Ionicons name="camera" size={40} color="#FF6A5C" />
+          <TouchableOpacity style={styles.photoCircle} onPress={pickImage} disabled={uploadingImage}>
+            {profileImageUri ? (
+              <Image source={{ uri: profileImageUri }} style={styles.profileImage} />
+            ) : (
+              <Ionicons name="camera" size={40} color="#FF6A5C" />
+            )}
+            {uploadingImage && (
+              <View style={styles.uploadingOverlay}>
+                <Text style={styles.uploadingText}>Uploading...</Text>
+              </View>
+            )}
           </TouchableOpacity>
 
           <Text style={styles.label}>Full Name</Text>
@@ -257,6 +341,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginTop: 20,
     marginBottom: 20,
+    overflow: "hidden",
   },
   badgesContainer: {
     flexDirection: "row",
@@ -318,6 +403,25 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   saveText: { color: "white", fontSize: 16, fontWeight: "700" },
+  profileImage: {
+    width: "100%",
+    height: "100%",
+  },
+  uploadingOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  uploadingText: {
+    color: "white",
+    fontSize: 12,
+    fontWeight: "600",
+  },
 });
 
 

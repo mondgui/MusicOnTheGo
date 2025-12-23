@@ -85,11 +85,6 @@ export default function ChatScreen() {
         try {
           const contactData = await api(`/api/users/${contactId}`, { auth: true });
           setContact(contactData);
-          console.log("[Chat] Contact loaded:", {
-            id: contactData._id,
-            name: contactData.name,
-            role: contactData.role,
-          });
         } catch (err) {
           console.log("Error loading contact info:", err);
           // Set contact with minimal info if API fails
@@ -154,15 +149,6 @@ export default function ChatScreen() {
                 isOwn: isOwn,
               };
 
-              if (__DEV__) {
-                console.log("[Chat] New message received:", {
-                  senderId,
-                  currentUserId: latestCurrentUserId,
-                  isOwn: isOwn,
-                  text: formattedMessage.text.substring(0, 30),
-                });
-              }
-
               setMessages((prev) => {
                 // Check if message already exists (avoid duplicates)
                 const exists = prev.some((msg) => msg.id === formattedMessage.id);
@@ -184,11 +170,11 @@ export default function ChatScreen() {
           });
 
           socketInstance.on("error", (error: any) => {
-            console.error("[Chat] Socket error:", error);
+            // Socket error handled silently
           });
         }
       } catch (error) {
-        console.error("[Chat] Failed to initialize socket:", error);
+        // Socket initialization error handled silently
       }
     }
 
@@ -209,11 +195,9 @@ export default function ChatScreen() {
   useEffect(() => {
     if (socket && contactId) {
       socket.emit("join-chat", contactId);
-      console.log("[Chat] Joined chat room with:", contactId);
 
       return () => {
         socket.emit("leave-chat", contactId);
-        console.log("[Chat] Left chat room");
       };
     }
   }, [socket, contactId]);

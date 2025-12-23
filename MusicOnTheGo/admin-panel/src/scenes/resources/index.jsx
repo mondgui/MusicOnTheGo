@@ -98,6 +98,7 @@ const Resources = () => {
           },
           '& .MuiDataGrid-cell': {
             borderBottom: 'none',
+            color: theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[900],
           },
           '& .name-column--cell': {
             color: colors.greenAccent[300],
@@ -114,9 +115,6 @@ const Resources = () => {
             borderTop: 'none',
             backgroundColor: theme.palette.mode === 'dark' ? colors.blueAccent[700] : colors.blueAccent[500],
             color: theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[100],
-          },
-          '& .MuiDataGrid-cell': {
-            color: theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[900],
           },
         }}
       >

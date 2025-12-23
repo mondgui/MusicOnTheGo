@@ -255,7 +255,7 @@ router.get(
       ]);
 
       // Top instruments by user count
-      const allUsers = await User.find({}, "instruments");
+      const allUsers = await User.find({}, "instruments location");
       const instrumentCounts = {};
       allUsers.forEach(user => {
         if (user.instruments && Array.isArray(user.instruments)) {
@@ -270,6 +270,22 @@ router.get(
         .map(([instrument, count]) => ({ instrument, count }))
         .sort((a, b) => b.count - a.count)
         .slice(0, 10);
+
+      // Top locations
+      const locationCounts = {};
+      allUsers.forEach(user => {
+        if (user.location && user.location.trim()) {
+          const location = user.location.trim();
+          locationCounts[location] = (locationCounts[location] || 0) + 1;
+        }
+      });
+      const topLocations = Object.entries(locationCounts)
+        .map(([location, count]) => ({ location, count }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 10);
+      
+      const usersWithLocation = Object.values(locationCounts).reduce((sum, count) => sum + count, 0);
+      const usersWithoutLocation = totalUsers - usersWithLocation;
 
       // Teacher-Student ratios
       const teachersWithStudents = await Booking.distinct("teacher");
@@ -328,6 +344,16 @@ router.get(
         
         // Top instruments
         topInstruments,
+        
+        // Top locations
+        topLocations,
+        usersWithLocation,
+        usersWithoutLocation,
+        
+        // Top locations
+        topLocations,
+        usersWithLocation,
+        usersWithoutLocation,
         
         // Teacher-Student ratios
         teachersWithStudents: teachersWithStudents.length,
@@ -682,6 +708,126 @@ router.delete(
  * POST /api/admin/bulk-message
  * Send bulk messages to multiple users
  */
+/**
+ * GET /api/admin/search
+ * Global search across all entities
+ */
+router.get(
+  "/search",
+  authMiddleware,
+  // roleMiddleware("admin"),
+  async (req, res) => {
+    try {
+      const { q, limit = 5 } = req.query;
+      
+      if (!q || q.trim().length === 0) {
+        return res.json({
+          users: [],
+          bookings: [],
+          messages: [],
+          practiceSessions: [],
+          communityPosts: [],
+          resources: [],
+        });
+      }
+
+      const searchTerm = q.trim();
+      const searchRegex = new RegExp(searchTerm, 'i');
+      const limitNum = parseInt(limit);
+
+      // Search users
+      const users = await User.find({
+        $or: [
+          { name: searchRegex },
+          { email: searchRegex },
+        ],
+      })
+        .select('name email role profileImage')
+        .limit(limitNum);
+
+      // Search bookings (by student/teacher name or status)
+      const bookings = await Booking.find({
+        $or: [
+          { status: searchRegex },
+        ],
+      })
+        .populate('student', 'name email')
+        .populate('teacher', 'name email')
+        .limit(limitNum)
+        .sort({ createdAt: -1 });
+
+      // Filter bookings by student/teacher name if they match
+      const filteredBookings = bookings.filter(booking => {
+        const studentName = booking.student?.name || '';
+        const teacherName = booking.teacher?.name || '';
+        return studentName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+               teacherName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+               booking.status.toLowerCase().includes(searchTerm.toLowerCase());
+      }).slice(0, limitNum);
+
+      // Search messages (by text content or sender/recipient name)
+      const messages = await Message.find({
+        text: searchRegex,
+      })
+        .populate('sender', 'name email')
+        .populate('recipient', 'name email')
+        .limit(limitNum)
+        .sort({ createdAt: -1 });
+
+      // Search practice sessions (by student name or notes)
+      const practiceSessions = await PracticeSession.find({
+        $or: [
+          { notes: searchRegex },
+        ],
+      })
+        .populate('student', 'name email')
+        .limit(limitNum)
+        .sort({ date: -1 });
+
+      // Filter practice sessions by student name
+      const filteredSessions = practiceSessions.filter(session => {
+        const studentName = session.student?.name || '';
+        return studentName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+               (session.notes && session.notes.toLowerCase().includes(searchTerm.toLowerCase()));
+      }).slice(0, limitNum);
+
+      // Search community posts (by title or content)
+      const communityPosts = await CommunityPost.find({
+        $or: [
+          { title: searchRegex },
+          { content: searchRegex },
+        ],
+      })
+        .populate('author', 'name email')
+        .limit(limitNum)
+        .sort({ createdAt: -1 });
+
+      // Search resources (by title or description)
+      const resources = await Resource.find({
+        $or: [
+          { title: searchRegex },
+          { description: searchRegex },
+        ],
+      })
+        .populate('uploadedBy', 'name email')
+        .limit(limitNum)
+        .sort({ createdAt: -1 });
+
+      res.json({
+        users,
+        bookings: filteredBookings,
+        messages,
+        practiceSessions: filteredSessions,
+        communityPosts,
+        resources,
+      });
+    } catch (err) {
+      console.error('Error in global search:', err);
+      res.status(500).json({ message: err.message });
+    }
+  }
+);
+
 router.post(
   "/bulk-message",
   authMiddleware,

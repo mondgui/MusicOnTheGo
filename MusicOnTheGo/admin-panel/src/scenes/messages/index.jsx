@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Box, Typography, useTheme, TextField, InputAdornment, Button, IconButton, Tooltip } from '@mui/material';
+import { Box, Typography, useTheme, TextField, InputAdornment, Button } from '@mui/material';
 import { DataGrid } from '@mui/x-data-grid';
 import SearchIcon from '@mui/icons-material/Search';
 import DownloadIcon from '@mui/icons-material/Download';
@@ -244,6 +244,7 @@ const Messages = () => {
           '& .MuiDataGrid-cell': {
             borderBottom: 'none',
             cursor: 'pointer',
+            color: theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[900],
           },
           '& .MuiDataGrid-row': {
             cursor: 'pointer',
@@ -263,9 +264,6 @@ const Messages = () => {
             borderTop: 'none',
             backgroundColor: theme.palette.mode === 'dark' ? colors.blueAccent[700] : colors.blueAccent[500],
             color: theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[100],
-          },
-          '& .MuiDataGrid-cell': {
-            color: theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[900],
           },
           '& .MuiDataGrid-cell:focus': {
             outline: 'none',

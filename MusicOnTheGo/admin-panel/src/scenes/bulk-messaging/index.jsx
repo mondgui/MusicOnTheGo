@@ -68,6 +68,7 @@ const BulkMessaging = () => {
     if (messageType !== 'custom' && messageTemplates[messageType]) {
       setMessage(messageTemplates[messageType]);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messageType]);
 
   const loadAvailableInstruments = async () => {

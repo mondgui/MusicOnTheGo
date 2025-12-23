@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Box, useTheme, Typography, Button, ButtonGroup, Chip } from '@mui/material';
+import { Box, useTheme, Typography, Button, ButtonGroup } from '@mui/material';
 import { tokens } from '../../theme';
 import StatBox from '../../components/StatBox';
 import LineChart from '../../components/LineChart';
@@ -35,10 +35,12 @@ const Dashboard = () => {
   const [error, setError] = useState(null);
   const [userGrowth, setUserGrowth] = useState([]);
   const [topInstruments, setTopInstruments] = useState([]);
+  const [topLocations, setTopLocations] = useState([]);
   const [timeRange, setTimeRange] = useState('30days'); // '7days', '30days', '90days', '6months', '1year'
 
   useEffect(() => {
     loadDashboardStats();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [timeRange]);
 
   const loadDashboardStats = async () => {
@@ -69,6 +71,10 @@ const Dashboard = () => {
       
       setUserGrowth(statsData.userGrowth || []);
       setTopInstruments(statsData.topInstruments || []);
+      setTopLocations(statsData.topLocations || []);
+      
+      // Debug: Log location data
+      console.log('Location data received:', statsData.topLocations);
     } catch (error) {
       console.error('Error loading dashboard stats:', error);
       setError(error.message || 'Failed to load dashboard data');
@@ -149,6 +155,15 @@ const Dashboard = () => {
       value: item.count,
     }));
   }, [topInstruments]);
+
+  // Top locations bar chart data
+  const topLocationsData = useMemo(() => {
+    return topLocations.map(item => ({
+      label: item.location.length > 20 ? item.location.substring(0, 20) + '...' : item.location,
+      value: item.count,
+      fullLabel: item.location, // Keep full label for tooltip
+    }));
+  }, [topLocations]);
 
   // User onboarding funnel data
   const onboardingFunnelData = useMemo(() => {
@@ -489,6 +504,29 @@ const Dashboard = () => {
             </Box>
           </Box>
         )}
+
+        {/* Top Locations */}
+        <Box
+          gridColumn="span 7"
+          backgroundColor={theme.palette.mode === 'dark' ? colors.primary[400] : colors.grey[200]}
+          p="30px"
+          borderRadius="4px"
+        >
+          <Typography variant="h5" fontWeight="600" color={theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[900]} mb="10px">
+            User Distribution by Location
+          </Typography>
+          {topLocationsData.length > 0 ? (
+            <Box height="280px" mt="-20px">
+              <BarChart data={topLocationsData} />
+            </Box>
+          ) : (
+            <Box height="280px" display="flex" alignItems="center" justifyContent="center">
+              <Typography variant="body1" color={theme.palette.mode === 'dark' ? colors.grey[300] : colors.grey[700]}>
+                No location data available. Users need to add their location in their profile.
+              </Typography>
+            </Box>
+          )}
+        </Box>
 
         {/* User Onboarding Funnel */}
         {onboardingFunnelData.length > 0 && (

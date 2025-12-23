@@ -17,11 +17,11 @@ import { useQueryClient } from "@tanstack/react-query";
 
 export default function TeacherSettingsScreen() {
   const router = useRouter();
+  const queryClient = useQueryClient();
 
   // Notification states
   const [pushNotifications, setPushNotifications] = useState(true);
   const [emailNotifications, setEmailNotifications] = useState(true);
-  const [darkMode, setDarkMode] = useState(false);
 
   const handleLogout = async () => {
     try {
@@ -85,7 +85,10 @@ export default function TeacherSettingsScreen() {
 
               <Separator style={styles.separator} />
 
-              <TouchableOpacity style={styles.settingItem}>
+              <TouchableOpacity
+                style={styles.settingItem}
+                onPress={() => router.push("/(teacher)/change-password")}
+              >
                 <View style={styles.settingLeft}>
                   <Ionicons name="lock-closed-outline" size={20} color="#FF6A5C" />
                   <View style={styles.settingTextContainer}>
@@ -163,19 +166,6 @@ export default function TeacherSettingsScreen() {
           <Card style={styles.sectionCard}>
             <Text style={styles.sectionTitle}>Preferences</Text>
             <View style={styles.sectionContent}>
-              <View style={styles.settingItem}>
-                <View style={styles.settingLeft}>
-                  <Ionicons name="moon-outline" size={20} color="#FF6A5C" />
-                  <View style={styles.settingTextContainer}>
-                    <Text style={styles.settingTitle}>Dark Mode</Text>
-                    <Text style={styles.settingSubtitle}>Enable dark theme</Text>
-                  </View>
-                </View>
-                <Switch value={darkMode} onValueChange={setDarkMode} />
-              </View>
-
-              <Separator style={styles.separator} />
-
               <TouchableOpacity style={styles.settingItem}>
                 <View style={styles.settingLeft}>
                   <Ionicons name="globe-outline" size={20} color="#FF6A5C" />

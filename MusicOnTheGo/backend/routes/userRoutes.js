@@ -95,6 +95,51 @@ router.put("/me", authMiddleware, async (req, res) => {
 });
 
 /* -----------------------------------------------------
+   CHANGE PASSWORD (requires current password)
+----------------------------------------------------- */
+router.put("/me/change-password", authMiddleware, async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ message: "Current password and new password are required." });
+    }
+
+    // Trim passwords to remove whitespace
+    const trimmedNewPassword = String(newPassword).trim();
+    const trimmedCurrentPassword = String(currentPassword).trim();
+
+    if (trimmedNewPassword.length < 6) {
+      return res.status(400).json({ message: "New password must be at least 6 characters long." });
+    }
+
+    // Get user with password
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ message: "User not found." });
+    }
+
+    // Verify current password
+    const bcrypt = await import("bcryptjs");
+    const isMatch = await bcrypt.compare(trimmedCurrentPassword, user.password);
+    if (!isMatch) {
+      return res.status(401).json({ message: "Current password is incorrect." });
+    }
+
+    // Hash new password
+    const hashedPassword = await bcrypt.hash(trimmedNewPassword, 10);
+
+    // Update password
+    user.password = hashedPassword;
+    await user.save();
+
+    res.json({ message: "Password changed successfully." });
+  } catch (err) {
+    res.status(500).json({ message: err.message || "Failed to change password." });
+  }
+});
+
+/* -----------------------------------------------------
    GET USER BY ID (for chat/contacts)
 ----------------------------------------------------- */
 router.get("/:id", authMiddleware, async (req, res) => {

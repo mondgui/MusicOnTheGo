@@ -10,7 +10,6 @@ import {
   FormControlLabel,
   TextField,
   Button,
-  Divider,
   Alert,
   Select,
   MenuItem,
@@ -35,7 +34,6 @@ const Settings = () => {
     dashboardRefreshInterval: 30, // seconds
     defaultTimeRange: '30days',
   });
-  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     loadUser();

@@ -76,6 +76,12 @@ const getUpcomingTimePeriod = (booking: Booking): string | null => {
   endOfThisMonth.setMonth(endOfThisMonth.getMonth() + 1);
   endOfThisMonth.setDate(1);
 
+  // End of this year (January 1st of next year)
+  const endOfThisYear = new Date(today);
+  endOfThisYear.setFullYear(endOfThisYear.getFullYear() + 1);
+  endOfThisYear.setMonth(0);
+  endOfThisYear.setDate(1);
+
   const bookingDateOnly = new Date(bookingDate);
   bookingDateOnly.setHours(0, 0, 0, 0);
 
@@ -87,19 +93,11 @@ const getUpcomingTimePeriod = (booking: Booking): string | null => {
     return "This Week";
   } else if (bookingDateOnly < endOfThisMonth) {
     return "This Month";
+  } else if (bookingDateOnly < endOfThisYear) {
+    return "This Year";
   } else {
-    // For dates beyond this month, return month and year (e.g., "January 2026")
-    // For dates in different years, return just the year (e.g., "2027", "2028")
-    const currentYear = today.getFullYear();
-    const bookingYear = bookingDateOnly.getFullYear();
-    
-    if (bookingYear > currentYear) {
-      // Different year - just show the year
-      return bookingYear.toString();
-    } else {
-      // Same year, different month - show month and year
-      return bookingDateOnly.toLocaleDateString("en-US", { month: "long", year: "numeric" });
-    }
+    // For dates beyond this year, return just the year
+    return bookingDateOnly.getFullYear().toString();
   }
 };
 
@@ -178,11 +176,11 @@ const BookingCard = ({
     <View style={styles.bookingDetails}>
       <View style={styles.detailRow}>
         <Ionicons name="calendar-outline" size={16} color="#666" />
-        <Text style={styles.detailText}>{item.date}</Text>
+        <Text style={styles.detailText} numberOfLines={1}>{item.date}</Text>
       </View>
       <View style={styles.detailRow}>
         <Ionicons name="time-outline" size={16} color="#666" />
-        <Text style={styles.detailText}>{item.time}</Text>
+        <Text style={styles.detailText} numberOfLines={1} flexShrink={1}>{item.time}</Text>
       </View>
     </View>
     
@@ -206,7 +204,7 @@ const BookingCard = ({
   </Card>
 );
 
-export default function BookingsTab({
+export default function ScheduleBookingsTab({
   bookings,
   loading,
   loadingMore = false,
@@ -247,8 +245,8 @@ export default function BookingsTab({
     return groups;
   }, {} as Record<string, Booking[]>);
 
-  // Sort upcoming groups
-  const upcomingGroupOrder = ["Today", "Tomorrow", "This Week", "This Month"];
+  // Sort upcoming groups in the order: Today, Tomorrow, This Week, This Month, This Year, then by date
+  const upcomingGroupOrder = ["Today", "Tomorrow", "This Week", "This Month", "This Year"];
   const sortedUpcomingKeys = Object.keys(groupedUpcoming).sort((a, b) => {
     const aIndex = upcomingGroupOrder.indexOf(a);
     const bIndex = upcomingGroupOrder.indexOf(b);
@@ -302,7 +300,7 @@ export default function BookingsTab({
   return (
     <View style={styles.section}>
       <View style={styles.headerRow}>
-        <Text style={styles.sectionTitle}>All Bookings</Text>
+        <Text style={styles.sectionTitle}>Schedule & Bookings</Text>
         <Badge>{bookings.length} total</Badge>
       </View>
 
@@ -472,17 +470,22 @@ const styles = StyleSheet.create({
     color: "#666",
   },
   bookingDetails: {
-    flexDirection: "row",
-    gap: 16,
+    flexDirection: "column",
+    gap: 8,
   },
   detailRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
+    flex: 1,
+    minWidth: 0,
   },
   detailText: {
     fontSize: 14,
     color: "#666",
+    flex: 1,
+    flexShrink: 1,
+    minWidth: 0,
   },
   actionsRow: {
     flexDirection: "row",
@@ -546,118 +549,3 @@ const styles = StyleSheet.create({
   },
 });
 
-
-
-// import React from "react";
-// import {
-//   View,
-//   Text,
-//   StyleSheet,
-//   TouchableOpacity,
-//   ActivityIndicator,
-// } from "react-native";
-
-// type Booking = {
-//   _id: string;
-//   studentName: string;
-//   instrument: string;
-//   date: string;
-//   time: string;
-//   status: "Confirmed" | "Pending";
-// };
-
-// type Props = {
-//   bookings: Booking[];
-//   loading?: boolean;
-//   onAccept?: (id: string) => void;
-//   onReject?: (id: string) => void;
-// };
-
-// export default function BookingsTab({ bookings, loading, onAccept, onReject }: Props) {
-//   return (
-//     <View style={styles.section}>
-//       <Text style={styles.sectionTitle}>All Bookings</Text>
-
-//       {loading && <ActivityIndicator color="#FF6A5C" style={{ marginBottom: 12 }} />}
-
-//       {!loading && bookings.length === 0 && (
-//         <Text style={{ color: "#777" }}>No bookings yet.</Text>
-//       )}
-
-//       {bookings.map((item) => (
-//         <View key={item._id} style={styles.bookingCard}>
-//           <View style={styles.bookingHeaderRow}>
-//             <View>
-//               <Text style={styles.cardTitle}>{item.studentName || "Student"}</Text>
-//               <Text style={styles.cardSubtitle}>{item.instrument}</Text>
-//             </View>
-
-//             <View
-//               style={[
-//                 styles.statusBadge,
-//                 item.status === "Confirmed" ? styles.confirmed : styles.pending,
-//               ]}
-//             >
-//               <Text style={styles.statusText}>{item.status}</Text>
-//             </View>
-//           </View>
-
-//           <Text style={styles.cardDetail}>📅 {item.date}</Text>
-//           <Text style={styles.cardDetail}>⏰ {item.time}</Text>
-
-//           {item.status === "Pending" && (
-//             <View style={styles.actionsRow}>
-//               <TouchableOpacity
-//                 style={[styles.actionBtn, styles.rejectBtn]}
-//                 onPress={() => onReject?.(item._id)}
-//               >
-//                 <Text style={styles.actionText}>Reject</Text>
-//               </TouchableOpacity>
-//               <TouchableOpacity
-//                 style={[styles.actionBtn, styles.acceptBtn]}
-//                 onPress={() => onAccept?.(item._id)}
-//               >
-//                 <Text style={[styles.actionText, { color: "white" }]}>Accept</Text>
-//               </TouchableOpacity>
-//             </View>
-//           )}
-//         </View>
-//       ))}
-//     </View>
-//   );
-// }
-
-// const styles = StyleSheet.create({
-//   section: { marginBottom: 30 },
-//   sectionTitle: { fontSize: 20, fontWeight: "700", marginBottom: 15 },
-//   bookingCard: {
-//     backgroundColor: "white",
-//     padding: 18,
-//     borderRadius: 15,
-//     marginBottom: 12,
-//   },
-//   bookingHeaderRow: {
-//     flexDirection: "row",
-//     justifyContent: "space-between",
-//     alignItems: "center",
-//     marginBottom: 6,
-//   },
-//   cardTitle: { fontSize: 16, fontWeight: "700" },
-//   cardSubtitle: { color: "#777", marginTop: 3 },
-//   cardDetail: { color: "#555", marginTop: 4 },
-//   statusBadge: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 12 },
-//   confirmed: { backgroundColor: "#D6FFE1" },
-//   pending: { backgroundColor: "#FFF3C4" },
-//   statusText: { fontWeight: "600", color: "#333" },
-//   actionsRow: { flexDirection: "row", justifyContent: "flex-end", gap: 10, marginTop: 12 },
-//   actionBtn: {
-//     paddingVertical: 8,
-//     paddingHorizontal: 14,
-//     borderRadius: 10,
-//     borderWidth: 1,
-//     borderColor: "#FF6A5C",
-//   },
-//   rejectBtn: { backgroundColor: "white" },
-//   acceptBtn: { backgroundColor: "#FF6A5C", borderColor: "#FF6A5C" },
-//   actionText: { fontWeight: "700", color: "#FF6A5C" },
-// });

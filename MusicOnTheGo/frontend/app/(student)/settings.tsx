@@ -27,7 +27,6 @@ export default function SettingsScreen() {
   const [pushNotifications, setPushNotifications] = useState(true);
   const [emailNotifications, setEmailNotifications] = useState(true);
   const [practiceReminders, setPracticeReminders] = useState(true);
-  const [darkMode, setDarkMode] = useState(false);
 
   // Load user role
   useEffect(() => {
@@ -111,7 +110,10 @@ export default function SettingsScreen() {
 
               <Separator style={styles.separator} />
 
-              <TouchableOpacity style={styles.settingItem}>
+              <TouchableOpacity
+                style={styles.settingItem}
+                onPress={() => router.push("/(student)/change-password")}
+              >
                 <View style={styles.settingLeft}>
                   <Ionicons name="lock-closed-outline" size={20} color="#FF6A5C" />
                   <View style={styles.settingTextContainer}>
@@ -213,19 +215,6 @@ export default function SettingsScreen() {
           <Card style={styles.sectionCard}>
             <Text style={styles.sectionTitle}>Preferences</Text>
             <View style={styles.sectionContent}>
-              <View style={styles.settingItem}>
-                <View style={styles.settingLeft}>
-                  <Ionicons name="moon-outline" size={20} color="#FF6A5C" />
-                  <View style={styles.settingTextContainer}>
-                    <Text style={styles.settingTitle}>Dark Mode</Text>
-                    <Text style={styles.settingSubtitle}>Enable dark theme</Text>
-                  </View>
-                </View>
-                <Switch value={darkMode} onValueChange={setDarkMode} />
-              </View>
-
-              <Separator style={styles.separator} />
-
               <TouchableOpacity style={styles.settingItem}>
                 <View style={styles.settingLeft}>
                   <Ionicons name="globe-outline" size={20} color="#FF6A5C" />

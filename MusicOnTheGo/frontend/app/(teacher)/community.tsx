@@ -289,7 +289,7 @@ export default function CommunityScreen() {
         }
 
         const result = await ImagePicker.launchImageLibraryAsync({
-          mediaTypes: ImagePicker.MediaTypeOptions.Videos,
+          mediaTypes: 'videos',
           allowsEditing: true,
           quality: 1,
           videoMaxDuration: 3600, // Allow up to 1 hour of video

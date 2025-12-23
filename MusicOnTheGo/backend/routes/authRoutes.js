@@ -157,8 +157,24 @@ router.post("/forgot-password", async (req, res) => {
     user.resetPasswordExpires = Date.now() + 3600000; // 1 hour
     await user.save();
 
-    // Create reset URL
-    const resetUrl = `${process.env.FRONTEND_URL || "http://localhost:8081"}/reset-password?token=${resetToken}&email=${encodeURIComponent(email)}`;
+    // Create reset URL - use deep link for mobile app
+    // The app uses custom scheme "musiconthego://" as configured in app.json
+    // For mobile apps, use the deep link scheme
+    // For web, use http://
+    const frontendUrl = process.env.FRONTEND_URL || "http://localhost:8081";
+    
+    let resetUrl;
+    if (frontendUrl.startsWith("musiconthego://") || frontendUrl.startsWith("exp://")) {
+      // Already a deep link
+      resetUrl = `${frontendUrl}/reset-password?token=${resetToken}&email=${encodeURIComponent(email)}`;
+    } else if (frontendUrl.startsWith("http://") || frontendUrl.startsWith("https://")) {
+      // For web, use the URL as-is
+      resetUrl = `${frontendUrl}/reset-password?token=${resetToken}&email=${encodeURIComponent(email)}`;
+    } else {
+      // Default: use deep link scheme for mobile app
+      // Format: musiconthego://reset-password?token=...&email=...
+      resetUrl = `musiconthego://reset-password?token=${resetToken}&email=${encodeURIComponent(email)}`;
+    }
 
     // Send email
     try {

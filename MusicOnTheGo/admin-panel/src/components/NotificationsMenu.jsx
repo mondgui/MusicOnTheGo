@@ -8,12 +8,10 @@ import {
   Badge,
   Divider,
   useTheme,
-  Chip,
 } from '@mui/material';
 import NotificationsOutlinedIcon from '@mui/icons-material/NotificationsOutlined';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import WarningIcon from '@mui/icons-material/Warning';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import { tokens } from '../theme';
 import { api } from '../lib/api';
 

@@ -7,9 +7,8 @@ import DarkModeOutlinedIcon from '@mui/icons-material/DarkModeOutlined';
 import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
 import PersonOutlinedIcon from '@mui/icons-material/PersonOutlined';
 import LogoutOutlinedIcon from '@mui/icons-material/LogoutOutlined';
-import SearchIcon from '@mui/icons-material/Search';
-import InputBase from '@mui/material/InputBase';
 import NotificationsMenu from '../../components/NotificationsMenu';
+import GlobalSearch from '../../components/GlobalSearch';
 
 const Topbar = () => {
     const theme = useTheme();
@@ -36,32 +35,7 @@ const Topbar = () => {
     return (
         <Box display="flex" justifyContent="space-between" p={2}>
             {/* SEARCH BAR */} 
-            <Box 
-              display="flex" 
-              backgroundColor={theme.palette.mode === 'dark' ? colors.primary[400] : colors.grey[200]} 
-              borderRadius="3px"
-            >
-                <InputBase 
-                  sx={{ 
-                    ml: 2, 
-                    flex: 1,
-                    color: theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[900],
-                    '&::placeholder': {
-                      color: theme.palette.mode === 'dark' ? colors.grey[400] : colors.grey[600],
-                    },
-                  }} 
-                  placeholder="Search" 
-                />
-                <IconButton 
-                  type="button" 
-                  sx={{ 
-                    p: 1,
-                    color: theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[700],
-                  }}
-                >
-                    <SearchIcon />
-                </IconButton>
-            </Box>
+            <GlobalSearch />
 
             {/* ICONS */}
             <Box display="flex" alignItems="center" gap={1}>

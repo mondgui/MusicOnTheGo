@@ -271,6 +271,7 @@ const Bookings = () => {
           '& .MuiDataGrid-cell': {
             borderBottom: 'none',
             cursor: 'pointer',
+            color: theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[900],
           },
           '& .MuiDataGrid-row': {
             cursor: 'pointer',
@@ -290,9 +291,6 @@ const Bookings = () => {
             borderTop: 'none',
             backgroundColor: theme.palette.mode === 'dark' ? colors.blueAccent[700] : colors.blueAccent[500],
             color: theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[100],
-          },
-          '& .MuiDataGrid-cell': {
-            color: theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[900],
           },
           '& .MuiDataGrid-cell:focus': {
             outline: 'none',

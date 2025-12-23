@@ -1,5 +1,4 @@
 import { Box, Typography, Divider, Chip, useTheme } from '@mui/material';
-import PersonIcon from '@mui/icons-material/Person';
 import EmailIcon from '@mui/icons-material/Email';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import SchoolIcon from '@mui/icons-material/School';

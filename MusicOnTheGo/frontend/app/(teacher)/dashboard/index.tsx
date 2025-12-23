@@ -19,8 +19,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { initSocket, getSocket } from "../../../lib/socket";
 import type { Socket } from "socket.io-client";
 
-import ScheduleTab from "./_tabs/ScheduleTab";
-import BookingsTab, { type Booking } from "./_tabs/BookingsTab";
+import ScheduleBookingsTab, { type Booking } from "./_tabs/ScheduleBookingsTab";
 import TimesTab from "./_tabs/TimesTab";
 import AnalyticsTab from "./_tabs/AnalyticsTab";
 import SettingsTab from "./_tabs/SettingsTab";
@@ -40,39 +39,7 @@ const TABS: TabConfig[] = [
   { key: "settings", label: "Settings", icon: "settings-outline" },
 ];
 
-type ScheduleItem = { id: number; student: string; instrument: string; time: string };
-
-type BookingItem = {
-  id: number;
-  student: string;
-  instrument: string;
-  date: string;
-  time: string;
-  status: "Confirmed" | "Pending";
-};
-
 type AvailabilityDay = { day: string; slots: string[] };
-
-// scheduleData will be computed from bookings
-
-const bookingsData: BookingItem[] = [
-  {
-    id: 1,
-    student: "Emily Johnson",
-    instrument: "Piano",
-    date: "Nov 15, 2025",
-    time: "2:00 PM",
-    status: "Confirmed",
-  },
-  {
-    id: 2,
-    student: "Michael Chen",
-    instrument: "Guitar",
-    date: "Nov 18, 2025",
-    time: "4:00 PM",
-    status: "Pending",
-  },
-];
 
 const availabilityData: AvailabilityDay[] = [
   { day: "Monday", slots: ["2:00 PM - 3:00 PM", "4:00 PM - 5:00 PM"] },
@@ -85,13 +52,13 @@ export default function TeacherDashboard() {
   const params = useLocalSearchParams();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<TabKey>("home");
-  const [innerTab, setInnerTab] = useState<string>("schedule");
+  const [innerTab, setInnerTab] = useState<string>("schedule-bookings");
   
   // Get the tab parameter from query string
   const getTabParam = (): string => {
     const tab = params.tab;
-    if (Array.isArray(tab)) return tab[0] || "schedule";
-    return tab || "schedule";
+    if (Array.isArray(tab)) return tab[0] || "schedule-bookings";
+    return tab || "schedule-bookings";
   };
   
   // Set active tab to "home" and inner tab based on param
@@ -100,6 +67,9 @@ export default function TeacherDashboard() {
     if (tabParam === "analytics" || tabParam === "profile") {
       setActiveTab("home");
       setInnerTab("analytics");
+    } else if (tabParam === "schedule" || tabParam === "bookings") {
+      setActiveTab("home");
+      setInnerTab("schedule-bookings");
     }
   }, [params.tab]);
 
@@ -291,57 +261,6 @@ export default function TeacherDashboard() {
     return bookingsData?.pages.flatMap((page) => page.bookings) || [];
   }, [bookingsData]);
 
-  // Compute schedule data from bookings
-  const scheduleData = useMemo(() => {
-    if (!bookingsData) return [];
-    
-    const today = new Date();
-    const todayDayName = today.toLocaleDateString("en-US", { weekday: "long" });
-    const todayYear = today.getFullYear();
-    const todayMonth = String(today.getMonth() + 1).padStart(2, '0');
-    const todayDay = String(today.getDate()).padStart(2, '0');
-    const todayDateString = `${todayYear}-${todayMonth}-${todayDay}`;
-    
-    // Get all raw booking data from all pages
-    const allRawData = bookingsData.pages.flatMap((page) => page.rawData);
-    const currentUser = user; // user is from useQuery
-    
-    const todaySchedule: ScheduleItem[] = allRawData
-      .filter((booking: any) => {
-        if (booking.status !== "approved") return false;
-        const yyyyMmDdPattern = /^(\d{4})-(\d{2})-(\d{2})$/;
-        if (yyyyMmDdPattern.test(booking.day)) {
-          return booking.day === todayDateString;
-        } else {
-          return booking.day === todayDayName;
-        }
-      })
-      .map((booking: any, index: number) => {
-        const timeRange = formatTimeSlot(booking.timeSlot || {});
-        const formattedDate = formatDay(booking.day);
-        return {
-          id: booking._id || index,
-          student: booking.student?.name || "Student",
-          instrument: currentUser?.instruments?.[0] || "Music",
-          time: timeRange,
-          date: formattedDate,
-        };
-      })
-      .sort((a: ScheduleItem, b: ScheduleItem) => {
-        const parseTime = (timeStr: string): number => {
-          const [time, period] = timeStr.split(" ");
-          const [hours, minutes] = time.split(":");
-          let hour = parseInt(hours);
-          if (period === "PM" && hour !== 12) hour += 12;
-          if (period === "AM" && hour === 12) hour = 0;
-          return hour * 60 + parseInt(minutes || "0");
-        };
-        return parseTime(a.time) - parseTime(b.time);
-      });
-    
-    return todaySchedule;
-  }, [bookingsData, user, formatDay, formatTimeSlot]);
-
   const loadMoreBookings = () => {
     if (hasNextPage && !bookingsLoadingMore) {
       fetchNextPage();
@@ -503,8 +422,6 @@ export default function TeacherDashboard() {
           {activeTab === "home" && (
             <HomeTabContent
               user={user}
-              scheduleData={scheduleData}
-              bookingsData={[]}
               availabilityData={availabilityData}
               defaultTab={innerTab}
               bookings={bookings}
@@ -517,7 +434,7 @@ export default function TeacherDashboard() {
             />
           )}
           {activeTab === "bookings" && (
-            <BookingsTab
+            <ScheduleBookingsTab
               bookings={bookings}
               loading={bookingsLoading}
               loadingMore={bookingsLoadingMore}
@@ -540,8 +457,6 @@ export default function TeacherDashboard() {
 // Home Tab Content Component
 type HomeTabContentProps = {
   user: any;
-  scheduleData: ScheduleItem[];
-  bookingsData: BookingItem[];
   availabilityData: AvailabilityDay[];
   defaultTab?: string;
   bookings: any[];
@@ -555,10 +470,8 @@ type HomeTabContentProps = {
 
 function HomeTabContent({
   user,
-  scheduleData,
-  bookingsData,
   availabilityData,
-  defaultTab = "schedule",
+  defaultTab = "schedule-bookings",
   bookings,
   bookingsLoading,
   bookingsLoadingMore = false,
@@ -615,18 +528,14 @@ function HomeTabContent({
       <View style={styles.innerTabsWrapper}>
         <Tabs defaultValue={defaultTab} key={defaultTab}>
           <TabsList style={styles.tabsList}>
-            <TabsTrigger value="schedule">Schedule</TabsTrigger>
-            <TabsTrigger value="bookings">Bookings</TabsTrigger>
+            <TabsTrigger value="schedule-bookings">Schedule</TabsTrigger>
             <TabsTrigger value="times">Times</TabsTrigger>
             <TabsTrigger value="analytics">Analytics</TabsTrigger>
+            {/* Bookings tab removed - merged into Schedule tab */}
           </TabsList>
 
-          <TabsContent value="schedule">
-            <ScheduleTab schedule={scheduleData} />
-          </TabsContent>
-
-          <TabsContent value="bookings">
-            <BookingsTab
+          <TabsContent value="schedule-bookings">
+            <ScheduleBookingsTab
               bookings={bookings}
               loading={bookingsLoading}
               loadingMore={bookingsLoadingMore}

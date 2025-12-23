@@ -125,8 +125,13 @@ export const sendPasswordResetEmail = async (email, resetToken, resetUrl) => {
               <h2>Reset Your Password</h2>
               <p>You requested to reset your password. Click the button below to create a new password:</p>
               <a href="${resetUrl}" class="button">Reset Password</a>
-              <p>Or copy and paste this link into your browser:</p>
-              <p style="word-break: break-all; color: #666;">${resetUrl}</p>
+              <p>Or copy and paste this link:</p>
+              <p style="word-break: break-all; color: #666; font-family: monospace; background: #f5f5f5; padding: 10px; border-radius: 5px;">${resetUrl}</p>
+              ${resetUrl.startsWith("exp://") || resetUrl.startsWith("musiconthego://") ? `
+              <p style="background: #fff3cd; padding: 10px; border-radius: 5px; border-left: 4px solid #ffc107;">
+                <strong>📱 Mobile App Users:</strong> Make sure the MusicOnTheGo app is installed. Tap the link above to open it in the app.
+              </p>
+              ` : ""}
               <p><strong>This link will expire in 1 hour.</strong></p>
               <p>If you didn't request a password reset, please ignore this email.</p>
             </div>

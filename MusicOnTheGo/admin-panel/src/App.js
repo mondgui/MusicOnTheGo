@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { ColorModeContext, useMode } from './theme';
 import { CssBaseline, ThemeProvider } from '@mui/material';
 import { Routes, Route, Navigate } from 'react-router-dom';
@@ -31,14 +31,6 @@ const ProtectedRoute = ({ children }) => {
 
 function App() {
   const [theme, colorMode] = useMode();
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-
-  useEffect(() => {
-    // Check if user is logged in
-    const token = localStorage.getItem('token');
-    const user = JSON.parse(localStorage.getItem('user') || '{}');
-    setIsAuthenticated(!!token && user.role === 'admin');
-  }, []);
 
   return (
     <ColorModeContext.Provider value={colorMode}>
