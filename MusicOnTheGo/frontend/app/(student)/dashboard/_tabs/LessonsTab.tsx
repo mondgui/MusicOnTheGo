@@ -252,6 +252,28 @@ export default function LessonsTab() {
               refetch();
             }
           });
+
+          // Listen for booking cancellations (from booking-cancelled event sent to user room)
+          socketInstance.on("booking-cancelled", () => {
+            if (mounted) {
+              if (__DEV__ && DEBUG_STUDENT_LESSONS) {
+                console.log("[Student Lessons] Booking cancelled");
+              }
+              queryClient.invalidateQueries({ queryKey: ["student-bookings"] });
+              refetch();
+            }
+          });
+
+          // Listen for booking deletions (from booking-deleted event sent to student-bookings room)
+          socketInstance.on("booking-deleted", () => {
+            if (mounted) {
+              if (__DEV__ && DEBUG_STUDENT_LESSONS) {
+                console.log("[Student Lessons] Booking deleted");
+              }
+              queryClient.invalidateQueries({ queryKey: ["student-bookings"] });
+              refetch();
+            }
+          });
         }
       } catch (error) {
         if (__DEV__ && DEBUG_STUDENT_LESSONS) {
@@ -268,6 +290,8 @@ export default function LessonsTab() {
         socketInstance.emit("leave-student-bookings");
         socketInstance.off("booking-status-changed");
         socketInstance.off("booking-updated");
+        socketInstance.off("booking-cancelled");
+        socketInstance.off("booking-deleted");
       }
     };
   }, [queryClient, refetch]);

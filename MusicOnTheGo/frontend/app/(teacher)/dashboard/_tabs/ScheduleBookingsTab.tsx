@@ -1,5 +1,5 @@
 import React from "react";
-import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity } from "react-native";
+import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, Alert } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -24,6 +24,7 @@ type Props = {
   onLoadMore?: () => void;
   onAccept?: (id: string) => void;
   onReject?: (id: string) => void;
+  onCancel?: (id: string) => void;
 };
 
 // Helper function to parse date from booking
@@ -149,60 +150,93 @@ const getPastTimePeriod = (booking: Booking): string | null => {
 const BookingCard = ({ 
   item, 
   onAccept, 
-  onReject 
+  onReject,
+  onCancel
 }: { 
   item: Booking; 
   onAccept?: (id: string) => void; 
   onReject?: (id: string) => void;
-}) => (
-  <Card style={styles.bookingCard}>
-    <View style={styles.bookingHeaderRow}>
-      <View style={styles.bookingInfo}>
-        <Text style={styles.studentName}>{item.studentName || "Student"}</Text>
-        <Text style={styles.instrument}>{item.instrument}</Text>
+  onCancel?: (id: string) => void;
+}) => {
+  const handleCancel = () => {
+    Alert.alert(
+      "Cancel Booking",
+      "Are you sure you want to cancel this booking? The student will be notified.",
+      [
+        { text: "No", style: "cancel" },
+        {
+          text: "Yes, Cancel",
+          style: "destructive",
+          onPress: () => onCancel?.(item._id),
+        },
+      ]
+    );
+  };
+
+  // Check if this booking is in the past
+  const isPast = isPastBooking(item);
+
+  return (
+    <Card style={styles.bookingCard}>
+      <View style={styles.bookingHeaderRow}>
+        <View style={styles.bookingInfo}>
+          <Text style={styles.studentName}>{item.studentName || "Student"}</Text>
+          <Text style={styles.instrument}>{item.instrument}</Text>
+        </View>
+        <View style={styles.statusRow}>
+          <Badge
+            variant={
+              item.status === "Confirmed" 
+                ? "success" 
+                : item.status === "Rejected"
+                ? "secondary"
+                : "warning"
+            }
+          >
+            {item.status}
+          </Badge>
+          {item.status === "Confirmed" && !isPast && (
+            <TouchableOpacity
+              style={styles.deleteIconButton}
+              onPress={handleCancel}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Ionicons name="trash-outline" size={18} color="#FF6A5C" />
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
-      <Badge
-        variant={
-          item.status === "Confirmed" 
-            ? "success" 
-            : item.status === "Rejected"
-            ? "secondary"
-            : "warning"
-        }
-      >
-        {item.status}
-      </Badge>
-    </View>
-    <View style={styles.bookingDetails}>
-      <View style={styles.detailRow}>
-        <Ionicons name="calendar-outline" size={16} color="#666" />
-        <Text style={styles.detailText} numberOfLines={1}>{item.date}</Text>
+      <View style={styles.bookingDetails}>
+        <View style={styles.detailRow}>
+          <Ionicons name="calendar-outline" size={16} color="#666" />
+          <Text style={styles.detailText} numberOfLines={1}>{item.date}</Text>
+        </View>
+        <View style={styles.detailRow}>
+          <Ionicons name="time-outline" size={16} color="#666" />
+          <Text style={styles.detailText} numberOfLines={1} flexShrink={1}>{item.time}</Text>
+        </View>
       </View>
-      <View style={styles.detailRow}>
-        <Ionicons name="time-outline" size={16} color="#666" />
-        <Text style={styles.detailText} numberOfLines={1} flexShrink={1}>{item.time}</Text>
-      </View>
-    </View>
-    
-    {item.status === "Pending" && (
-      <View style={styles.actionsRow}>
-        <TouchableOpacity
-          style={styles.rejectButton}
-          onPress={() => onReject?.(item._id)}
-        >
-          <Text style={styles.rejectButtonText}>Reject</Text>
-        </TouchableOpacity>
-        <Button
-          size="sm"
-          onPress={() => onAccept?.(item._id)}
-          style={styles.acceptButton}
-        >
-          Accept
-        </Button>
-      </View>
-    )}
-  </Card>
-);
+      
+      {item.status === "Pending" && (
+        <View style={styles.actionsRow}>
+          <TouchableOpacity
+            style={styles.rejectButton}
+            onPress={() => onReject?.(item._id)}
+          >
+            <Text style={styles.rejectButtonText}>Reject</Text>
+          </TouchableOpacity>
+          <Button
+            size="sm"
+            onPress={() => onAccept?.(item._id)}
+            style={styles.acceptButton}
+          >
+            Accept
+          </Button>
+        </View>
+      )}
+    </Card>
+  );
+};
 
 export default function ScheduleBookingsTab({
   bookings,
@@ -212,6 +246,7 @@ export default function ScheduleBookingsTab({
   onLoadMore,
   onAccept,
   onReject,
+  onCancel,
 }: Props) {
   // Separate bookings into upcoming and past
   const upcomingBookings = bookings.filter(b => !isPastBooking(b));
@@ -330,6 +365,7 @@ export default function ScheduleBookingsTab({
                     item={item}
                     onAccept={onAccept}
                     onReject={onReject}
+                    onCancel={onCancel}
                   />
                 ))}
               </>
@@ -345,6 +381,7 @@ export default function ScheduleBookingsTab({
                     item={item}
                     onAccept={onAccept}
                     onReject={onReject}
+                    onCancel={onCancel}
                   />
                 ))}
               </View>
@@ -383,6 +420,7 @@ export default function ScheduleBookingsTab({
                     item={item}
                     onAccept={onAccept}
                     onReject={onReject}
+                    onCancel={onCancel}
                   />
                 ))}
               </View>
@@ -398,6 +436,7 @@ export default function ScheduleBookingsTab({
                     item={item}
                     onAccept={onAccept}
                     onReject={onReject}
+                    onCancel={onCancel}
                   />
                 ))}
               </>
@@ -458,6 +497,14 @@ const styles = StyleSheet.create({
   },
   bookingInfo: {
     flex: 1,
+  },
+  statusRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  deleteIconButton: {
+    padding: 4,
   },
   studentName: {
     fontSize: 16,

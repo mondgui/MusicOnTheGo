@@ -248,6 +248,15 @@ export default function PracticeLogScreen() {
         }),
       });
 
+      // Also update the user's weeklyGoal field (used by practice timer)
+      await api("/api/users/me", {
+        method: "PUT",
+        auth: true,
+        body: JSON.stringify({
+          weeklyGoal: goalMinutes,
+        }),
+      });
+
       // Reset form
       setNewGoalTitle("");
       setNewGoalCategory("");
@@ -569,26 +578,18 @@ export default function PracticeLogScreen() {
             {/* Start Practice Timer Button */}
             <Button
               style={styles.addButton}
-              onPress={async () => {
+              onPress={() => {
                 // Check if weekly goal is set before navigating
-                if (!weeklyGoal || weeklyGoal === 0 || weeklyGoal === null) {
-                  Alert.alert(
-                    "Weekly Goal Required",
-                    "Please set your weekly practice goal before starting the timer.",
-                    [
-                      { text: "Cancel", style: "cancel" },
-                      {
-                        text: "Set Goal",
-                        onPress: () => {
-                          setWeeklyGoalInput("180");
-                          setIsGoalSettingDialogOpen(true);
-                        },
-                      },
-                    ]
-                  );
-                  return;
+                if (!stats.weeklyGoal || stats.weeklyGoal === 0) {
+                  // Reset form fields and open the detailed goal creation dialog
+                  setNewGoalTitle("");
+                  setNewGoalCategory("");
+                  setWeeklyGoalSliderValue([180]);
+                  setRemindDaily(false);
+                  setIsGoalDialogOpen(true);
+                } else {
+                  router.push("/(student)/practice-timer");
                 }
-                router.push("/(student)/practice-timer");
               }}
             >
               <Ionicons name="play-circle" size={20} color="white" />
@@ -690,7 +691,7 @@ export default function PracticeLogScreen() {
                   <Card style={styles.totalCard}>
                     <View style={styles.totalRow}>
                       <Text style={styles.totalLabel}>Total</Text>
-                      <Badge variant="success" style={styles.totalBadge}>
+                      <Badge variant="success">
                         {practiceEntries.slice(0, 5).reduce((sum, entry) => sum + entry.minutes, 0)} min
                       </Badge>
                     </View>
@@ -725,80 +726,19 @@ export default function PracticeLogScreen() {
 
           {/* Goals Tab */}
           <TabsContent value="goals">
-            <Dialog 
-              open={isGoalDialogOpen} 
-              onOpenChange={(open) => {
-                setIsGoalDialogOpen(open);
-                // Initialize slider with current weekly goal when dialog opens
-                if (open && stats.weeklyGoal) {
-                  setWeeklyGoalSliderValue([stats.weeklyGoal]);
-                } else if (open && !stats.weeklyGoal) {
-                  setWeeklyGoalSliderValue([180]); // Default to 180 if not set
-                }
-                // Reset form when closing
-                if (!open) {
-                  setNewGoalTitle("");
-                  setNewGoalCategory("");
-                  setRemindDaily(false);
-                }
+            <Button 
+              style={styles.addButton}
+              onPress={() => {
+                setNewGoalTitle("");
+                setNewGoalCategory("");
+                setWeeklyGoalSliderValue([180]);
+                setRemindDaily(false);
+                setIsGoalDialogOpen(true);
               }}
             >
-              <DialogTrigger asChild>
-                <Button style={styles.addButton}>
-                  <Ionicons name="add" size={18} color="white" />
-                  <Text style={styles.addButtonText}>Add New Goal</Text>
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Set a new Weekly Goal</DialogTitle>
-                </DialogHeader>
-                <View style={styles.dialogForm}>
-                  <View style={styles.formGroup}>
-                    <Label>Goal Title *</Label>
-                    <Input
-                      placeholder="e.g., Master Moonlight Sonata"
-                      value={newGoalTitle}
-                      onChangeText={setNewGoalTitle}
-                    />
-                  </View>
-                  <View style={styles.formGroup}>
-                    <Label>Category *</Label>
-                    <Input
-                      placeholder="e.g., Repertoire, Technique, Performance"
-                      value={newGoalCategory}
-                      onChangeText={setNewGoalCategory}
-                    />
-                  </View>
-                  <View style={styles.formGroup}>
-                    <Label>How many minutes do you want to practice this week FOR THIS GOAL?</Label>
-                    <View style={styles.sliderContainer}>
-                      <Slider
-                        value={weeklyGoalSliderValue}
-                        onValueChange={setWeeklyGoalSliderValue}
-                        min={0}
-                        max={300}
-                        step={5}
-                        style={styles.slider}
-                      />
-                      <Text style={styles.sliderValue}>
-                        {weeklyGoalSliderValue[0]} min
-                      </Text>
-                    </View>
-                  </View>
-                  <View style={styles.toggleContainer}>
-                    <Text style={styles.toggleLabel}>Remind me daily</Text>
-                    <Switch
-                      value={remindDaily}
-                      onValueChange={setRemindDaily}
-                    />
-                  </View>
-                  <Button onPress={handleAddGoal} style={styles.saveButton}>
-                    <Text style={styles.saveButtonText}>Create Goal</Text>
-                  </Button>
-                </View>
-              </DialogContent>
-            </Dialog>
+              <Ionicons name="add" size={18} color="white" />
+              <Text style={styles.addButtonText}>Add New Goal</Text>
+            </Button>
 
             {/* Edit Goal Dialog */}
             <Dialog 
@@ -908,7 +848,7 @@ export default function PracticeLogScreen() {
                       <Text style={styles.goalDate}>
                         Target: {formatDate(goal.targetDate)}
                       </Text>
-                      {goal.weeklyMinutes > 0 && (
+                      {goal.weeklyMinutes && goal.weeklyMinutes > 0 && (
                         <Text style={styles.goalWeeklyMinutes}>
                           Weekly: {goal.weeklyMinutes} min
                         </Text>
@@ -1120,8 +1060,79 @@ export default function PracticeLogScreen() {
             </View>
           </TabsContent>
         </Tabs>
-          </>
-        )}
+
+        {/* Goal Creation Dialog - Outside tabs so it's always rendered */}
+        <Dialog 
+          open={isGoalDialogOpen} 
+          onOpenChange={(open) => {
+            setIsGoalDialogOpen(open);
+            // Initialize slider with current weekly goal when dialog opens
+            if (open && stats.weeklyGoal) {
+              setWeeklyGoalSliderValue([stats.weeklyGoal]);
+            } else if (open && !stats.weeklyGoal) {
+              setWeeklyGoalSliderValue([180]); // Default to 180 if not set
+            }
+            // Reset form when closing
+            if (!open) {
+              setNewGoalTitle("");
+              setNewGoalCategory("");
+              setWeeklyGoalSliderValue([180]);
+              setRemindDaily(false);
+            }
+          }}
+        >
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Set a new Weekly Goal</DialogTitle>
+            </DialogHeader>
+            <View style={styles.dialogForm}>
+              <View style={styles.formGroup}>
+                <Label>Goal Title *</Label>
+                <Input
+                  placeholder="e.g., Master Moonlight Sonata"
+                  value={newGoalTitle}
+                  onChangeText={setNewGoalTitle}
+                />
+              </View>
+              <View style={styles.formGroup}>
+                <Label>Category *</Label>
+                <Input
+                  placeholder="e.g., Repertoire, Technique, Performance"
+                  value={newGoalCategory}
+                  onChangeText={setNewGoalCategory}
+                />
+              </View>
+              <View style={styles.formGroup}>
+                <Label>How many minutes do you want to practice this week FOR THIS GOAL?</Label>
+                <View style={styles.sliderContainer}>
+                  <Slider
+                    value={weeklyGoalSliderValue}
+                    onValueChange={setWeeklyGoalSliderValue}
+                    min={0}
+                    max={300}
+                    step={5}
+                    style={styles.slider}
+                  />
+                  <Text style={styles.sliderValue}>
+                    {weeklyGoalSliderValue[0]} min
+                  </Text>
+                </View>
+              </View>
+              <View style={styles.toggleContainer}>
+                <Text style={styles.toggleLabel}>Remind me daily</Text>
+                <Switch
+                  value={remindDaily}
+                  onValueChange={setRemindDaily}
+                />
+              </View>
+              <Button onPress={handleAddGoal} style={styles.saveButton}>
+                <Text style={styles.saveButtonText}>Create Goal</Text>
+              </Button>
+            </View>
+          </DialogContent>
+        </Dialog>
+      </>
+    )}
       </ScrollView>
     </View>
   );
@@ -1315,9 +1326,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "700",
     color: "#333",
-  },
-  totalBadge: {
-    fontSize: 16,
   },
   monthSection: {
     marginBottom: 24,

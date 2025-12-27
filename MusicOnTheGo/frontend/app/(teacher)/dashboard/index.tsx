@@ -359,6 +359,22 @@ export default function TeacherDashboard() {
     }
   }, [queryClient, refetchBookings]);
 
+  // Handle cancel/delete booking
+  const handleCancelBooking = useCallback(async (bookingId: string) => {
+    try {
+      await api(`/api/bookings/${bookingId}`, {
+        method: "DELETE",
+        auth: true,
+      });
+      // Invalidate and refetch bookings
+      queryClient.invalidateQueries({ queryKey: ["teacher-bookings"] });
+      refetchBookings();
+    } catch (err: any) {
+      console.error("Failed to cancel booking", err);
+      alert(err.message || "Failed to cancel booking");
+    }
+  }, [queryClient, refetchBookings]);
+
   return (
     <View style={styles.container}>
       {/* Scrollable content */}
@@ -431,6 +447,7 @@ export default function TeacherDashboard() {
               onLoadMoreBookings={loadMoreBookings}
               onAccept={handleAcceptBooking}
               onReject={handleRejectBooking}
+              onCancel={handleCancelBooking}
             />
           )}
           {activeTab === "bookings" && (
@@ -442,6 +459,7 @@ export default function TeacherDashboard() {
               onLoadMore={loadMoreBookings}
               onAccept={handleAcceptBooking}
               onReject={handleRejectBooking}
+              onCancel={handleCancelBooking}
             />
           )}
           {activeTab === "settings" && <SettingsTab />}
@@ -466,6 +484,7 @@ type HomeTabContentProps = {
   onLoadMoreBookings?: () => void;
   onAccept?: (id: string) => void;
   onReject?: (id: string) => void;
+  onCancel?: (id: string) => void;
 };
 
 function HomeTabContent({
@@ -479,6 +498,7 @@ function HomeTabContent({
   onLoadMoreBookings,
   onAccept,
   onReject,
+  onCancel,
 }: HomeTabContentProps) {
   const router = useRouter();
 
@@ -543,6 +563,7 @@ function HomeTabContent({
               onLoadMore={onLoadMoreBookings}
               onAccept={onAccept}
               onReject={onReject}
+              onCancel={onCancel}
             />
           </TabsContent>
 

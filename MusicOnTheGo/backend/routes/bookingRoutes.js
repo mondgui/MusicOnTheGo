@@ -349,7 +349,34 @@ router.delete("/:id", authMiddleware, async (req, res) => {
       return res.status(403).json({ message: "Not authorized to delete this booking." });
     }
 
+    // Populate booking before deletion for socket emission
+    const populatedBooking = await Booking.findById(booking._id)
+      .populate("student", "name email profileImage")
+      .populate("teacher", "name email profileImage");
+
     await booking.deleteOne();
+
+    // Emit real-time events to notify both student and teacher
+    if (io && populatedBooking) {
+      const studentIdStr = String(populatedBooking.student._id);
+      const teacherIdStr = String(populatedBooking.teacher._id);
+      
+      // Emit to student's personal room
+      io.to(`user:${studentIdStr}`).emit("booking-cancelled", {
+        booking: populatedBooking,
+        cancelledBy: req.user.role, // "teacher" or "student" or "admin"
+      });
+      // Also emit to student's bookings room
+      io.to(`student-bookings:${studentIdStr}`).emit("booking-deleted", populatedBooking._id);
+      
+      // Emit to teacher's bookings room
+      io.to(`teacher-bookings:${teacherIdStr}`).emit("booking-deleted", populatedBooking._id);
+      
+      // If booking was approved, emit availability update to teacher (slot is now free)
+      if (populatedBooking.status === "approved") {
+        io.to(`teacher-availability:${teacherIdStr}`).emit("availability-updated");
+      }
+    }
 
     res.json({ message: "Booking deleted successfully." });
   } catch (err) {

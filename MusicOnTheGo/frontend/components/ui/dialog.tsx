@@ -54,14 +54,14 @@ export function Dialog({ open, onOpenChange, children }: DialogProps) {
   };
 
   // Find DialogTrigger and DialogContent in children
-  const childrenArray = React.Children.toArray(children) as React.ReactElement[];
-  const trigger = childrenArray.find((child) => child.type === DialogTrigger);
+  const childrenArray = React.Children.toArray(children) as React.ReactElement<DialogTriggerProps>[];
+  const trigger = childrenArray.find((child) => child.type === DialogTrigger) as React.ReactElement<DialogTriggerProps> | undefined;
   const content = childrenArray.find((child) => child.type === DialogContent);
 
   return (
     <>
       {trigger &&
-        React.cloneElement(trigger as React.ReactElement<DialogTriggerProps>, {
+        React.cloneElement(trigger, {
           onPress: () => {
             handleOpen();
             if (trigger.props.onPress) {
@@ -101,7 +101,7 @@ export function Dialog({ open, onOpenChange, children }: DialogProps) {
 
 export function DialogTrigger({ asChild, children, onPress }: DialogTriggerProps) {
   if (asChild && React.isValidElement(children)) {
-    return React.cloneElement(children, { onPress });
+    return React.cloneElement(children as React.ReactElement<any>, { onPress });
   }
   return <>{children}</>;
 }
