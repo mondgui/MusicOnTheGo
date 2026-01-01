@@ -31,7 +31,6 @@ export default function StudentPortfolioScreen() {
   const [bookings, setBookings] = useState<any[]>([]);
   const [practiceSessions, setPracticeSessions] = useState<any[]>([]);
   const [practiceStats, setPracticeStats] = useState<any>(null);
-  const [goals, setGoals] = useState<any[]>([]);
   const [recordings, setRecordings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   
@@ -60,7 +59,11 @@ export default function StudentPortfolioScreen() {
 
     try {
       setLoading(true);
-      const allBookings = await api("/api/bookings/teacher/me", { auth: true });
+      const response = await api("/api/bookings/teacher/me", { auth: true });
+      
+      // Handle paginated response: { bookings: [...], pagination: {...} }
+      // or direct array response (for backwards compatibility)
+      const allBookings = response.bookings || (Array.isArray(response) ? response : []);
       
       // Filter bookings for this specific student
       // Handle both populated student object and student ID string
@@ -109,10 +112,6 @@ export default function StudentPortfolioScreen() {
       // Load practice stats
       const stats = await api(`/api/practice/stats/student/${studentId}`, { auth: true });
       setPracticeStats(stats);
-
-      // Load goals
-      const goalsData = await api(`/api/practice/goals/student/${studentId}`, { auth: true });
-      setGoals(Array.isArray(goalsData) ? goalsData : []);
 
       // Load recordings
       const recordingsData = await api(`/api/practice/recordings/student/${studentId}`, { auth: true });
@@ -310,51 +309,56 @@ export default function StudentPortfolioScreen() {
             {/* Progress Tab */}
             <TabsContent value="progress">
               <View style={styles.tabContent}>
-                <Card style={styles.goalsCard}>
+                {/* Weekly Goal Progress */}
+                <Card style={styles.progressCard}>
                   <View style={styles.cardHeader}>
                     <Ionicons name="flag-outline" size={20} color="#FF6A5C" />
-                    <Text style={styles.cardTitle}>Learning Goals</Text>
+                    <Text style={styles.cardTitle}>Weekly Goal</Text>
                   </View>
-                  <View style={styles.goalsList}>
-                    {goals.length === 0 ? (
-                      <Text style={styles.emptyText}>No goals set yet</Text>
-                    ) : (
-                      goals.map((goal) => (
-                        <View key={goal._id} style={styles.goalItem}>
-                          <View style={styles.goalHeader}>
-                            <View style={styles.goalInfo}>
-                              <Text style={styles.goalText}>{goal.title}</Text>
-                              <Badge variant="default" style={styles.goalCategoryBadge}>
-                                {goal.category}
-                              </Badge>
-                            </View>
-                            <Badge
-                              variant={goal.completed || goal.progress === 100 ? "success" : "default"}
-                            >
-                              {goal.progress}%
-                            </Badge>
-                          </View>
-                          <Progress value={goal.progress} style={styles.goalProgress} />
-                          <Text style={styles.goalTargetDate}>
-                            Target: {formatDate(goal.targetDate)}
-                          </Text>
-                        </View>
-                      ))
-                    )}
+                  <View style={styles.progressHeader}>
+                    <View style={styles.progressTitleRow}>
+                      <Text style={styles.progressPercent}>
+                        {weeklyGoal && weeklyGoal > 0 ? `${Math.round(weeklyProgress)}%` : "—"}
+                      </Text>
+                    </View>
+                    <Text style={styles.goalText}>
+                      {weeklyGoal && weeklyGoal > 0 ? `${weeklyGoal} min/week` : "Not set"}
+                    </Text>
                   </View>
+                  {weeklyGoal && weeklyGoal > 0 ? (
+                    <>
+                      <Progress value={weeklyProgress} style={styles.weeklyProgressBar} />
+                      <Text style={styles.progressText}>
+                        {weeklyGoal - totalPracticeMinutes > 0
+                          ? `${weeklyGoal - totalPracticeMinutes} minutes to go!`
+                          : "Goal achieved! 🎉"}
+                      </Text>
+                      <Text style={styles.progressSubtext}>
+                        {totalPracticeMinutes} of {weeklyGoal} minutes this week
+                      </Text>
+                    </>
+                  ) : (
+                    <Text style={styles.progressText}>
+                      Student hasn't set a weekly goal yet
+                    </Text>
+                  )}
                 </Card>
 
                 <Card style={styles.achievementsCard}>
                   <View style={styles.cardHeader}>
                     <Ionicons name="trophy-outline" size={20} color="#FFD700" />
-                    <Text style={styles.cardTitle}>Recent Achievements</Text>
+                    <Text style={styles.cardTitle}>Badges Earned</Text>
                   </View>
                   <View style={styles.achievementsList}>
-                    <Badge variant="warning">🎯 5-Day Streak</Badge>
-                    <Badge variant="success">⏰ 100 Minutes</Badge>
-                    <Badge>🎵 First Song</Badge>
-                    <Badge>📚 Theory Expert</Badge>
-                    <Badge>🌟 Dedicated</Badge>
+                    {practiceStats?.badges && practiceStats.badges.length > 0 ? (
+                      practiceStats.badges.map((badge: any, index: number) => (
+                        <Badge key={index} variant={badge.variant || "default"}>
+                          {badge.emoji} {badge.text}
+                        </Badge>
+                      ))
+                    ) : (
+                      <Text style={styles.emptyText}>No badges earned yet</Text>
+                    )}
                   </View>
                 </Card>
               </View>
@@ -430,9 +434,9 @@ export default function StudentPortfolioScreen() {
                   </View>
                   {weeklyProgress > 0 && (
                     <View style={styles.weeklyProgressSection}>
-                      <View style={styles.progressHeader}>
-                        <Text style={styles.progressLabel}>Weekly Progress</Text>
-                        <Text style={styles.progressPercent}>{Math.round(weeklyProgress)}%</Text>
+                      <View style={styles.weeklyProgressHeader}>
+                        <Text style={styles.weeklyProgressLabel}>Weekly Progress</Text>
+                        <Text style={styles.weeklyProgressPercent}>{Math.round(weeklyProgress)}%</Text>
                       </View>
                       <Progress value={weeklyProgress} style={styles.progressBar} />
                     </View>
@@ -570,40 +574,44 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: "#333",
   },
-  goalsCard: {
+  progressCard: {
     padding: 16,
   },
-  goalsList: {
-    gap: 16,
-  },
-  goalItem: {
-    gap: 8,
-  },
-  goalHeader: {
+  progressHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
+    marginBottom: 12,
+  },
+  progressTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  progressPercent: {
+    fontSize: 32,
+    fontWeight: "700",
+    color: "#FF6A5C",
   },
   goalText: {
     fontSize: 14,
+    color: "#666",
+    fontWeight: "500",
+  },
+  progressText: {
+    fontSize: 14,
     color: "#333",
-    flex: 1,
+    marginTop: 8,
+    fontWeight: "500",
   },
-  goalProgress: {
-    marginTop: 4,
-  },
-  goalInfo: {
-    flex: 1,
-    gap: 8,
-  },
-  goalCategoryBadge: {
-    alignSelf: "flex-start",
-    marginTop: 4,
-  },
-  goalTargetDate: {
+  progressSubtext: {
     fontSize: 12,
     color: "#666",
     marginTop: 4,
+  },
+  weeklyProgressBar: {
+    marginTop: 8,
+    marginBottom: 0,
   },
   achievementsCard: {
     padding: 16,
@@ -686,17 +694,17 @@ const styles = StyleSheet.create({
   weeklyProgressSection: {
     marginTop: 16,
   },
-  progressHeader: {
+  weeklyProgressHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: 8,
   },
-  progressLabel: {
+  weeklyProgressLabel: {
     fontSize: 14,
     color: "#666",
   },
-  progressPercent: {
+  weeklyProgressPercent: {
     fontSize: 14,
     fontWeight: "700",
     color: "#FF6A5C",

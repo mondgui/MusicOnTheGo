@@ -53,16 +53,6 @@ interface Recording {
   teacherFeedback?: string;
 }
 
-interface Goal {
-  _id?: string;
-  id?: number;
-  title: string;
-  targetDate: string | Date;
-  progress: number;
-  category: string;
-  weeklyMinutes?: number;
-  completed?: boolean;
-}
 
 interface Badge {
   emoji: string;
@@ -83,7 +73,6 @@ export default function PracticeLogScreen() {
 
   const [practiceEntries, setPracticeEntries] = useState<PracticeEntry[]>([]);
   const [recordings, setRecordings] = useState<Recording[]>([]);
-  const [goals, setGoals] = useState<Goal[]>([]);
   const [stats, setStats] = useState<Stats>({
     thisWeekMinutes: 0,
     weeklyGoal: 180,
@@ -98,19 +87,12 @@ export default function PracticeLogScreen() {
   const [notes, setNotes] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isGoalDialogOpen, setIsGoalDialogOpen] = useState(false);
-  const [isEditGoalDialogOpen, setIsEditGoalDialogOpen] = useState(false);
-  const [editingGoalId, setEditingGoalId] = useState<string | null>(null);
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
-  const [newGoalTitle, setNewGoalTitle] = useState("");
-  const [newGoalCategory, setNewGoalCategory] = useState("");
   const [weeklyGoalSliderValue, setWeeklyGoalSliderValue] = useState([180]);
-  const [remindDaily, setRemindDaily] = useState(false);
   const [recordingTitle, setRecordingTitle] = useState("");
   const [recordingFileUrl, setRecordingFileUrl] = useState("");
   const [recordingDuration, setRecordingDuration] = useState("");
   const [recordingNotes, setRecordingNotes] = useState("");
-  const [isGoalSettingDialogOpen, setIsGoalSettingDialogOpen] = useState(false);
-  const [weeklyGoalInput, setWeeklyGoalInput] = useState("");
 
   // Load data from backend
   const loadData = useCallback(async () => {
@@ -130,18 +112,7 @@ export default function PracticeLogScreen() {
       }));
       setPracticeEntries(transformedSessions);
 
-      // Load goals
-      const goalsData = await api("/api/practice/goals/me", { auth: true });
-      const transformedGoals = (Array.isArray(goalsData) ? goalsData : []).map((g: any) => ({
-        _id: g._id,
-        title: g.title,
-        targetDate: g.targetDate,
-        progress: g.progress || 0,
-        category: g.category,
-        weeklyMinutes: g.weeklyMinutes || 0,
-        completed: g.completed || false,
-      }));
-      setGoals(transformedGoals);
+      // Goals are no longer displayed, but we still load them for backend calculations
 
       // Load recordings
       const recordingsData = await api("/api/practice/recordings/me", { auth: true });
@@ -219,11 +190,6 @@ export default function PracticeLogScreen() {
   };
 
   const handleAddGoal = async () => {
-    if (!newGoalTitle || !newGoalCategory) {
-      Alert.alert("Error", "Please fill in goal title and category");
-      return;
-    }
-
     const goalMinutes = weeklyGoalSliderValue[0];
     
     if (goalMinutes === 0) {
@@ -232,23 +198,7 @@ export default function PracticeLogScreen() {
     }
 
     try {
-      // Create the goal with weeklyMinutes (targetDate is required by backend, so we set a default: 3 months from now)
-      const defaultTargetDate = new Date();
-      defaultTargetDate.setMonth(defaultTargetDate.getMonth() + 3);
-      
-      await api("/api/practice/goals", {
-        method: "POST",
-        auth: true,
-        body: JSON.stringify({
-          title: newGoalTitle,
-          category: newGoalCategory,
-          targetDate: defaultTargetDate.toISOString(),
-          progress: 0,
-          weeklyMinutes: goalMinutes,
-        }),
-      });
-
-      // Also update the user's weeklyGoal field (used by practice timer)
+      // Update the user's weeklyGoal field
       await api("/api/users/me", {
         method: "PUT",
         auth: true,
@@ -258,91 +208,16 @@ export default function PracticeLogScreen() {
       });
 
       // Reset form
-      setNewGoalTitle("");
-      setNewGoalCategory("");
       setWeeklyGoalSliderValue([180]);
-      setRemindDaily(false);
       setIsGoalDialogOpen(false);
       
-      Alert.alert("Success", "Goal created and weekly goal set successfully!");
+      Alert.alert("Success", "Weekly goal set successfully!");
       loadData(); // Reload data
     } catch (err: any) {
-      Alert.alert("Error", err.message || "Failed to create goal");
+      Alert.alert("Error", err.message || "Failed to set weekly goal");
     }
   };
 
-  const handleEditGoal = (goal: Goal) => {
-    setEditingGoalId(goal._id || null);
-    setNewGoalTitle(goal.title);
-    setNewGoalCategory(goal.category);
-    setWeeklyGoalSliderValue([goal.weeklyMinutes || 180]);
-    setIsEditGoalDialogOpen(true);
-  };
-
-  const handleUpdateGoal = async () => {
-    if (!newGoalTitle || !newGoalCategory || !editingGoalId) {
-      Alert.alert("Error", "Please fill in goal title and category");
-      return;
-    }
-
-    const goalMinutes = weeklyGoalSliderValue[0];
-    
-    if (goalMinutes === 0) {
-      Alert.alert("Error", "Please set a weekly goal greater than 0 minutes");
-      return;
-    }
-
-    try {
-      await api(`/api/practice/goals/${editingGoalId}`, {
-        method: "PUT",
-        auth: true,
-        body: JSON.stringify({
-          title: newGoalTitle,
-          category: newGoalCategory,
-          weeklyMinutes: goalMinutes,
-        }),
-      });
-
-      // Reset form
-      setNewGoalTitle("");
-      setNewGoalCategory("");
-      setWeeklyGoalSliderValue([180]);
-      setRemindDaily(false);
-      setEditingGoalId(null);
-      setIsEditGoalDialogOpen(false);
-      
-      Alert.alert("Success", "Goal updated successfully!");
-      loadData(); // Reload data
-    } catch (err: any) {
-      Alert.alert("Error", err.message || "Failed to update goal");
-    }
-  };
-
-  const handleDeleteGoal = async (goalId: string) => {
-    Alert.alert(
-      "Delete Goal",
-      "Are you sure you want to delete this goal?",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              await api(`/api/practice/goals/${goalId}`, {
-                method: "DELETE",
-                auth: true,
-              });
-              Alert.alert("Success", "Goal deleted successfully!");
-              loadData(); // Reload data
-            } catch (err: any) {
-              Alert.alert("Error", err.message || "Failed to delete goal");
-            }
-          },
-        },
-      ]
-    );
-  };
 
   const handleUploadRecording = async () => {
     if (!recordingTitle) {
@@ -478,7 +353,6 @@ export default function PracticeLogScreen() {
         <Tabs defaultValue="practice">
           <TabsList style={styles.tabsList}>
             <TabsTrigger value="practice">Practice</TabsTrigger>
-            <TabsTrigger value="goals">Goals</TabsTrigger>
             <TabsTrigger value="history">History</TabsTrigger>
             <TabsTrigger value="recordings">Recordings</TabsTrigger>
           </TabsList>
@@ -494,8 +368,8 @@ export default function PracticeLogScreen() {
                 </View>
                 <TouchableOpacity
                   onPress={() => {
-                    setWeeklyGoalInput(weeklyGoal?.toString() || "180");
-                    setIsGoalSettingDialogOpen(true);
+                    setWeeklyGoalSliderValue([weeklyGoal || 180]);
+                    setIsGoalDialogOpen(true);
                   }}
                 >
                   <Ionicons name="create-outline" size={18} color="#FF6A5C" />
@@ -527,53 +401,17 @@ export default function PracticeLogScreen() {
               )}
             </Card>
 
-            {/* Weekly Goal Setting Dialog */}
-            <Dialog open={isGoalSettingDialogOpen} onOpenChange={setIsGoalSettingDialogOpen}>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Set Weekly Goal</DialogTitle>
-                </DialogHeader>
-                <View style={styles.dialogForm}>
-                  <View style={styles.formGroup}>
-                    <Label>Weekly Practice Goal (minutes) *</Label>
-                    <Input
-                      keyboardType="numeric"
-                      placeholder="180"
-                      value={weeklyGoalInput}
-                      onChangeText={setWeeklyGoalInput}
-                    />
-                    <Text style={styles.helperText}>
-                      Example: 180 minutes = 3 hours per week
-                    </Text>
-                  </View>
-                  <Button
-                    onPress={async () => {
-                      if (!weeklyGoalInput || isNaN(parseInt(weeklyGoalInput))) {
-                        Alert.alert("Error", "Please enter a valid number");
-                        return;
-                      }
-                      try {
-                        await api("/api/users/me", {
-                          method: "PUT",
-                          auth: true,
-                          body: JSON.stringify({
-                            weeklyGoal: parseInt(weeklyGoalInput),
-                          }),
-                        });
-                        loadData();
-                        setIsGoalSettingDialogOpen(false);
-                        Alert.alert("Success", "Weekly goal updated!");
-                      } catch (err: any) {
-                        Alert.alert("Error", err.message || "Failed to update goal");
-                      }
-                    }}
-                    style={styles.saveButton}
-                  >
-                    <Text style={styles.saveButtonText}>Save Goal</Text>
-                  </Button>
-                </View>
-              </DialogContent>
-            </Dialog>
+            {/* Add Weekly Goal Button */}
+            <Button
+              style={styles.addButton}
+              onPress={() => {
+                setWeeklyGoalSliderValue([stats.weeklyGoal || 180]);
+                setIsGoalDialogOpen(true);
+              }}
+            >
+              <Ionicons name="add" size={18} color="white" />
+              <Text style={styles.addButtonText}>Add weekly goal</Text>
+            </Button>
 
             {/* Start Practice Timer Button */}
             <Button
@@ -581,11 +419,8 @@ export default function PracticeLogScreen() {
               onPress={() => {
                 // Check if weekly goal is set before navigating
                 if (!stats.weeklyGoal || stats.weeklyGoal === 0) {
-                  // Reset form fields and open the detailed goal creation dialog
-                  setNewGoalTitle("");
-                  setNewGoalCategory("");
-                  setWeeklyGoalSliderValue([180]);
-                  setRemindDaily(false);
+                  // Open the weekly goal dialog
+                  setWeeklyGoalSliderValue([stats.weeklyGoal || 180]);
                   setIsGoalDialogOpen(true);
                 } else {
                   router.push("/(student)/practice-timer");
@@ -722,149 +557,6 @@ export default function PracticeLogScreen() {
                 </View>
               )}
             </Card>
-          </TabsContent>
-
-          {/* Goals Tab */}
-          <TabsContent value="goals">
-            <Button 
-              style={styles.addButton}
-              onPress={() => {
-                setNewGoalTitle("");
-                setNewGoalCategory("");
-                setWeeklyGoalSliderValue([180]);
-                setRemindDaily(false);
-                setIsGoalDialogOpen(true);
-              }}
-            >
-              <Ionicons name="add" size={18} color="white" />
-              <Text style={styles.addButtonText}>Add New Goal</Text>
-            </Button>
-
-            {/* Edit Goal Dialog */}
-            <Dialog 
-              open={isEditGoalDialogOpen} 
-              onOpenChange={(open) => {
-                setIsEditGoalDialogOpen(open);
-                // Reset form when closing
-                if (!open) {
-                  setNewGoalTitle("");
-                  setNewGoalCategory("");
-                  setWeeklyGoalSliderValue([180]);
-                  setRemindDaily(false);
-                  setEditingGoalId(null);
-                }
-              }}
-            >
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Edit Goal</DialogTitle>
-                </DialogHeader>
-                <View style={styles.dialogForm}>
-                  <View style={styles.formGroup}>
-                    <Label>Goal Title *</Label>
-                    <Input
-                      placeholder="e.g., Master Moonlight Sonata"
-                      value={newGoalTitle}
-                      onChangeText={setNewGoalTitle}
-                    />
-                  </View>
-                  <View style={styles.formGroup}>
-                    <Label>Category *</Label>
-                    <Input
-                      placeholder="e.g., Repertoire, Technique, Performance"
-                      value={newGoalCategory}
-                      onChangeText={setNewGoalCategory}
-                    />
-                  </View>
-                  <View style={styles.formGroup}>
-                    <Label>How many minutes do you want to practice this week FOR THIS GOAL?</Label>
-                    <View style={styles.sliderContainer}>
-                      <Slider
-                        value={weeklyGoalSliderValue}
-                        onValueChange={setWeeklyGoalSliderValue}
-                        min={0}
-                        max={300}
-                        step={5}
-                        style={styles.slider}
-                      />
-                      <Text style={styles.sliderValue}>
-                        {weeklyGoalSliderValue[0]} min
-                      </Text>
-                    </View>
-                  </View>
-                  <View style={styles.toggleContainer}>
-                    <Text style={styles.toggleLabel}>Remind me daily</Text>
-                    <Switch
-                      value={remindDaily}
-                      onValueChange={setRemindDaily}
-                    />
-                  </View>
-                  <Button onPress={handleUpdateGoal} style={styles.saveButton}>
-                    <Text style={styles.saveButtonText}>Update Goal</Text>
-                  </Button>
-                </View>
-              </DialogContent>
-            </Dialog>
-
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>My Goals</Text>
-              {goals.length === 0 ? (
-                <Card style={styles.emptyCard}>
-                  <Ionicons name="flag-outline" size={48} color="#999" />
-                  <Text style={styles.emptyText}>No goals yet</Text>
-                  <Text style={styles.emptySubtext}>
-                    Set goals to stay motivated and track your progress!
-                  </Text>
-                </Card>
-              ) : (
-                goals.map((goal) => (
-                  <Card key={goal._id || goal.id} style={styles.goalCard}>
-                  <View style={styles.goalHeader}>
-                    <View style={styles.goalInfo}>
-                      <Text style={styles.goalTitle}>{goal.title}</Text>
-                      <Badge variant="default" style={styles.goalBadge}>
-                        {goal.category}
-                      </Badge>
-                    </View>
-                    <View style={styles.goalActions}>
-                      <Text style={styles.goalProgress}>{goal.progress}%</Text>
-                      <TouchableOpacity
-                        onPress={() => handleEditGoal(goal)}
-                        style={styles.goalActionButton}
-                      >
-                        <Ionicons name="pencil-outline" size={18} color="#FF6A5C" />
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        onPress={() => goal._id && handleDeleteGoal(goal._id)}
-                        style={styles.goalActionButton}
-                      >
-                        <Ionicons name="trash-outline" size={18} color="#FF6A5C" />
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                  <Progress value={goal.progress} style={styles.goalProgressBar} />
-                  <View style={styles.goalFooter}>
-                    <View>
-                      <Text style={styles.goalDate}>
-                        Target: {formatDate(goal.targetDate)}
-                      </Text>
-                      {goal.weeklyMinutes && goal.weeklyMinutes > 0 && (
-                        <Text style={styles.goalWeeklyMinutes}>
-                          Weekly: {goal.weeklyMinutes} min
-                        </Text>
-                      )}
-                    </View>
-                    {(goal.progress === 100 || goal.completed) && (
-                      <Badge variant="success">
-                        <Ionicons name="checkmark-circle" size={12} color="#059669" />
-                        <Text style={styles.completedText}> Completed</Text>
-                      </Badge>
-                    )}
-                  </View>
-                </Card>
-                ))
-              )}
-            </View>
           </TabsContent>
 
           {/* History Tab */}
@@ -1061,7 +753,7 @@ export default function PracticeLogScreen() {
           </TabsContent>
         </Tabs>
 
-        {/* Goal Creation Dialog - Outside tabs so it's always rendered */}
+        {/* Weekly Goal Dialog - Outside tabs so it's always rendered */}
         <Dialog 
           open={isGoalDialogOpen} 
           onOpenChange={(open) => {
@@ -1074,36 +766,17 @@ export default function PracticeLogScreen() {
             }
             // Reset form when closing
             if (!open) {
-              setNewGoalTitle("");
-              setNewGoalCategory("");
               setWeeklyGoalSliderValue([180]);
-              setRemindDaily(false);
             }
           }}
         >
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Set a new Weekly Goal</DialogTitle>
+              <DialogTitle>Set Weekly Goal</DialogTitle>
             </DialogHeader>
             <View style={styles.dialogForm}>
               <View style={styles.formGroup}>
-                <Label>Goal Title *</Label>
-                <Input
-                  placeholder="e.g., Master Moonlight Sonata"
-                  value={newGoalTitle}
-                  onChangeText={setNewGoalTitle}
-                />
-              </View>
-              <View style={styles.formGroup}>
-                <Label>Category *</Label>
-                <Input
-                  placeholder="e.g., Repertoire, Technique, Performance"
-                  value={newGoalCategory}
-                  onChangeText={setNewGoalCategory}
-                />
-              </View>
-              <View style={styles.formGroup}>
-                <Label>How many minutes do you want to practice this week FOR THIS GOAL?</Label>
+                <Label>How many minutes do you want to practice this week?</Label>
                 <View style={styles.sliderContainer}>
                   <Slider
                     value={weeklyGoalSliderValue}
@@ -1118,15 +791,8 @@ export default function PracticeLogScreen() {
                   </Text>
                 </View>
               </View>
-              <View style={styles.toggleContainer}>
-                <Text style={styles.toggleLabel}>Remind me daily</Text>
-                <Switch
-                  value={remindDaily}
-                  onValueChange={setRemindDaily}
-                />
-              </View>
               <Button onPress={handleAddGoal} style={styles.saveButton}>
-                <Text style={styles.saveButtonText}>Create Goal</Text>
+                <Text style={styles.saveButtonText}>Set Goal</Text>
               </Button>
             </View>
           </DialogContent>
@@ -1399,64 +1065,6 @@ const styles = StyleSheet.create({
     color: "white",
     fontSize: 16,
     fontWeight: "600",
-  },
-  goalCard: {
-    padding: 16,
-    marginBottom: 12,
-  },
-  goalHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    marginBottom: 12,
-  },
-  goalInfo: {
-    flex: 1,
-  },
-  goalTitle: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#333",
-    marginBottom: 8,
-  },
-  goalBadge: {
-    alignSelf: "flex-start",
-  },
-  goalActions: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  goalActionButton: {
-    padding: 4,
-  },
-  goalProgress: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#FF6A5C",
-  },
-  goalProgressBar: {
-    marginBottom: 8,
-  },
-  goalFooter: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  goalDate: {
-    fontSize: 12,
-    color: "#666",
-  },
-  goalWeeklyMinutes: {
-    fontSize: 12,
-    color: "#FF6A5C",
-    fontWeight: "600",
-    marginTop: 4,
-  },
-  completedText: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#059669",
   },
   recordingCard: {
     padding: 16,

@@ -9,6 +9,7 @@ import roleMiddleware from "../middleware/roleMiddleware.js";
 
 const router = express.Router();
 
+
 /**
  * Calculate badges based on student achievements
  */
@@ -162,9 +163,9 @@ router.get(
 
       const totalMinutes = sessions.reduce((sum, s) => sum + s.minutes, 0);
       
-      // Calculate total weekly goal from all goals (sum of weeklyMinutes)
-      const goals = await Goal.find({ student: req.user.id });
-      const weeklyGoal = goals.reduce((sum, g) => sum + (g.weeklyMinutes || 0), 0);
+      // Get user's weekly goal directly from User model
+      const user = await User.findById(req.user.id);
+      const weeklyGoal = user?.weeklyGoal || 0;
       const weeklyProgress = weeklyGoal > 0 ? Math.min((totalMinutes / weeklyGoal) * 100, 100) : 0;
 
       // Calculate streak (consecutive days with practice)
@@ -236,9 +237,9 @@ router.get(
 
       const totalMinutes = sessions.reduce((sum, s) => sum + s.minutes, 0);
       
-      // Calculate total weekly goal from all goals (sum of weeklyMinutes)
-      const goals = await Goal.find({ student: req.params.studentId });
-      const weeklyGoal = goals.reduce((sum, g) => sum + (g.weeklyMinutes || 0), 0);
+      // Get user's weekly goal directly from User model
+      const user = await User.findById(req.params.studentId);
+      const weeklyGoal = user?.weeklyGoal || 0;
       const weeklyProgress = weeklyGoal > 0 ? Math.min((totalMinutes / weeklyGoal) * 100, 100) : 0;
 
       const allSessions = await PracticeSession.find({ student: req.params.studentId })
