@@ -1,9 +1,7 @@
 import { Box, IconButton, useTheme, Menu, MenuItem, Typography } from '@mui/material';
-import { useContext, useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ColorModeContext, tokens } from '../../theme';
-import LightModeOutlinedIcon from '@mui/icons-material/LightModeOutlined';
-import DarkModeOutlinedIcon from '@mui/icons-material/DarkModeOutlined';
+import { tokens } from '../../theme';
 import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
 import PersonOutlinedIcon from '@mui/icons-material/PersonOutlined';
 import LogoutOutlinedIcon from '@mui/icons-material/LogoutOutlined';
@@ -12,8 +10,7 @@ import GlobalSearch from '../../components/GlobalSearch';
 
 const Topbar = () => {
     const theme = useTheme();
-    const colors = tokens(theme.palette.mode);
-    const colorMode = useContext(ColorModeContext);
+    const colors = tokens;
     const navigate = useNavigate();
     const [anchorEl, setAnchorEl] = useState(null);
     const user = JSON.parse(localStorage.getItem('user') || '{}');
@@ -39,15 +36,12 @@ const Topbar = () => {
 
             {/* ICONS */}
             <Box display="flex" alignItems="center" gap={1}>
-                <IconButton onClick={colorMode.toggleColorMode}>
-                    {theme.palette.mode === 'dark' ? <LightModeOutlinedIcon /> : <DarkModeOutlinedIcon />}
-                </IconButton>
                 <NotificationsMenu />
                 <IconButton onClick={() => navigate('/settings')}>
                     <SettingsOutlinedIcon />
                 </IconButton>
                 <Box display="flex" alignItems="center" gap={1}>
-                    <Typography variant="body2" color={theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[900]}>
+                    <Typography variant="body2" color={colors.grey[900]}>
                         {user.name || 'Admin'}
                     </Typography>
                     <IconButton onClick={handleMenuOpen}>

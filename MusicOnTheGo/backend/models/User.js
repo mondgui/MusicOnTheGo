@@ -58,6 +58,19 @@ const userSchema = new mongoose.Schema(
       type: [String],
       default: [],
     },
+    
+    // Teacher-specific: Rating and review fields
+    averageRating: {
+      type: Number,
+      default: null, // null means no ratings yet
+      min: 1,
+      max: 5,
+    },
+    reviewCount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
 
     // Student-specific fields
     skillLevel: {

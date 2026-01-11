@@ -10,7 +10,7 @@ import { useToast } from '../../components/Toast';
 
 const Messages = () => {
   const theme = useTheme();
-  const colors = tokens(theme.palette.mode);
+  const colors = tokens;
   const toast = useToast();
   const [messages, setMessages] = useState([]);
   const [filteredMessages, setFilteredMessages] = useState([]);
@@ -146,7 +146,7 @@ const Messages = () => {
   return (
     <Box m="20px">
       <Box display="flex" justifyContent="space-between" alignItems="center" mb="20px">
-        <Typography variant="h2" color={theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[900]} fontWeight="bold">
+        <Typography variant="h2" color={colors.grey[900]} fontWeight="bold">
           Messages Analytics
         </Typography>
         <Button
@@ -177,7 +177,7 @@ const Messages = () => {
           backgroundColor={colors.redAccent[700]}
           borderRadius="4px"
         >
-          <Typography color={theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[900]}>{error}</Typography>
+          <Typography color={colors.grey[900]}>{error}</Typography>
         </Box>
       )}
       <Box mb="20px">
@@ -220,7 +220,7 @@ const Messages = () => {
           backgroundColor={colors.blueAccent[700]}
           borderRadius="4px"
         >
-          <Typography color={theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[900]}>No messages found. Data may still be loading or there are no messages in the database.</Typography>
+          <Typography color={colors.grey[900]}>No messages found. Data may still be loading or there are no messages in the database.</Typography>
         </Box>
       )}
       {!loading && searchTerm && filteredMessages.length === 0 && messages.length > 0 && (
@@ -230,7 +230,7 @@ const Messages = () => {
           backgroundColor={colors.blueAccent[700]}
           borderRadius="4px"
         >
-          <Typography color={theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[900]}>No messages match your search "{searchTerm}". Try a different search term.</Typography>
+          <Typography color={colors.grey[900]}>No messages match your search "{searchTerm}". Try a different search term.</Typography>
         </Box>
       )}
       <Box
@@ -244,7 +244,7 @@ const Messages = () => {
           '& .MuiDataGrid-cell': {
             borderBottom: 'none',
             cursor: 'pointer',
-            color: theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[900],
+            color: colors.grey[900],
           },
           '& .MuiDataGrid-row': {
             cursor: 'pointer',
@@ -253,17 +253,17 @@ const Messages = () => {
             },
           },
           '& .MuiDataGrid-columnHeaders': {
-            backgroundColor: theme.palette.mode === 'dark' ? colors.blueAccent[700] : colors.blueAccent[500],
+            backgroundColor: colors.blueAccent[500],
             borderBottom: 'none',
-            color: theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[100],
+            color: colors.grey[100],
           },
           '& .MuiDataGrid-virtualScroller': {
-            backgroundColor: theme.palette.mode === 'dark' ? colors.primary[400] : colors.grey[100],
+            backgroundColor: colors.grey[100],
           },
           '& .MuiDataGrid-footerContainer': {
             borderTop: 'none',
-            backgroundColor: theme.palette.mode === 'dark' ? colors.blueAccent[700] : colors.blueAccent[500],
-            color: theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[100],
+            backgroundColor: colors.blueAccent[500],
+            color: colors.grey[100],
           },
           '& .MuiDataGrid-cell:focus': {
             outline: 'none',

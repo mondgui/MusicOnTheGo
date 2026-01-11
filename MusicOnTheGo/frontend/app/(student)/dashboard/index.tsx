@@ -32,6 +32,8 @@ type Teacher = {
   about?: string;
   specialties?: string[];
   profileImage?: string;
+  averageRating?: number | null;
+  reviewCount?: number;
 };
 
 type TabKey = "home" | "lessons" | "settings";
@@ -102,6 +104,59 @@ export default function StudentDashboard() {
   const teachers = useMemo(() => {
     return teachersData?.pages.flatMap((page) => page.teachers) || [];
   }, [teachersData]);
+
+  // Fetch student's bookings to get their teachers
+  const { data: bookingsData } = useInfiniteQuery({
+    queryKey: ["student-bookings"],
+    queryFn: async ({ pageParam = 1 }) => {
+      const response = await api("/api/bookings/student/me", {
+        auth: true,
+        params: {
+          page: pageParam.toString(),
+          limit: "20",
+        },
+      });
+
+      const bookings = response?.bookings || response || [];
+      const pagination = response?.pagination;
+
+      return {
+        bookings: Array.isArray(bookings) ? bookings : [],
+        pagination: pagination || { hasMore: bookings.length >= 20 },
+        nextPage: pagination?.hasMore ? pageParam + 1 : undefined,
+      };
+    },
+    getNextPageParam: (lastPage) => lastPage.nextPage,
+    initialPageParam: 1,
+  });
+
+  // Extract unique teachers from bookings
+  const myTeachers = useMemo(() => {
+    const allBookings = bookingsData?.pages.flatMap((page) => page.bookings) || [];
+    const teacherMap = new Map<string, Teacher>();
+
+    allBookings.forEach((booking: any) => {
+      if (booking.teacher && booking.teacher._id) {
+        const teacherId = String(booking.teacher._id);
+        if (!teacherMap.has(teacherId)) {
+          teacherMap.set(teacherId, {
+            _id: teacherId,
+            name: booking.teacher.name || "Teacher",
+            email: booking.teacher.email || "",
+            instruments: booking.teacher.instruments || [],
+            experience: booking.teacher.experience || "",
+            location: booking.teacher.location || "",
+            rate: booking.teacher.rate,
+            about: booking.teacher.about,
+            specialties: booking.teacher.specialties || [],
+            profileImage: booking.teacher.profileImage,
+          });
+        }
+      }
+    });
+
+    return Array.from(teacherMap.values());
+  }, [bookingsData]);
 
   const hasMoreTeachers = hasNextPage || false;
 
@@ -191,6 +246,7 @@ export default function StudentDashboard() {
                 loadingMore={loadingMoreTeachers}
                 hasMore={hasMoreTeachers}
                 onLoadMore={loadMoreTeachers}
+                myTeachers={myTeachers}
               />
             )}
           {activeTab === "lessons" && <LessonsTab />}

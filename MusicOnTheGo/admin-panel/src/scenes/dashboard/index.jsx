@@ -15,7 +15,7 @@ import { api } from '../../lib/api';
 
 const Dashboard = () => {
   const theme = useTheme();
-  const colors = tokens(theme.palette.mode);
+  const colors = tokens;
   const [stats, setStats] = useState({
     totalUsers: 0,
     students: 0,
@@ -114,13 +114,13 @@ const Dashboard = () => {
     
     return [{
       id: 'New Users',
-      color: tokens(theme.palette.mode).greenAccent[500],
+      color: tokens.greenAccent[500],
       data: userGrowth.map((item) => ({
         x: formatDate(item.date),
         y: item.count,
       })),
     }];
-  }, [userGrowth, timeRange, theme.palette.mode]);
+  }, [userGrowth, timeRange]);
   
   // Get data point count for chart optimization
   const dataPointCount = userGrowth?.length || 0;
@@ -137,16 +137,16 @@ const Dashboard = () => {
         id: 'Active',
         label: 'Active',
         value: active,
-        color: tokens(theme.palette.mode).greenAccent[500],
+        color: tokens.greenAccent[500],
       },
       {
         id: 'Inactive',
         label: 'Inactive',
         value: inactive,
-        color: tokens(theme.palette.mode).redAccent[500],
+        color: tokens.redAccent[500],
       },
     ].filter(item => item.value > 0);
-  }, [stats, timeRange, theme.palette.mode]);
+  }, [stats, timeRange]);
 
   // Top instruments bar chart data
   const topInstrumentsData = useMemo(() => {
@@ -221,7 +221,7 @@ const Dashboard = () => {
     <Box m="20px">
       {/* HEADER */}
       <Box display="flex" justifyContent="space-between" alignItems="center" mb="20px">
-        <Typography variant="h2" color={theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[900]} fontWeight="bold">
+        <Typography variant="h2" color={colors.grey[900]} fontWeight="bold">
           User Analytics Dashboard
         </Typography>
         <ButtonGroup variant="outlined" size="small">
@@ -230,7 +230,7 @@ const Dashboard = () => {
             variant={timeRange === '7days' ? 'contained' : 'outlined'}
             sx={{
               backgroundColor: timeRange === '7days' ? colors.blueAccent[600] : 'transparent',
-              color: timeRange === '7days' ? colors.grey[100] : (theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[900]),
+              color: timeRange === '7days' ? colors.grey[100] : (colors.grey[900]),
             }}
           >
             7 Days
@@ -240,7 +240,7 @@ const Dashboard = () => {
             variant={timeRange === '30days' ? 'contained' : 'outlined'}
             sx={{
               backgroundColor: timeRange === '30days' ? colors.blueAccent[600] : 'transparent',
-              color: timeRange === '30days' ? colors.grey[100] : (theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[900]),
+              color: timeRange === '30days' ? colors.grey[100] : (colors.grey[900]),
             }}
           >
             30 Days
@@ -250,7 +250,7 @@ const Dashboard = () => {
             variant={timeRange === '90days' ? 'contained' : 'outlined'}
             sx={{
               backgroundColor: timeRange === '90days' ? colors.blueAccent[600] : 'transparent',
-              color: timeRange === '90days' ? colors.grey[100] : (theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[900]),
+              color: timeRange === '90days' ? colors.grey[100] : (colors.grey[900]),
             }}
           >
             90 Days
@@ -260,7 +260,7 @@ const Dashboard = () => {
             variant={timeRange === '6months' ? 'contained' : 'outlined'}
             sx={{
               backgroundColor: timeRange === '6months' ? colors.blueAccent[600] : 'transparent',
-              color: timeRange === '6months' ? colors.grey[100] : (theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[900]),
+              color: timeRange === '6months' ? colors.grey[100] : (colors.grey[900]),
             }}
           >
             6 Months
@@ -270,7 +270,7 @@ const Dashboard = () => {
             variant={timeRange === '1year' ? 'contained' : 'outlined'}
             sx={{
               backgroundColor: timeRange === '1year' ? colors.blueAccent[600] : 'transparent',
-              color: timeRange === '1year' ? colors.grey[100] : (theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[900]),
+              color: timeRange === '1year' ? colors.grey[100] : (colors.grey[900]),
             }}
           >
             1 Year
@@ -285,7 +285,7 @@ const Dashboard = () => {
           backgroundColor={colors.redAccent[700]}
           borderRadius="4px"
         >
-          <Typography color={theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[900]}>{error}</Typography>
+          <Typography color={colors.grey[900]}>{error}</Typography>
         </Box>
       )}
 
@@ -300,7 +300,7 @@ const Dashboard = () => {
         {/* Total Users */}
         <Box
           gridColumn="span 3"
-          backgroundColor={theme.palette.mode === 'dark' ? colors.primary[400] : colors.grey[200]}
+          backgroundColor={colors.grey[200]}
           display="flex"
           alignItems="center"
           justifyContent="center"
@@ -317,7 +317,7 @@ const Dashboard = () => {
         {/* Students */}
         <Box
           gridColumn="span 3"
-          backgroundColor={theme.palette.mode === 'dark' ? colors.primary[400] : colors.grey[200]}
+          backgroundColor={colors.grey[200]}
           display="flex"
           alignItems="center"
           justifyContent="center"
@@ -334,7 +334,7 @@ const Dashboard = () => {
         {/* Teachers */}
         <Box
           gridColumn="span 3"
-          backgroundColor={theme.palette.mode === 'dark' ? colors.primary[400] : colors.grey[200]}
+          backgroundColor={colors.grey[200]}
           display="flex"
           alignItems="center"
           justifyContent="center"
@@ -351,7 +351,7 @@ const Dashboard = () => {
         {/* Active Users */}
         <Box
           gridColumn="span 3"
-          backgroundColor={theme.palette.mode === 'dark' ? colors.primary[400] : colors.grey[200]}
+          backgroundColor={colors.grey[200]}
           display="flex"
           alignItems="center"
           justifyContent="center"
@@ -380,7 +380,7 @@ const Dashboard = () => {
         {/* Profile Completion */}
         <Box
           gridColumn="span 3"
-          backgroundColor={theme.palette.mode === 'dark' ? colors.primary[400] : colors.grey[200]}
+          backgroundColor={colors.grey[200]}
           display="flex"
           alignItems="center"
           justifyContent="center"
@@ -397,7 +397,7 @@ const Dashboard = () => {
         {/* First Booking */}
         <Box
           gridColumn="span 3"
-          backgroundColor={theme.palette.mode === 'dark' ? colors.primary[400] : colors.grey[200]}
+          backgroundColor={colors.grey[200]}
           display="flex"
           alignItems="center"
           justifyContent="center"
@@ -414,7 +414,7 @@ const Dashboard = () => {
         {/* Teachers with Students */}
         <Box
           gridColumn="span 3"
-          backgroundColor={theme.palette.mode === 'dark' ? colors.primary[400] : colors.grey[200]}
+          backgroundColor={colors.grey[200]}
           display="flex"
           alignItems="center"
           justifyContent="center"
@@ -431,7 +431,7 @@ const Dashboard = () => {
         {/* Teachers Needing Students */}
         <Box
           gridColumn="span 3"
-          backgroundColor={theme.palette.mode === 'dark' ? colors.primary[400] : colors.grey[200]}
+          backgroundColor={colors.grey[200]}
           display="flex"
           alignItems="center"
           justifyContent="center"
@@ -458,11 +458,11 @@ const Dashboard = () => {
         {userGrowthData[0]?.data.length > 0 && (
           <Box
             gridColumn="span 6"
-            backgroundColor={theme.palette.mode === 'dark' ? colors.primary[400] : colors.grey[200]}
+            backgroundColor={colors.grey[200]}
             p="30px"
             borderRadius="4px"
           >
-            <Typography variant="h5" fontWeight="600" color={theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[900]}>
+            <Typography variant="h5" fontWeight="600" color={colors.grey[900]}>
               User Growth Timeline
             </Typography>
             <Box height="250px" mt="-20px">
@@ -475,11 +475,11 @@ const Dashboard = () => {
         {activeInactiveData.length > 0 && (
           <Box
             gridColumn="span 4"
-            backgroundColor={theme.palette.mode === 'dark' ? colors.primary[400] : colors.grey[200]}
+            backgroundColor={colors.grey[200]}
             p="30px"
             borderRadius="4px"
           >
-            <Typography variant="h5" fontWeight="600" color={theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[900]}>
+            <Typography variant="h5" fontWeight="600" color={colors.grey[900]}>
               Active vs Inactive
             </Typography>
             <Box height="280px" mt="-20px">
@@ -492,11 +492,11 @@ const Dashboard = () => {
         {topInstrumentsData.length > 0 && (
           <Box
             gridColumn="span 5"
-            backgroundColor={theme.palette.mode === 'dark' ? colors.primary[400] : colors.grey[200]}
+            backgroundColor={colors.grey[200]}
             p="30px"
             borderRadius="4px"
           >
-            <Typography variant="h5" fontWeight="600" color={theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[900]}>
+            <Typography variant="h5" fontWeight="600" color={colors.grey[900]}>
               Top Instruments
             </Typography>
             <Box height="280px" mt="-20px">
@@ -508,11 +508,11 @@ const Dashboard = () => {
         {/* Top Locations */}
         <Box
           gridColumn="span 7"
-          backgroundColor={theme.palette.mode === 'dark' ? colors.primary[400] : colors.grey[200]}
+          backgroundColor={colors.grey[200]}
           p="30px"
           borderRadius="4px"
         >
-          <Typography variant="h5" fontWeight="600" color={theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[900]} mb="10px">
+          <Typography variant="h5" fontWeight="600" color={colors.grey[900]} mb="10px">
             User Distribution by Location
           </Typography>
           {topLocationsData.length > 0 ? (
@@ -521,7 +521,7 @@ const Dashboard = () => {
             </Box>
           ) : (
             <Box height="280px" display="flex" alignItems="center" justifyContent="center">
-              <Typography variant="body1" color={theme.palette.mode === 'dark' ? colors.grey[300] : colors.grey[700]}>
+              <Typography variant="body1" color={colors.grey[700]}>
                 No location data available. Users need to add their location in their profile.
               </Typography>
             </Box>
@@ -532,11 +532,11 @@ const Dashboard = () => {
         {onboardingFunnelData.length > 0 && (
           <Box
             gridColumn="span 6"
-            backgroundColor={theme.palette.mode === 'dark' ? colors.primary[400] : colors.grey[200]}
+            backgroundColor={colors.grey[200]}
             p="30px"
             borderRadius="4px"
           >
-            <Typography variant="h5" fontWeight="600" color={theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[900]} mb="10px">
+            <Typography variant="h5" fontWeight="600" color={colors.grey[900]} mb="10px">
               User Onboarding Funnel
             </Typography>
             <Box display="flex" flexDirection="column" gap="15px" mt="10px">
@@ -545,31 +545,31 @@ const Dashboard = () => {
                 return (
                   <Box key={index}>
                     <Box display="flex" justifyContent="space-between" mb="5px">
-                      <Typography variant="body1" color={theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[900]}>
+                      <Typography variant="body1" color={colors.grey[900]}>
                         {step.label}
                       </Typography>
-                      <Typography variant="body1" fontWeight="bold" color={theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[900]}>
+                      <Typography variant="body1" fontWeight="bold" color={colors.grey[900]}>
                         {step.value} ({percentage.toFixed(1)}%)
                       </Typography>
                     </Box>
                     <Box
                       width="100%"
                       height="30px"
-                      backgroundColor={theme.palette.mode === 'dark' ? colors.primary[600] : colors.grey[300]}
+                      backgroundColor={colors.grey[300]}
                       borderRadius="4px"
                       overflow="hidden"
-                      border={`1px solid ${theme.palette.mode === 'dark' ? colors.grey[700] : colors.grey[400]}`}
+                      border={`1px solid ${colors.grey[400]}`}
                     >
                       <Box
                         width={`${percentage}%`}
                         height="100%"
-                        backgroundColor={theme.palette.mode === 'dark' ? '#4caf50' : colors.greenAccent[600]}
+                        backgroundColor={colors.greenAccent[600]}
                         display="flex"
                         alignItems="center"
                         justifyContent="center"
                         transition="width 0.3s ease"
                         sx={{
-                          boxShadow: theme.palette.mode === 'dark' ? `0 0 8px rgba(76, 175, 80, 0.4)` : 'none',
+                          boxShadow: 'none',
                         }}
                       />
                     </Box>
@@ -583,7 +583,7 @@ const Dashboard = () => {
 
       {loading && (
         <Box display="flex" justifyContent="center" alignItems="center" p="20px">
-          <Typography color={theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[900]}>Loading dashboard data...</Typography>
+          <Typography color={colors.grey[900]}>Loading dashboard data...</Typography>
         </Box>
       )}
     </Box>

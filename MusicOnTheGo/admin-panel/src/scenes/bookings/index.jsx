@@ -12,7 +12,7 @@ import BookingDetailsModal from '../../components/BookingDetailsModal';
 
 const Bookings = () => {
   const theme = useTheme();
-  const colors = tokens(theme.palette.mode);
+  const colors = tokens;
   const toast = useToast();
   const [bookings, setBookings] = useState([]);
   const [filteredBookings, setFilteredBookings] = useState([]);
@@ -127,7 +127,7 @@ const Bookings = () => {
             }
             borderRadius="4px"
           >
-            <Typography color={theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[100]} sx={{ ml: '5px' }}>
+            <Typography color={colors.grey[100]} sx={{ ml: '5px' }}>
               {status}
             </Typography>
           </Box>
@@ -173,7 +173,7 @@ const Bookings = () => {
   return (
     <Box m="20px">
       <Box display="flex" justifyContent="space-between" alignItems="center" mb="20px">
-        <Typography variant="h2" color={theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[900]} fontWeight="bold">
+        <Typography variant="h2" color={colors.grey[900]} fontWeight="bold">
           Bookings Analytics
         </Typography>
         <Button
@@ -204,7 +204,7 @@ const Bookings = () => {
           backgroundColor={colors.redAccent[700]}
           borderRadius="4px"
         >
-          <Typography color={theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[900]}>{error}</Typography>
+          <Typography color={colors.grey[900]}>{error}</Typography>
         </Box>
       )}
       <Box mb="20px">
@@ -247,7 +247,7 @@ const Bookings = () => {
           backgroundColor={colors.blueAccent[700]}
           borderRadius="4px"
         >
-          <Typography color={theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[900]}>No bookings found. Data may still be loading or there are no bookings in the database.</Typography>
+          <Typography color={colors.grey[900]}>No bookings found. Data may still be loading or there are no bookings in the database.</Typography>
         </Box>
       )}
       {!loading && searchTerm && filteredBookings.length === 0 && bookings.length > 0 && (
@@ -257,7 +257,7 @@ const Bookings = () => {
           backgroundColor={colors.blueAccent[700]}
           borderRadius="4px"
         >
-          <Typography color={theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[900]}>No bookings match your search "{searchTerm}". Try a different search term.</Typography>
+          <Typography color={colors.grey[900]}>No bookings match your search "{searchTerm}". Try a different search term.</Typography>
         </Box>
       )}
       <Box
@@ -271,7 +271,7 @@ const Bookings = () => {
           '& .MuiDataGrid-cell': {
             borderBottom: 'none',
             cursor: 'pointer',
-            color: theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[900],
+            color: colors.grey[900],
           },
           '& .MuiDataGrid-row': {
             cursor: 'pointer',
@@ -280,17 +280,17 @@ const Bookings = () => {
             },
           },
           '& .MuiDataGrid-columnHeaders': {
-            backgroundColor: theme.palette.mode === 'dark' ? colors.blueAccent[700] : colors.blueAccent[500],
+            backgroundColor: colors.blueAccent[500],
             borderBottom: 'none',
-            color: theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[100],
+            color: colors.grey[100],
           },
           '& .MuiDataGrid-virtualScroller': {
-            backgroundColor: theme.palette.mode === 'dark' ? colors.primary[400] : colors.grey[100],
+            backgroundColor: colors.grey[100],
           },
           '& .MuiDataGrid-footerContainer': {
             borderTop: 'none',
-            backgroundColor: theme.palette.mode === 'dark' ? colors.blueAccent[700] : colors.blueAccent[500],
-            color: theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[100],
+            backgroundColor: colors.blueAccent[500],
+            color: colors.grey[100],
           },
           '& .MuiDataGrid-cell:focus': {
             outline: 'none',

@@ -1,10 +1,8 @@
 import { ResponsiveLine } from '@nivo/line';
-import { useTheme } from '@mui/material';
 import { tokens } from '../theme';
 
 const LineChart = ({ data, dataPointCount = 30 }) => {
-  const theme = useTheme();
-  const colors = tokens(theme.palette.mode);
+  const colors = tokens;
   
   // Get the actual data points to determine which labels to show
   const dataPoints = data[0]?.data || [];
@@ -46,34 +44,34 @@ const LineChart = ({ data, dataPointCount = 30 }) => {
         axis: {
           domain: {
             line: {
-              stroke: theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[800],
+              stroke: colors.grey[800],
             },
           },
           legend: {
             text: {
-              fill: theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[900],
+              fill: colors.grey[900],
             },
           },
           ticks: {
             line: {
-              stroke: theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[800],
+              stroke: colors.grey[800],
               strokeWidth: 1,
             },
             text: {
-              fill: theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[900],
+              fill: colors.grey[900],
               fontSize: dataPointCount > 60 ? 10 : 12,
             },
           },
         },
         legends: {
           text: {
-            fill: theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[900],
+            fill: colors.grey[900],
           },
         },
         tooltip: {
           container: {
-            color: theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[900],
-            background: theme.palette.mode === 'dark' ? colors.primary[500] : colors.grey[200],
+            color: colors.grey[900],
+            background: colors.grey[200],
           },
         },
       }}

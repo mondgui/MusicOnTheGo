@@ -50,34 +50,6 @@ interface Resource {
   createdAt: string;
 }
 
-interface Challenge {
-  _id: string;
-  title: string;
-  description: string;
-  difficulty: "Beginner" | "Intermediate" | "Advanced";
-  participantCount?: number;
-  participants?: Array<{ _id: string; name: string; profileImage?: string }>;
-  deadline: string;
-  reward: string;
-  requirements: {
-    type: "practice_days" | "practice_sessions" | "recording" | "manual";
-    target: number;
-    description: string;
-  };
-  createdBy: {
-    _id: string;
-    name: string;
-    profileImage?: string;
-  };
-  instrument: string;
-  category: string;
-  status: "draft" | "active" | "completed" | "cancelled";
-  progress?: number;
-  currentValue?: number;
-  isJoined?: boolean;
-  isCompleted?: boolean;
-  completedAt?: string;
-}
 
 const INSTRUMENT_OPTIONS = [
   "All",
@@ -119,7 +91,7 @@ const TOPIC_CATEGORIES = [
 
 /**
  * Student Resources Screen
- * 3 Tabs: Assigned, Browse, Challenges
+ * 2 Tabs: Assigned, My Personal Files
  */
 export default function ResourcesScreen() {
   const router = useRouter();
@@ -129,12 +101,6 @@ export default function ResourcesScreen() {
   const [loadingAssigned, setLoadingAssigned] = useState(true);
   const [loadingPersonal, setLoadingPersonal] = useState(true);
   const [savedResources, setSavedResources] = useState<string[]>([]);
-  const [challenges, setChallenges] = useState<Challenge[]>([]);
-  const [activeChallenges, setActiveChallenges] = useState<Challenge[]>([]);
-  const [discoverChallenges, setDiscoverChallenges] = useState<Challenge[]>([]);
-  const [completedChallenges, setCompletedChallenges] = useState<Challenge[]>([]);
-  const [loadingChallenges, setLoadingChallenges] = useState(false);
-  const [challengeSubtab, setChallengeSubtab] = useState<"active" | "discover" | "completed">("active");
   const [expandedNotes, setExpandedNotes] = useState<Record<string, boolean>>({}); // resourceId -> expanded
   const [user, setUser] = useState<any>(null);
 
@@ -151,8 +117,6 @@ export default function ResourcesScreen() {
 
   useEffect(() => {
     loadUser();
-    loadMyChallenges();
-    loadDiscoverChallenges();
     loadAssignedResources();
     loadPersonalFiles();
   }, []);
@@ -307,100 +271,6 @@ export default function ResourcesScreen() {
   };
 
   // Load challenges the student has joined (Active and Completed)
-  const loadMyChallenges = async () => {
-    try {
-      setLoadingChallenges(true);
-      
-      // Load active challenges
-      const activeResponse = await api("/api/challenges/me", {
-        method: "GET",
-        auth: true,
-        params: { status: "active" },
-      });
-      setActiveChallenges(activeResponse || []);
-      
-      // Load completed challenges
-      const completedResponse = await api("/api/challenges/me", {
-        method: "GET",
-        auth: true,
-        params: { status: "completed" },
-      });
-      setCompletedChallenges(completedResponse || []);
-    } catch (error: any) {
-      console.error("Error loading my challenges:", error);
-      setActiveChallenges([]);
-      setCompletedChallenges([]);
-    } finally {
-      setLoadingChallenges(false);
-    }
-  };
-
-  // Load discoverable challenges (not yet joined)
-  const loadDiscoverChallenges = async () => {
-    try {
-      setLoadingChallenges(true);
-      const response = await api("/api/challenges", {
-        method: "GET",
-        auth: true,
-        params: { status: "active" },
-      });
-      
-      // Filter out challenges the student has already joined
-      const discover = (response || []).filter((c: Challenge) => !c.isJoined);
-      setDiscoverChallenges(discover);
-    } catch (error: any) {
-      console.error("Error loading discover challenges:", error);
-      setDiscoverChallenges([]);
-    } finally {
-      setLoadingChallenges(false);
-    }
-  };
-
-  // Join a challenge
-  const handleJoinChallenge = async (challengeId: string) => {
-    try {
-      await api(`/api/challenges/${challengeId}/join`, {
-        method: "POST",
-        auth: true,
-      });
-      
-      Alert.alert("Success", "You've joined the challenge!");
-      // Reload challenges
-      await loadMyChallenges();
-      await loadDiscoverChallenges();
-    } catch (error: any) {
-      Alert.alert("Error", error.message || "Failed to join challenge");
-    }
-  };
-
-  // Leave a challenge
-  const handleLeaveChallenge = async (challengeId: string) => {
-    try {
-      Alert.alert(
-        "Leave Challenge",
-        "Are you sure you want to leave this challenge?",
-        [
-          { text: "Cancel", style: "cancel" },
-          {
-            text: "Leave",
-            style: "destructive",
-            onPress: async () => {
-              await api(`/api/challenges/${challengeId}/leave`, {
-                method: "POST",
-                auth: true,
-              });
-              Alert.alert("Success", "You've left the challenge");
-              await loadMyChallenges();
-              await loadDiscoverChallenges();
-            },
-          },
-        ]
-      );
-    } catch (error: any) {
-      Alert.alert("Error", error.message || "Failed to leave challenge");
-    }
-  };
-
   const getIcon = (type: string) => {
     switch (type) {
       case "pdf":
@@ -614,96 +484,6 @@ export default function ResourcesScreen() {
     </Card>
   );
 
-  const renderChallengeCard = (challenge: Challenge, showJoinButton: boolean = false) => (
-    <Card key={challenge._id} style={styles.challengeCard}>
-      <View style={styles.challengeHeader}>
-        <View style={styles.challengeInfo}>
-          <Text style={styles.challengeTitle}>{challenge.title}</Text>
-          <Text style={styles.challengeDescription}>
-            {challenge.description}
-          </Text>
-          {challenge.createdBy && (
-            <Text style={styles.challengeCreator}>
-              By {challenge.createdBy.name}
-            </Text>
-          )}
-        </View>
-        <Ionicons
-          name={challenge.isCompleted ? "trophy" : "flag-outline"}
-          size={20}
-          color={challenge.isCompleted ? "#FFB800" : "#FF6A5C"}
-        />
-      </View>
-
-      <View style={styles.challengeMeta}>
-        <View style={[styles.levelBadge, { backgroundColor: "#FF6A5C" }]}>
-          <Text style={styles.levelBadgeText}>{challenge.difficulty}</Text>
-        </View>
-        {challenge.instrument && (
-          <View style={[styles.categoryBadge, { backgroundColor: "#FF9076" }]}>
-            <Text style={styles.categoryBadgeText}>{challenge.instrument}</Text>
-          </View>
-        )}
-        <View style={styles.metaItem}>
-          <Ionicons name="people-outline" size={14} color="#666" />
-          <Text style={styles.metaText}>{challenge.participantCount || 0}</Text>
-        </View>
-        <View style={styles.metaItem}>
-          <Ionicons name="calendar-outline" size={14} color="#666" />
-          <Text style={styles.metaText}>{formatDate(challenge.deadline)}</Text>
-        </View>
-      </View>
-
-      {challenge.requirements && (
-        <View style={styles.requirementsBox}>
-          <Text style={styles.requirementsText}>
-            📋 {challenge.requirements.description}
-          </Text>
-        </View>
-      )}
-
-      {challenge.progress !== undefined && challenge.isJoined && (
-        <View style={styles.progressSection}>
-          <View style={styles.progressHeader}>
-            <Text style={styles.progressLabel}>Progress</Text>
-            <Text style={styles.progressPercent}>{challenge.progress}%</Text>
-          </View>
-          <Progress value={challenge.progress} style={styles.progressBar} />
-          {challenge.currentValue !== undefined && (
-            <Text style={styles.progressDetail}>
-              {challenge.currentValue} / {challenge.requirements?.target || 0}
-            </Text>
-          )}
-        </View>
-      )}
-
-      {challenge.reward && (
-        <View style={styles.rewardBox}>
-          <Text style={styles.rewardText}>🎁 Reward: {challenge.reward}</Text>
-        </View>
-      )}
-
-      {showJoinButton && !challenge.isJoined && (
-        <Button
-          onPress={() => handleJoinChallenge(challenge._id)}
-          style={styles.joinButton}
-        >
-          <Text style={styles.joinButtonText}>Join Challenge</Text>
-        </Button>
-      )}
-
-      {challenge.isJoined && !challenge.isCompleted && (
-        <Button
-          onPress={() => handleLeaveChallenge(challenge._id)}
-          style={styles.leaveButton}
-          variant="outline"
-        >
-          <Text style={styles.leaveButtonText}>Leave Challenge</Text>
-        </Button>
-      )}
-    </Card>
-  );
-
   return (
     <View style={styles.container}>
       {/* Header */}
@@ -717,7 +497,7 @@ export default function ResourcesScreen() {
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Resources</Text>
         <Text style={styles.headerSubtitle}>
-          Your learning materials and challenges
+          Your learning materials
         </Text>
       </LinearGradient>
 
@@ -727,7 +507,6 @@ export default function ResourcesScreen() {
           <TabsList style={styles.tabsList}>
             <TabsTrigger value="assigned">Assigned</TabsTrigger>
             <TabsTrigger value="personal">My Personal Files</TabsTrigger>
-            <TabsTrigger value="challenges">Challenges</TabsTrigger>
           </TabsList>
 
           {/* Assigned Tab */}
@@ -859,76 +638,6 @@ export default function ResourcesScreen() {
             )}
           </TabsContent>
 
-          {/* Challenges Tab */}
-          <TabsContent value="challenges">
-            <Tabs value={challengeSubtab} onValueChange={(v) => setChallengeSubtab(v as any)}>
-              <TabsList style={styles.subTabsList}>
-                <TabsTrigger value="active">Active</TabsTrigger>
-                <TabsTrigger value="discover">Discover</TabsTrigger>
-                <TabsTrigger value="completed">Completed</TabsTrigger>
-              </TabsList>
-
-              {/* Active Challenges */}
-              <TabsContent value="active">
-                {loadingChallenges ? (
-                  <View style={styles.loadingContainer}>
-                    <ActivityIndicator size="large" color="#FF6A5C" />
-                    <Text style={styles.loadingText}>Loading...</Text>
-                  </View>
-                ) : activeChallenges.length === 0 ? (
-                  <Card style={styles.emptyCard}>
-                    <Ionicons name="flag-outline" size={48} color="#999" />
-                    <Text style={styles.emptyText}>No active challenges</Text>
-                    <Text style={styles.emptySubtext}>
-                      Join challenges from the Discover tab to see them here
-                    </Text>
-                  </Card>
-                ) : (
-                  activeChallenges.map((c) => renderChallengeCard(c, false))
-                )}
-              </TabsContent>
-
-              {/* Discover Challenges */}
-              <TabsContent value="discover">
-                {loadingChallenges ? (
-                  <View style={styles.loadingContainer}>
-                    <ActivityIndicator size="large" color="#FF6A5C" />
-                    <Text style={styles.loadingText}>Loading...</Text>
-                  </View>
-                ) : discoverChallenges.length === 0 ? (
-                  <Card style={styles.emptyCard}>
-                    <Ionicons name="search-outline" size={48} color="#999" />
-                    <Text style={styles.emptyText}>No challenges to discover</Text>
-                    <Text style={styles.emptySubtext}>
-                      New challenges will appear here when teachers create them
-                    </Text>
-                  </Card>
-                ) : (
-                  discoverChallenges.map((c) => renderChallengeCard(c, true))
-                )}
-              </TabsContent>
-
-              {/* Completed Challenges */}
-              <TabsContent value="completed">
-                {loadingChallenges ? (
-                  <View style={styles.loadingContainer}>
-                    <ActivityIndicator size="large" color="#FF6A5C" />
-                    <Text style={styles.loadingText}>Loading...</Text>
-                  </View>
-                ) : completedChallenges.length === 0 ? (
-                  <Card style={styles.emptyCard}>
-                    <Ionicons name="trophy-outline" size={48} color="#999" />
-                    <Text style={styles.emptyText}>No completed challenges</Text>
-                    <Text style={styles.emptySubtext}>
-                      Challenges you complete will appear here
-                    </Text>
-                  </Card>
-                ) : (
-                  completedChallenges.map((c) => renderChallengeCard(c, false))
-                )}
-              </TabsContent>
-            </Tabs>
-          </TabsContent>
         </Tabs>
       </ScrollView>
 
@@ -1285,113 +994,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#FF6A5C",
     fontWeight: "500",
-  },
-  challengeCard: {
-    marginBottom: 16,
-    padding: 16,
-  },
-  challengeHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 12,
-  },
-  challengeInfo: {
-    flex: 1,
-  },
-  challengeTitle: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#333",
-    marginBottom: 4,
-  },
-  challengeDescription: {
-    fontSize: 14,
-    color: "#666",
-  },
-  challengeMeta: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    marginBottom: 12,
-  },
-  metaItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-  },
-  metaText: {
-    fontSize: 12,
-    color: "#666",
-  },
-  progressSection: {
-    marginBottom: 12,
-  },
-  progressHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 4,
-  },
-  progressLabel: {
-    fontSize: 12,
-    color: "#666",
-  },
-  progressPercent: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#FF6A5C",
-  },
-  progressBar: {
-    height: 8,
-  },
-  rewardBox: {
-    backgroundColor: "#FFF3C4",
-    padding: 12,
-    borderRadius: 8,
-  },
-  rewardText: {
-    fontSize: 14,
-    color: "#333",
-    fontWeight: "500",
-  },
-  challengeCreator: {
-    fontSize: 12,
-    color: "#999",
-    marginTop: 4,
-  },
-  requirementsBox: {
-    backgroundColor: "#E8F4F8",
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 12,
-  },
-  requirementsText: {
-    fontSize: 13,
-    color: "#333",
-  },
-  progressDetail: {
-    fontSize: 11,
-    color: "#666",
-    marginTop: 4,
-    textAlign: "right",
-  },
-  joinButton: {
-    marginTop: 12,
-    backgroundColor: "#FF6A5C",
-  },
-  joinButtonText: {
-    color: "white",
-    fontWeight: "600",
-  },
-  leaveButton: {
-    marginTop: 12,
-    borderColor: "#FF6A5C",
-  },
-  leaveButtonText: {
-    color: "#FF6A5C",
-    fontWeight: "600",
-  },
-  subTabsList: {
-    marginBottom: 16,
   },
   noteContainer: {
     marginTop: 8,

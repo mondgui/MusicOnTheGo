@@ -25,6 +25,8 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Select, SelectItem } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 import { api } from "../../lib/api";
 import { getStoredUser } from "../../lib/auth";
 
@@ -92,6 +94,8 @@ export default function CommunityScreen() {
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<"all" | "students" | "teachers" | "myPosts">("all");
   const [selectedInstrument, setSelectedInstrument] = useState("All");
+  const [customInstrument, setCustomInstrument] = useState("");
+  const [showCustomInput, setShowCustomInput] = useState(false);
   const [showPostModal, setShowPostModal] = useState(false);
   const [showCommentsModal, setShowCommentsModal] = useState(false);
   const [selectedPost, setSelectedPost] = useState<CommunityPost | null>(null);
@@ -135,7 +139,7 @@ export default function CommunityScreen() {
       if (activeTab !== "myPosts" && filter !== "me") {
         params.filter = filter;
       }
-      if (selectedInstrument !== "All") {
+      if (selectedInstrument && selectedInstrument !== "All") {
         params.instrument = selectedInstrument;
       }
 
@@ -527,36 +531,75 @@ export default function CommunityScreen() {
     []
   );
 
+  // Handle instrument selection
+  const handleInstrumentChange = (value: string) => {
+    if (value === "__custom__") {
+      setShowCustomInput(true);
+      setSelectedInstrument("");
+    } else {
+      setShowCustomInput(false);
+      setSelectedInstrument(value);
+      setCustomInstrument("");
+    }
+  };
+
+  // Handle custom instrument input
+  const handleCustomInstrumentSubmit = () => {
+    if (customInstrument.trim()) {
+      setSelectedInstrument(customInstrument.trim());
+      setShowCustomInput(false);
+    }
+  };
+
   // List header component with filters and tabs
   const renderListHeader = useCallback(
     () => (
       <>
-        {/* Filter Chips */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.filterScroll}
-        >
-          {INSTRUMENT_OPTIONS.map((inst) => (
-            <TouchableOpacity
-              key={inst}
-              style={[
-                styles.filterChip,
-                selectedInstrument === inst && styles.filterChipActive,
-              ]}
-              onPress={() => setSelectedInstrument(inst)}
-            >
-              <Text
-                style={[
-                  styles.filterChipText,
-                  selectedInstrument === inst && styles.filterChipTextActive,
-                ]}
-              >
+        {/* Instrument Filter Dropdown */}
+        <View style={styles.filterContainer}>
+          <Select
+            value={selectedInstrument || (showCustomInput ? "__custom__" : "All")}
+            onValueChange={handleInstrumentChange}
+            placeholder="Select Instrument"
+            style={styles.instrumentSelect}
+          >
+            {INSTRUMENT_OPTIONS.map((inst) => (
+              <SelectItem key={inst} value={inst}>
                 {inst}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
+              </SelectItem>
+            ))}
+            <SelectItem value="__custom__">Custom...</SelectItem>
+          </Select>
+
+          {/* Custom Instrument Input */}
+          {showCustomInput && (
+            <View style={styles.customInputContainer}>
+              <Input
+                placeholder="Enter instrument name"
+                value={customInstrument}
+                onChangeText={setCustomInstrument}
+                style={styles.customInput}
+                autoFocus
+              />
+              <Button
+                onPress={handleCustomInstrumentSubmit}
+                style={styles.customSubmitButton}
+              >
+                <Text style={styles.customSubmitText}>Apply</Text>
+              </Button>
+              <Button
+                onPress={() => {
+                  setShowCustomInput(false);
+                  setCustomInstrument("");
+                  setSelectedInstrument("All");
+                }}
+                style={styles.customCancelButton}
+              >
+                <Text style={styles.customCancelText}>Cancel</Text>
+              </Button>
+            </View>
+          )}
+        </View>
 
         {/* Main Tabs */}
         <Tabs value={activeTab} onValueChange={(v: string) => setActiveTab(v as "all" | "students" | "teachers" | "myPosts")}>
@@ -569,7 +612,7 @@ export default function CommunityScreen() {
         </Tabs>
       </>
     ),
-    [activeTab, selectedInstrument]
+    [activeTab, selectedInstrument, showCustomInput, customInstrument]
   );
 
   const formatDate = (dateString: string): string => {
@@ -739,32 +782,6 @@ export default function CommunityScreen() {
 
       {/* Filter Chips and Tabs - Fixed Header */}
       <View style={styles.fixedHeader}>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.filterScroll}
-        >
-          {INSTRUMENT_OPTIONS.map((inst) => (
-            <TouchableOpacity
-              key={inst}
-              style={[
-                styles.filterChip,
-                selectedInstrument === inst && styles.filterChipActive,
-              ]}
-              onPress={() => setSelectedInstrument(inst)}
-            >
-              <Text
-                style={[
-                  styles.filterChipText,
-                  selectedInstrument === inst && styles.filterChipTextActive,
-                ]}
-              >
-                {inst}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-
         <Tabs value={activeTab} onValueChange={(v: string) => setActiveTab(v as "all" | "students" | "teachers" | "myPosts")}>
           <TabsList style={styles.tabsList}>
             <TabsTrigger value="all">All</TabsTrigger>
@@ -1156,6 +1173,38 @@ const styles = StyleSheet.create({
   },
   filterChipTextActive: {
     color: "white",
+    fontWeight: "600",
+  },
+  filterContainer: {
+    marginBottom: 12,
+  },
+  instrumentSelect: {
+    marginBottom: 8,
+  },
+  customInputContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginTop: 8,
+  },
+  customInput: {
+    flex: 1,
+  },
+  customSubmitButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  customSubmitText: {
+    color: "white",
+    fontWeight: "600",
+  },
+  customCancelButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: "#E5E5E5",
+  },
+  customCancelText: {
+    color: "#666",
     fontWeight: "600",
   },
   tabsList: {

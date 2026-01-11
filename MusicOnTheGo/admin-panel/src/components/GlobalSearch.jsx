@@ -8,7 +8,6 @@ import {
   ListItemIcon,
   Typography,
   Divider,
-  useTheme,
   CircularProgress,
   InputBase,
   IconButton,
@@ -25,8 +24,7 @@ import { api } from '../lib/api';
 import { useNavigate } from 'react-router-dom';
 
 const GlobalSearch = () => {
-  const theme = useTheme();
-  const colors = tokens(theme.palette.mode);
+  const colors = tokens;
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [results, setResults] = useState(null);
@@ -151,7 +149,7 @@ const GlobalSearch = () => {
     <Box position="relative" ref={searchRef} sx={{ width: '100%', maxWidth: '600px' }}>
       <Box
         display="flex"
-        backgroundColor={theme.palette.mode === 'dark' ? colors.primary[400] : colors.grey[200]}
+        backgroundColor={colors.grey[200]}
         borderRadius="3px"
         alignItems="center"
       >
@@ -159,9 +157,9 @@ const GlobalSearch = () => {
           sx={{
             ml: 2,
             flex: 1,
-            color: theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[900],
+            color: colors.grey[900],
             '&::placeholder': {
-              color: theme.palette.mode === 'dark' ? colors.grey[400] : colors.grey[600],
+              color: colors.grey[600],
             },
           }}
           placeholder="Search users, bookings, messages..."
@@ -177,7 +175,7 @@ const GlobalSearch = () => {
           type="button"
           sx={{
             p: 1,
-            color: theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[700],
+            color: colors.grey[700],
           }}
         >
           {loading ? (
@@ -200,10 +198,8 @@ const GlobalSearch = () => {
             maxHeight: '500px',
             overflow: 'auto',
             zIndex: 1000,
-            backgroundColor: theme.palette.mode === 'dark' ? colors.primary[400] : colors.grey[100],
-            boxShadow: theme.palette.mode === 'dark' 
-              ? `0px 4px 20px rgba(0, 0, 0, 0.5)` 
-              : `0px 4px 20px rgba(0, 0, 0, 0.1)`,
+            backgroundColor: colors.grey[100],
+            boxShadow: '0px 4px 20px rgba(0, 0, 0, 0.1)',
           }}
         >
           {loading ? (
@@ -214,7 +210,7 @@ const GlobalSearch = () => {
             <Box p={2}>
               <Typography
                 variant="body2"
-                color={theme.palette.mode === 'dark' ? colors.grey[300] : colors.grey[700]}
+                color={colors.grey[700]}
               >
                 No results found for "{searchTerm}"
               </Typography>
@@ -227,7 +223,7 @@ const GlobalSearch = () => {
                     <Typography
                       variant="subtitle2"
                       fontWeight="bold"
-                      color={theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[900]}
+                      color={colors.grey[900]}
                     >
                       Users ({results.users.length})
                     </Typography>
@@ -239,7 +235,7 @@ const GlobalSearch = () => {
                       onClick={() => handleResultClick('user', user)}
                       sx={{
                         '&:hover': {
-                          backgroundColor: theme.palette.mode === 'dark' ? colors.primary[500] : colors.grey[200],
+                          backgroundColor: colors.grey[200],
                         },
                       }}
                     >
@@ -250,10 +246,10 @@ const GlobalSearch = () => {
                         primary={user.name}
                         secondary={`${user.email} - ${user.role}`}
                         primaryTypographyProps={{
-                          color: theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[900],
+                          color: colors.grey[900],
                         }}
                         secondaryTypographyProps={{
-                          color: theme.palette.mode === 'dark' ? colors.grey[300] : colors.grey[700],
+                          color: colors.grey[700],
                         }}
                       />
                     </ListItem>
@@ -268,7 +264,7 @@ const GlobalSearch = () => {
                     <Typography
                       variant="subtitle2"
                       fontWeight="bold"
-                      color={theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[900]}
+                      color={colors.grey[900]}
                     >
                       Bookings ({results.bookings.length})
                     </Typography>
@@ -280,7 +276,7 @@ const GlobalSearch = () => {
                       onClick={() => handleResultClick('booking', booking)}
                       sx={{
                         '&:hover': {
-                          backgroundColor: theme.palette.mode === 'dark' ? colors.primary[500] : colors.grey[200],
+                          backgroundColor: colors.grey[200],
                         },
                       }}
                     >
@@ -291,10 +287,10 @@ const GlobalSearch = () => {
                         primary={`${booking.student?.name || 'N/A'} → ${booking.teacher?.name || 'N/A'}`}
                         secondary={`Status: ${booking.status}`}
                         primaryTypographyProps={{
-                          color: theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[900],
+                          color: colors.grey[900],
                         }}
                         secondaryTypographyProps={{
-                          color: theme.palette.mode === 'dark' ? colors.grey[300] : colors.grey[700],
+                          color: colors.grey[700],
                         }}
                       />
                     </ListItem>
@@ -309,7 +305,7 @@ const GlobalSearch = () => {
                     <Typography
                       variant="subtitle2"
                       fontWeight="bold"
-                      color={theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[900]}
+                      color={colors.grey[900]}
                     >
                       Messages ({results.messages.length})
                     </Typography>
@@ -321,7 +317,7 @@ const GlobalSearch = () => {
                       onClick={() => handleResultClick('message', message)}
                       sx={{
                         '&:hover': {
-                          backgroundColor: theme.palette.mode === 'dark' ? colors.primary[500] : colors.grey[200],
+                          backgroundColor: colors.grey[200],
                         },
                       }}
                     >
@@ -332,10 +328,10 @@ const GlobalSearch = () => {
                         primary={`${message.sender?.name || 'N/A'} → ${message.recipient?.name || 'N/A'}`}
                         secondary={message.text?.substring(0, 60) + (message.text?.length > 60 ? '...' : '')}
                         primaryTypographyProps={{
-                          color: theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[900],
+                          color: colors.grey[900],
                         }}
                         secondaryTypographyProps={{
-                          color: theme.palette.mode === 'dark' ? colors.grey[300] : colors.grey[700],
+                          color: colors.grey[700],
                         }}
                       />
                     </ListItem>
@@ -350,7 +346,7 @@ const GlobalSearch = () => {
                     <Typography
                       variant="subtitle2"
                       fontWeight="bold"
-                      color={theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[900]}
+                      color={colors.grey[900]}
                     >
                       Practice Sessions ({results.practiceSessions.length})
                     </Typography>
@@ -362,7 +358,7 @@ const GlobalSearch = () => {
                       onClick={() => handleResultClick('practice', session)}
                       sx={{
                         '&:hover': {
-                          backgroundColor: theme.palette.mode === 'dark' ? colors.primary[500] : colors.grey[200],
+                          backgroundColor: colors.grey[200],
                         },
                       }}
                     >
@@ -373,10 +369,10 @@ const GlobalSearch = () => {
                         primary={session.student?.name || 'N/A'}
                         secondary={`${session.minutes} minutes - ${session.focus || 'N/A'}`}
                         primaryTypographyProps={{
-                          color: theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[900],
+                          color: colors.grey[900],
                         }}
                         secondaryTypographyProps={{
-                          color: theme.palette.mode === 'dark' ? colors.grey[300] : colors.grey[700],
+                          color: colors.grey[700],
                         }}
                       />
                     </ListItem>
@@ -391,7 +387,7 @@ const GlobalSearch = () => {
                     <Typography
                       variant="subtitle2"
                       fontWeight="bold"
-                      color={theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[900]}
+                      color={colors.grey[900]}
                     >
                       Community Posts ({results.communityPosts.length})
                     </Typography>
@@ -403,7 +399,7 @@ const GlobalSearch = () => {
                       onClick={() => handleResultClick('community', post)}
                       sx={{
                         '&:hover': {
-                          backgroundColor: theme.palette.mode === 'dark' ? colors.primary[500] : colors.grey[200],
+                          backgroundColor: colors.grey[200],
                         },
                       }}
                     >
@@ -414,10 +410,10 @@ const GlobalSearch = () => {
                         primary={post.title}
                         secondary={`by ${post.author?.name || 'N/A'}`}
                         primaryTypographyProps={{
-                          color: theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[900],
+                          color: colors.grey[900],
                         }}
                         secondaryTypographyProps={{
-                          color: theme.palette.mode === 'dark' ? colors.grey[300] : colors.grey[700],
+                          color: colors.grey[700],
                         }}
                       />
                     </ListItem>
@@ -432,7 +428,7 @@ const GlobalSearch = () => {
                     <Typography
                       variant="subtitle2"
                       fontWeight="bold"
-                      color={theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[900]}
+                      color={colors.grey[900]}
                     >
                       Resources ({results.resources.length})
                     </Typography>
@@ -444,7 +440,7 @@ const GlobalSearch = () => {
                       onClick={() => handleResultClick('resource', resource)}
                       sx={{
                         '&:hover': {
-                          backgroundColor: theme.palette.mode === 'dark' ? colors.primary[500] : colors.grey[200],
+                          backgroundColor: colors.grey[200],
                         },
                       }}
                     >
@@ -455,10 +451,10 @@ const GlobalSearch = () => {
                         primary={resource.title}
                         secondary={`by ${resource.uploadedBy?.name || 'N/A'}`}
                         primaryTypographyProps={{
-                          color: theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[900],
+                          color: colors.grey[900],
                         }}
                         secondaryTypographyProps={{
-                          color: theme.palette.mode === 'dark' ? colors.grey[300] : colors.grey[700],
+                          color: colors.grey[700],
                         }}
                       />
                     </ListItem>

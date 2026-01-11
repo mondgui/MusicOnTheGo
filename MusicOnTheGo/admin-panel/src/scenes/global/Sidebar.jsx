@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Sidebar as ProSidebar, Menu, MenuItem } from 'react-pro-sidebar';
-import { Box, IconButton, Typography, useTheme } from '@mui/material';
+import { Box, IconButton, Typography } from '@mui/material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { tokens } from '../../theme';
 import HomeOutlinedIcon from '@mui/icons-material/HomeOutlined';
@@ -13,8 +13,7 @@ import ForumOutlinedIcon from '@mui/icons-material/ForumOutlined';
 import MenuOutlinedIcon from '@mui/icons-material/MenuOutlined';
 
 const Item = ({ title, to, icon, selected, setSelected }) => {
-  const theme = useTheme();
-  const colors = tokens(theme.palette.mode);
+  const colors = tokens;
   const navigate = useNavigate();
   const location = useLocation();
   const isActive = location.pathname === to;
@@ -28,9 +27,9 @@ const Item = ({ title, to, icon, selected, setSelected }) => {
     <MenuItem
       active={isActive}
       style={{
-        color: theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[900],
+        color: colors.grey[900],
         backgroundColor: isActive 
-          ? (theme.palette.mode === 'dark' ? colors.primary[300] : colors.grey[200])
+          ? (colors.grey[200])
           : 'transparent',
       }}
       onClick={handleClick}
@@ -42,8 +41,7 @@ const Item = ({ title, to, icon, selected, setSelected }) => {
 };
 
 const AdminSidebar = () => {
-  const theme = useTheme();
-  const colors = tokens(theme.palette.mode);
+  const colors = tokens;
   const location = useLocation();
   const [isCollapsed, setIsCollapsed] = useState(false);
   
@@ -63,7 +61,7 @@ const AdminSidebar = () => {
   
   const [selected, setSelected] = useState(getSelectedTitle());
   
-  const sidebarBgColor = theme.palette.mode === 'dark' ? colors.primary[400] : colors.grey[100];
+  const sidebarBgColor = colors.grey[100];
 
   return (
     <Box
@@ -89,15 +87,15 @@ const AdminSidebar = () => {
         },
         "& .pro-inner-item": {
           padding: "5px 35px 5px 20px !important",
-          color: theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[900] + " !important",
+          color: colors.grey[900] + " !important",
         },
         "& .pro-inner-item:hover": {
-          color: theme.palette.mode === 'dark' ? "#868dfb !important" : colors.blueAccent[700] + " !important",
-          backgroundColor: theme.palette.mode === 'dark' ? colors.primary[300] + " !important" : colors.grey[200] + " !important",
+          color: colors.blueAccent[700] + " !important",
+          backgroundColor: colors.grey[200] + " !important",
         },
         "& .pro-menu-item.active": {
-          color: theme.palette.mode === 'dark' ? "#6870fa !important" : colors.blueAccent[700] + " !important",
-          backgroundColor: theme.palette.mode === 'dark' ? colors.primary[300] + " !important" : colors.grey[200] + " !important",
+          color: colors.blueAccent[700] + " !important",
+          backgroundColor: colors.grey[200] + " !important",
         },
       }}
     >
@@ -115,7 +113,7 @@ const AdminSidebar = () => {
             icon={isCollapsed ? <MenuOutlinedIcon /> : undefined}
             style={{
               margin: "10px 0 20px 0",
-              color: theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[900],
+              color: colors.grey[900],
             }}
           >
             {!isCollapsed && (
@@ -125,7 +123,7 @@ const AdminSidebar = () => {
                 alignItems="center"
                 ml="15px"
               >
-                <Typography variant="h3" color={theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[900]}>
+                <Typography variant="h3" color={colors.grey[900]}>
                   MUSIC ADMIN
                 </Typography>
                 <IconButton onClick={() => setIsCollapsed(!isCollapsed)}>
@@ -156,13 +154,13 @@ const AdminSidebar = () => {
               <Box textAlign="center">
                 <Typography
                   variant="h2"
-                  color={theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[900]}
+                  color={colors.grey[900]}
                   fontWeight="bold"
                   sx={{ m: "10px 0 0 0" }}
                 >
                   MusicOnTheGo
                 </Typography>
-                <Typography variant="h5" color={theme.palette.mode === 'dark' ? colors.greenAccent[500] : colors.greenAccent[700]}>
+                <Typography variant="h5" color={colors.greenAccent[700]}>
                   Admin Panel
                 </Typography>
               </Box>
@@ -180,7 +178,7 @@ const AdminSidebar = () => {
             
             <Typography
               variant="h6"
-              color={theme.palette.mode === 'dark' ? colors.grey[300] : colors.grey[700]}
+              color={colors.grey[700]}
               sx={{ m: "15px 0 5px 20px" }}
             >
               Users
@@ -202,7 +200,7 @@ const AdminSidebar = () => {
 
             <Typography
               variant="h6"
-              color={theme.palette.mode === 'dark' ? colors.grey[300] : colors.grey[700]}
+              color={colors.grey[700]}
               sx={{ m: "15px 0 5px 20px" }}
             >
               Analytics

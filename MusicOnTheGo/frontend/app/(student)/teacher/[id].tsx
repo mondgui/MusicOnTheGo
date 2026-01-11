@@ -15,6 +15,9 @@ import { Avatar } from "@/components/ui/avatar";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { initSocket, getSocket } from "../../../lib/socket";
 import type { Socket } from "socket.io-client";
 
@@ -28,6 +31,22 @@ type Teacher = {
   rate?: number;
   about?: string;
   profileImage?: string;
+  specialties?: string[];
+  averageRating?: number | null;
+  reviewCount?: number;
+};
+
+type Review = {
+  _id: string;
+  teacher: string;
+  student: {
+    _id: string;
+    name: string;
+    profileImage?: string;
+  };
+  rating: number;
+  comment: string;
+  createdAt: string;
 };
 
 type AvailabilitySlot = {
@@ -37,7 +56,8 @@ type AvailabilitySlot = {
 };
 
 export default function TeacherProfileScreen() {
-  const { id } = useLocalSearchParams(); // teacher ID
+  const params = useLocalSearchParams();
+  const teacherId = Array.isArray(params.id) ? params.id[0] : params.id || "";
   const router = useRouter();
 
   const [teacher, setTeacher] = useState<Teacher | null>(null);
@@ -46,17 +66,21 @@ export default function TeacherProfileScreen() {
   const [loadingAvailability, setLoadingAvailability] = useState(false);
   const [hasConversation, setHasConversation] = useState(false);
   const [checkingConversation, setCheckingConversation] = useState(true);
-
-  // Mock data for ratings/reviews (until backend supports it)
-  const mockRating = 4.8;
-  const mockReviews = 24;
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [loadingReviews, setLoadingReviews] = useState(false);
+  const [myReview, setMyReview] = useState<Review | null>(null);
+  const [showReviewDialog, setShowReviewDialog] = useState(false);
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewComment, setReviewComment] = useState("");
+  const [submittingReview, setSubmittingReview] = useState(false);
+  const [hasBooking, setHasBooking] = useState(false);
 
   // Check if conversation exists with this teacher
   const checkConversation = useCallback(async () => {
-    if (!id) return;
+    if (!teacherId) return;
     try {
       setCheckingConversation(true);
-      const messages = await api(`/api/messages/conversation/${id}`, { auth: true });
+      const messages = await api(`/api/messages/conversation/${teacherId}`, { auth: true });
       // If there are any messages, a conversation exists
       setHasConversation(Array.isArray(messages) && messages.length > 0);
     } catch (err: any) {
@@ -65,23 +89,116 @@ export default function TeacherProfileScreen() {
     } finally {
       setCheckingConversation(false);
     }
-  }, [id]);
+  }, [teacherId]);
 
-  // Load teacher from backend
-  useEffect(() => {
-    async function fetchTeacher() {
-      try {
-        const data = await api(`/api/teachers/${id}`);
-        setTeacher(data);
-      } catch (err: any) {
-        console.log("Teacher fetch error:", err.message);
-      } finally {
-        setLoading(false);
-      }
+  // Check if student has a booking with this teacher (required to leave a review)
+  const checkBooking = useCallback(async () => {
+    if (!teacherId) return;
+    try {
+      const bookings = await api("/api/bookings/student/me", { auth: true });
+      const bookingsArray = bookings?.bookings || bookings || [];
+      const hasBookingWithTeacher = bookingsArray.some((booking: any) => {
+        const bookingTeacherId = booking.teacher?._id || booking.teacher;
+        return String(bookingTeacherId) === String(teacherId) && booking.status === "approved";
+      });
+      setHasBooking(hasBookingWithTeacher);
+    } catch (err: any) {
+      setHasBooking(false);
     }
+  }, [teacherId]);
+
+  // Load reviews for this teacher
+  const loadReviews = useCallback(async () => {
+    if (!teacherId) return;
+    try {
+      setLoadingReviews(true);
+      const response = await api(`/api/reviews/teacher/${teacherId}`);
+      setReviews(response?.reviews || response || []);
+    } catch (err: any) {
+      console.log("Failed to load reviews:", err.message);
+      setReviews([]);
+    } finally {
+      setLoadingReviews(false);
+    }
+  }, [teacherId]);
+
+  // Load student's own review for this teacher
+  const loadMyReview = useCallback(async () => {
+    if (!teacherId) return;
+    try {
+      const review = await api(`/api/reviews/teacher/${teacherId}/me`, { auth: true });
+      setMyReview(review);
+      if (review) {
+        setReviewRating(review.rating);
+        setReviewComment(review.comment || "");
+      }
+    } catch (err: any) {
+      // No review exists yet
+      setMyReview(null);
+      setReviewRating(5);
+      setReviewComment("");
+    }
+  }, [teacherId]);
+
+  // Fetch teacher data
+  const fetchTeacher = useCallback(async () => {
+    if (!teacherId) return;
+    try {
+      const data = await api(`/api/teachers/${teacherId}`);
+      setTeacher(data);
+    } catch (err: any) {
+      console.log("Teacher fetch error:", err.message);
+    } finally {
+      setLoading(false);
+    }
+  }, [teacherId]);
+
+  // Submit or update review
+  const handleSubmitReview = async () => {
+    if (!teacherId) {
+      alert("Teacher ID is missing. Please try again.");
+      return;
+    }
+    try {
+      setSubmittingReview(true);
+      console.log("[Review] Submitting review:", {
+        teacherId,
+        rating: reviewRating,
+        commentLength: reviewComment.trim().length,
+      });
+      
+      const response = await api("/api/reviews", {
+        method: "POST",
+        auth: true,
+        body: {
+          teacherId: String(teacherId),
+          rating: reviewRating,
+          comment: reviewComment.trim(),
+        },
+      });
+      
+      console.log("[Review] Review submitted successfully:", response);
+      setMyReview(response);
+      setShowReviewDialog(false);
+      // Reload reviews and teacher data to update ratings
+      await loadReviews();
+      await fetchTeacher();
+    } catch (err: any) {
+      console.error("[Review] Error submitting review:", err);
+      alert(err.message || "Failed to submit review");
+    } finally {
+      setSubmittingReview(false);
+    }
+  };
+
+  // Load teacher and related data from backend
+  useEffect(() => {
     fetchTeacher();
     checkConversation();
-  }, [id, checkConversation]);
+    checkBooking();
+    loadReviews();
+    loadMyReview();
+  }, [teacherId, fetchTeacher, checkConversation, checkBooking, loadReviews, loadMyReview]);
 
   // Convert 24-hour format to 12-hour format with AM/PM
   const formatTime24To12 = (time24: string): string => {
@@ -94,10 +211,10 @@ export default function TeacherProfileScreen() {
 
   // Function to fetch availability
   const fetchAvailability = useCallback(async () => {
-    if (!id) return;
+    if (!teacherId) return;
     try {
       setLoadingAvailability(true);
-      const data = await api(`/api/availability/teacher/${id}`);
+      const data = await api(`/api/availability/teacher/${teacherId}`);
         
         // Transform backend availability data to display format
         // Backend returns: [{ day: "2025-12-10" or "Monday", date: Date, timeSlots: [{ start: "14:00", end: "16:00" }] }]
@@ -157,7 +274,7 @@ export default function TeacherProfileScreen() {
       } finally {
         setLoadingAvailability(false);
       }
-  }, [id]);
+  }, [teacherId]);
 
   // Load teacher availability on mount
   useEffect(() => {
@@ -172,8 +289,7 @@ export default function TeacherProfileScreen() {
     async function setupSocket() {
       try {
         socketInstance = await initSocket();
-        if (socketInstance && mounted && id) {
-          const teacherId = Array.isArray(id) ? id[0] : id;
+        if (socketInstance && mounted && teacherId) {
 
           // Join this teacher's availability room so we get real-time updates
           socketInstance.emit("join-teacher-availability", teacherId);
@@ -190,20 +306,19 @@ export default function TeacherProfileScreen() {
       }
     }
 
-    if (id) {
+    if (teacherId) {
       setupSocket();
     }
 
     return () => {
       mounted = false;
-      if (socketInstance) {
-        const teacherId = Array.isArray(id) ? id[0] : id;
+      if (socketInstance && teacherId) {
         // Leave this teacher's availability room when unmounting
         socketInstance.emit("leave-teacher-availability", teacherId);
         socketInstance.off("availability-updated");
       }
     };
-  }, [id, fetchAvailability]);
+  }, [teacherId, fetchAvailability]);
 
   // Refresh availability and conversation status when screen comes into focus
   useFocusEffect(
@@ -301,11 +416,17 @@ export default function TeacherProfileScreen() {
                 <Text style={styles.instrumentsText}>
                   {teacher?.instruments?.join(", ") || "Instruments"}
                 </Text>
-                <View style={styles.ratingRow}>
-                  <Ionicons name="star" size={16} color="#FFD700" />
-                  <Text style={styles.ratingText}>{mockRating}</Text>
-                  <Text style={styles.reviewsText}>({mockReviews} reviews)</Text>
-                </View>
+                {teacher?.averageRating !== null && teacher?.averageRating !== undefined && (
+                  <View style={styles.ratingRow}>
+                    <Ionicons name="star" size={16} color="#FFB800" />
+                    <Text style={styles.ratingText}>{teacher.averageRating.toFixed(1)}</Text>
+                    {teacher.reviewCount !== undefined && teacher.reviewCount > 0 && (
+                      <Text style={styles.reviewsText}>
+                        ({teacher.reviewCount} {teacher.reviewCount === 1 ? "review" : "reviews"})
+                      </Text>
+                    )}
+                  </View>
+                )}
               </View>
             </View>
 
@@ -407,6 +528,69 @@ export default function TeacherProfileScreen() {
             )}
           </Card>
 
+          {/* Reviews Section */}
+          <Card style={styles.reviewsCard}>
+            <View style={styles.reviewsHeader}>
+              <Text style={styles.cardTitle}>Reviews</Text>
+              {hasBooking && (
+                <Button
+                  size="sm"
+                  onPress={() => setShowReviewDialog(true)}
+                  style={styles.writeReviewButton}
+                >
+                  {myReview ? "Edit Review" : "Write Review"}
+                </Button>
+              )}
+            </View>
+
+            {loadingReviews ? (
+              <ActivityIndicator color="#FF6A5C" style={{ marginTop: 16 }} />
+            ) : reviews.length === 0 ? (
+              <Text style={styles.noReviewsText}>
+                No reviews yet. Be the first to review this teacher!
+              </Text>
+            ) : (
+              <View style={styles.reviewsList}>
+                {reviews.map((review) => (
+                  <View key={review._id} style={styles.reviewItem}>
+                    <View style={styles.reviewHeader}>
+                      <Avatar
+                        src={review.student?.profileImage}
+                        fallback={review.student?.name?.charAt(0) || "S"}
+                        size={40}
+                      />
+                      <View style={styles.reviewInfo}>
+                        <Text style={styles.reviewStudentName}>
+                          {review.student?.name || "Student"}
+                        </Text>
+                        <View style={styles.reviewRatingRow}>
+                          {[1, 2, 3, 4, 5].map((star) => (
+                            <Ionicons
+                              key={star}
+                              name={star <= review.rating ? "star" : "star-outline"}
+                              size={14}
+                              color="#FFB800"
+                            />
+                          ))}
+                        </View>
+                      </View>
+                      <Text style={styles.reviewDate}>
+                        {new Date(review.createdAt).toLocaleDateString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                          year: "numeric",
+                        })}
+                      </Text>
+                    </View>
+                    {review.comment && (
+                      <Text style={styles.reviewComment}>{review.comment}</Text>
+                    )}
+                  </View>
+                ))}
+              </View>
+            )}
+          </Card>
+
           {/* Action Buttons */}
           <View style={styles.actionsRow}>
             <Button
@@ -431,6 +615,60 @@ export default function TeacherProfileScreen() {
           </View>
         </View>
       </ScrollView>
+
+      {/* Review Dialog */}
+      <Dialog open={showReviewDialog} onOpenChange={setShowReviewDialog}>
+        <DialogContent>
+          <Text style={styles.dialogTitleText}>
+            {myReview ? "Edit Your Review" : "Write a Review"}
+          </Text>
+          
+          <Text style={styles.dialogLabel}>Rating</Text>
+          <View style={styles.starRatingContainer}>
+            {[1, 2, 3, 4, 5].map((star) => (
+              <TouchableOpacity
+                key={star}
+                onPress={() => setReviewRating(star)}
+                style={styles.starButton}
+              >
+                <Ionicons
+                  name={star <= reviewRating ? "star" : "star-outline"}
+                  size={32}
+                  color="#FFB800"
+                />
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          <Text style={styles.dialogLabel}>Comment (optional)</Text>
+          <Textarea
+            value={reviewComment}
+            onChangeText={setReviewComment}
+            placeholder="Share your experience with this teacher..."
+            style={styles.reviewTextarea}
+            multiline
+            numberOfLines={4}
+            maxLength={1000}
+          />
+
+          <View style={styles.dialogActions}>
+            <Button
+              variant="outline"
+              onPress={() => setShowReviewDialog(false)}
+              style={styles.dialogButton}
+            >
+              Cancel
+            </Button>
+            <Button
+              onPress={handleSubmitReview}
+              disabled={submittingReview || reviewRating < 1}
+              style={styles.dialogButton}
+            >
+              {submittingReview ? "Submitting..." : myReview ? "Update Review" : "Submit Review"}
+            </Button>
+          </View>
+        </DialogContent>
+      </Dialog>
     </View>
   );
 }
@@ -487,20 +725,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#666",
     marginBottom: 8,
-  },
-  ratingRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-  },
-  ratingText: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#FFD700",
-  },
-  reviewsText: {
-    fontSize: 14,
-    color: "#999",
   },
   detailsDivider: {
     paddingVertical: 12,
@@ -657,5 +881,112 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
+  },
+  ratingRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginTop: 4,
+  },
+  ratingText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#FFB800",
+    marginLeft: 4,
+  },
+  reviewsText: {
+    fontSize: 14,
+    color: "#666",
+    marginLeft: 4,
+  },
+  reviewsCard: {
+    padding: 24,
+  },
+  reviewsHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  writeReviewButton: {
+    minWidth: 120,
+  },
+  reviewsList: {
+    gap: 16,
+  },
+  reviewItem: {
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: "#E5E5E5",
+  },
+  reviewHeader: {
+    flexDirection: "row",
+    gap: 12,
+    marginBottom: 8,
+  },
+  reviewInfo: {
+    flex: 1,
+  },
+  reviewStudentName: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#333",
+    marginBottom: 4,
+  },
+  reviewRatingRow: {
+    flexDirection: "row",
+    gap: 2,
+  },
+  reviewDate: {
+    fontSize: 12,
+    color: "#999",
+  },
+  reviewComment: {
+    fontSize: 14,
+    color: "#666",
+    lineHeight: 20,
+    marginTop: 8,
+  },
+  noReviewsText: {
+    fontSize: 14,
+    color: "#999",
+    textAlign: "center",
+    paddingVertical: 16,
+    fontStyle: "italic",
+  },
+  dialogTitleText: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#333",
+    marginBottom: 20,
+  },
+  dialogLabel: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#333",
+    marginBottom: 8,
+    marginTop: 16,
+  },
+  starRatingContainer: {
+    flexDirection: "row",
+    gap: 8,
+    justifyContent: "center",
+    marginVertical: 16,
+  },
+  starButton: {
+    padding: 4,
+  },
+  reviewTextarea: {
+    minHeight: 100,
+    marginTop: 8,
+  },
+  dialogActions: {
+    flexDirection: "row",
+    gap: 12,
+    marginTop: 24,
+    justifyContent: "flex-end",
+  },
+  dialogButton: {
+    minWidth: 100,
   },
 });

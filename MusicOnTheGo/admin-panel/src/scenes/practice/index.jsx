@@ -10,7 +10,7 @@ import { useToast } from '../../components/Toast';
 
 const Practice = () => {
   const theme = useTheme();
-  const colors = tokens(theme.palette.mode);
+  const colors = tokens;
   const toast = useToast();
   const [sessions, setSessions] = useState([]);
   const [filteredSessions, setFilteredSessions] = useState([]);
@@ -113,7 +113,7 @@ const Practice = () => {
   return (
     <Box m="20px">
       <Box display="flex" justifyContent="space-between" alignItems="center" mb="20px">
-        <Typography variant="h2" color={theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[900]} fontWeight="bold">
+        <Typography variant="h2" color={colors.grey[900]} fontWeight="bold">
           Practice Sessions Analytics
         </Typography>
         <Button
@@ -144,7 +144,7 @@ const Practice = () => {
           backgroundColor={colors.redAccent[700]}
           borderRadius="4px"
         >
-          <Typography color={theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[900]}>{error}</Typography>
+          <Typography color={colors.grey[900]}>{error}</Typography>
         </Box>
       )}
       <Box mb="20px">
@@ -187,7 +187,7 @@ const Practice = () => {
           backgroundColor={colors.blueAccent[700]}
           borderRadius="4px"
         >
-          <Typography color={theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[900]}>No practice sessions found. Data may still be loading or there are no sessions in the database.</Typography>
+          <Typography color={colors.grey[900]}>No practice sessions found. Data may still be loading or there are no sessions in the database.</Typography>
         </Box>
       )}
       {!loading && searchTerm && filteredSessions.length === 0 && sessions.length > 0 && (
@@ -197,7 +197,7 @@ const Practice = () => {
           backgroundColor={colors.blueAccent[700]}
           borderRadius="4px"
         >
-          <Typography color={theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[900]}>No sessions match your search "{searchTerm}". Try a different search term.</Typography>
+          <Typography color={colors.grey[900]}>No sessions match your search "{searchTerm}". Try a different search term.</Typography>
         </Box>
       )}
       <Box
@@ -211,7 +211,7 @@ const Practice = () => {
           '& .MuiDataGrid-cell': {
             borderBottom: 'none',
             cursor: 'pointer',
-            color: theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[900],
+            color: colors.grey[900],
           },
           '& .MuiDataGrid-row': {
             cursor: 'pointer',
@@ -220,17 +220,17 @@ const Practice = () => {
             },
           },
           '& .MuiDataGrid-columnHeaders': {
-            backgroundColor: theme.palette.mode === 'dark' ? colors.blueAccent[700] : colors.blueAccent[500],
+            backgroundColor: colors.blueAccent[500],
             borderBottom: 'none',
-            color: theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[100],
+            color: colors.grey[100],
           },
           '& .MuiDataGrid-virtualScroller': {
-            backgroundColor: theme.palette.mode === 'dark' ? colors.primary[400] : colors.grey[100],
+            backgroundColor: colors.grey[100],
           },
           '& .MuiDataGrid-footerContainer': {
             borderTop: 'none',
-            backgroundColor: theme.palette.mode === 'dark' ? colors.blueAccent[700] : colors.blueAccent[500],
-            color: theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[100],
+            backgroundColor: colors.blueAccent[500],
+            color: colors.grey[100],
           },
           '& .MuiDataGrid-cell:focus': {
             outline: 'none',

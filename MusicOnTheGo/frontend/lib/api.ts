@@ -143,6 +143,18 @@ export async function api(path: string, init: ApiInit = {}) {
       const message =
         (data && (data.error || data.message)) ||
         `Request failed with ${response.status} ${response.statusText}`;
+      
+      // Don't log 404 errors - they're often expected (resource not found)
+      // Only log errors that indicate actual problems
+      if (response.status !== 404) {
+        console.error(`[API] Error ${response.status} for ${init.method || 'GET'} ${url}:`, {
+          status: response.status,
+          statusText: response.statusText,
+          data,
+          headers: Object.fromEntries(response.headers.entries()),
+        });
+      }
+      
       throw new Error(message);
     }
 

@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useMemo } from "react";
 import {
   View,
   Text,
@@ -27,6 +27,8 @@ type Teacher = {
   about?: string;
   specialties?: string[];
   profileImage?: string;
+  averageRating?: number | null;
+  reviewCount?: number;
 };
 
 type HomeTabProps = {
@@ -35,6 +37,7 @@ type HomeTabProps = {
   loadingMore?: boolean;
   hasMore?: boolean;
   onLoadMore?: () => void;
+  myTeachers?: Teacher[]; // Teachers the student has booked with
 };
 
 export default function HomeTab({
@@ -43,14 +46,27 @@ export default function HomeTab({
   loadingMore = false,
   hasMore = false,
   onLoadMore,
+  myTeachers = [],
 }: HomeTabProps) {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedInstrument, setSelectedInstrument] = useState("all");
   const [priceRange, setPriceRange] = useState("all");
+  const [showAvailableTeachers, setShowAvailableTeachers] = useState(false);
+
+  // Get IDs of my teachers to filter them out from available teachers
+  const myTeacherIds = useMemo(() => {
+    return new Set(myTeachers.map((t) => t._id));
+  }, [myTeachers]);
 
   // Filter teachers based on search and filters
+  // Also exclude teachers that the student already has bookings with
   const filteredTeachers = teachers.filter((teacher) => {
+    // Exclude teachers the student already has bookings with
+    if (myTeacherIds.has(teacher._id)) {
+      return false;
+    }
+
     const matchesSearch =
       teacher.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       teacher.instruments.some((inst) =>
@@ -103,11 +119,15 @@ export default function HomeTab({
             </View>
 
             <View style={styles.teacherMeta}>
-              <View style={styles.ratingRow}>
-                <Ionicons name="star" size={14} color="#FFB800" />
-                <Text style={styles.ratingText}>4.5</Text>
-                <Text style={styles.reviewsText}>(12)</Text>
-              </View>
+              {teacher.averageRating !== null && teacher.averageRating !== undefined && (
+                <View style={styles.ratingRow}>
+                  <Ionicons name="star" size={14} color="#FFB800" />
+                  <Text style={styles.ratingText}>{teacher.averageRating.toFixed(1)}</Text>
+                  {teacher.reviewCount !== undefined && teacher.reviewCount > 0 && (
+                    <Text style={styles.reviewsText}>({teacher.reviewCount})</Text>
+                  )}
+                </View>
+              )}
               <View style={styles.locationRow}>
                 <Ionicons name="location-outline" size={12} color="#666" />
                 <Text style={styles.locationText}>
@@ -258,54 +278,88 @@ export default function HomeTab({
         </View>
       </Card>
 
-      {/* Teachers List */}
-      <View style={styles.teachersHeader}>
-        <Text style={styles.sectionTitle}>Available Teachers</Text>
-        <Badge variant="default">{filteredTeachers.length} found</Badge>
+      {/* My Teachers Section */}
+      {myTeachers.length > 0 && (
+        <View style={styles.section}>
+          <View style={styles.teachersHeader}>
+            <Text style={styles.sectionTitle}>My Teachers</Text>
+            <Badge variant="default">{myTeachers.length}</Badge>
+          </View>
+          <FlatList
+            data={myTeachers}
+            renderItem={renderTeacher}
+            keyExtractor={keyExtractor}
+            scrollEnabled={false}
+            showsVerticalScrollIndicator={false}
+          />
+        </View>
+      )}
+
+      {/* Available Teachers Section - Collapsible */}
+      <View style={styles.section}>
+        <TouchableOpacity
+          style={styles.teachersHeader}
+          onPress={() => setShowAvailableTeachers(!showAvailableTeachers)}
+          activeOpacity={0.7}
+        >
+          <View style={styles.collapsibleHeader}>
+            <Text style={styles.sectionTitleInline}>Available Teachers</Text>
+            <Badge variant="default">{filteredTeachers.length} found</Badge>
+          </View>
+          <Ionicons
+            name={showAvailableTeachers ? "chevron-up" : "chevron-down"}
+            size={24}
+            color="#FF6A5C"
+          />
+        </TouchableOpacity>
+
+      {showAvailableTeachers && (
+        <>
+          {loading && (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color="#FF6A5C" />
+              <Text style={styles.loadingText}>Loading teachers...</Text>
+            </View>
+          )}
+
+          {loading && filteredTeachers.length === 0 ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color="#FF6A5C" />
+              <Text style={styles.loadingText}>Loading teachers...</Text>
+            </View>
+          ) : filteredTeachers.length === 0 ? (
+            <View style={styles.emptyContainer}>
+              <Ionicons name="search-outline" size={48} color="#CCC" />
+              <Text style={styles.emptyText}>
+                {teachers.length === 0
+                  ? "No teachers available yet. Check back soon."
+                  : "No teachers match your search criteria."}
+              </Text>
+            </View>
+          ) : (
+            <FlatList
+              data={filteredTeachers}
+              renderItem={renderTeacher}
+              keyExtractor={keyExtractor}
+              scrollEnabled={false}
+              showsVerticalScrollIndicator={false}
+              // Pagination
+              onEndReached={onLoadMore}
+              onEndReachedThreshold={0.5}
+              // Loading more indicator
+              ListFooterComponent={
+                loadingMore ? (
+                  <View style={styles.loadingMoreContainer}>
+                    <ActivityIndicator size="small" color="#FF6A5C" />
+                    <Text style={styles.loadingMoreText}>Loading more teachers...</Text>
+                  </View>
+                ) : null
+              }
+            />
+          )}
+        </>
+      )}
       </View>
-
-      {loading && (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#FF6A5C" />
-          <Text style={styles.loadingText}>Loading teachers...</Text>
-        </View>
-      )}
-
-      {loading && filteredTeachers.length === 0 ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#FF6A5C" />
-          <Text style={styles.loadingText}>Loading teachers...</Text>
-        </View>
-      ) : filteredTeachers.length === 0 ? (
-        <View style={styles.emptyContainer}>
-          <Ionicons name="search-outline" size={48} color="#CCC" />
-          <Text style={styles.emptyText}>
-            {teachers.length === 0
-              ? "No teachers available yet. Check back soon."
-              : "No teachers match your search criteria."}
-        </Text>
-        </View>
-      ) : (
-        <FlatList
-          data={filteredTeachers}
-          renderItem={renderTeacher}
-          keyExtractor={keyExtractor}
-          scrollEnabled={false}
-          showsVerticalScrollIndicator={false}
-          // Pagination
-          onEndReached={onLoadMore}
-          onEndReachedThreshold={0.5}
-          // Loading more indicator
-          ListFooterComponent={
-            loadingMore ? (
-              <View style={styles.loadingMoreContainer}>
-                <ActivityIndicator size="small" color="#FF6A5C" />
-                <Text style={styles.loadingMoreText}>Loading more teachers...</Text>
-              </View>
-            ) : null
-          }
-        />
-      )}
     </View>
   );
 }
@@ -380,6 +434,17 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: 15,
+  },
+  collapsibleHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    flex: 1,
+  },
+  sectionTitleInline: {
+    fontSize: 20,
+    fontWeight: "700",
+    marginBottom: 0,
   },
   loadingContainer: {
     alignItems: "center",

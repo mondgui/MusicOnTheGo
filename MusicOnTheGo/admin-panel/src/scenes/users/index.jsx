@@ -13,7 +13,7 @@ import UserDetailsModal from '../../components/UserDetailsModal';
 
 const Users = () => {
   const theme = useTheme();
-  const colors = tokens(theme.palette.mode);
+  const colors = tokens;
   const toast = useToast();
   const [users, setUsers] = useState([]);
   const [filteredUsers, setFilteredUsers] = useState([]);
@@ -146,7 +146,7 @@ const Users = () => {
             }
             borderRadius="4px"
           >
-            <Typography color={theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[100]} sx={{ ml: '5px' }}>
+            <Typography color="#ffffff" sx={{ ml: '5px', fontSize: '0.875rem', fontWeight: 500 }}>
               {role}
             </Typography>
           </Box>
@@ -183,7 +183,12 @@ const Users = () => {
                   setSelectedUser(row);
                   setModalOpen(true);
                 }}
-                sx={{ color: colors.greenAccent[500] }}
+                sx={{ 
+                  color: colors.greenAccent[700],
+                  '&:hover': {
+                    backgroundColor: 'rgba(76, 175, 80, 0.1)',
+                  },
+                }}
               >
                 <VisibilityIcon />
               </IconButton>
@@ -231,7 +236,7 @@ const Users = () => {
   return (
     <Box m="20px">
       <Box display="flex" justifyContent="space-between" alignItems="center" mb="20px">
-        <Typography variant="h2" color={theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[900]} fontWeight="bold">
+        <Typography variant="h2" color={colors.grey[900]} fontWeight="bold">
           Users Management
         </Typography>
         <Button
@@ -262,7 +267,7 @@ const Users = () => {
           backgroundColor={colors.redAccent[700]}
           borderRadius="4px"
         >
-          <Typography color={theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[900]}>{error}</Typography>
+          <Typography color={colors.grey[900]}>{error}</Typography>
         </Box>
       )}
       {!loading && filteredUsers.length === 0 && users.length === 0 && !error && (
@@ -272,7 +277,7 @@ const Users = () => {
           backgroundColor={colors.blueAccent[700]}
           borderRadius="4px"
         >
-          <Typography color={theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[900]}>No users found. Data may still be loading or there are no users in the database.</Typography>
+          <Typography color={colors.grey[900]}>No users found. Data may still be loading or there are no users in the database.</Typography>
         </Box>
       )}
       {!loading && searchTerm && filteredUsers.length === 0 && users.length > 0 && (
@@ -282,7 +287,7 @@ const Users = () => {
           backgroundColor={colors.blueAccent[700]}
           borderRadius="4px"
         >
-          <Typography color={theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[900]}>No users match your search "{searchTerm}". Try a different search term.</Typography>
+          <Typography color={colors.grey[900]}>No users match your search "{searchTerm}". Try a different search term.</Typography>
         </Box>
       )}
       <Box mb="20px">
@@ -316,13 +321,13 @@ const Users = () => {
                 },
               },
               '& .MuiInputBase-input': {
-                color: colors.grey[100],
+                color: colors.grey[900],
               },
             }}
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
-                  <SearchIcon sx={{ color: colors.grey[400] }} />
+                  <SearchIcon sx={{ color: colors.grey[600] }} />
                 </InputAdornment>
               ),
             }}
@@ -335,10 +340,11 @@ const Users = () => {
                 setSearchTerm('');
               }}
               sx={{
-                color: colors.grey[100],
-                borderColor: colors.grey[700],
+                color: colors.grey[700],
+                borderColor: colors.grey[300],
                 '&:hover': {
-                  borderColor: colors.grey[500],
+                  borderColor: colors.grey[400],
+                  backgroundColor: 'rgba(0, 0, 0, 0.04)',
                 },
               }}
             >
@@ -354,7 +360,7 @@ const Users = () => {
           borderRadius="4px"
           border={`1px solid ${colors.grey[700]}`}
         >
-          <Typography variant="body2" color={theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[900]}>
+          <Typography variant="body2" color={colors.grey[900]}>
             <strong>Debug Info:</strong> Search: "{searchTerm}" | Total Users: {users.length} | Filtered: {filteredUsers.length} | Loading: {loading ? 'Yes' : 'No'}
           </Typography>
         </Box>
@@ -376,32 +382,33 @@ const Users = () => {
           '& .MuiDataGrid-cell': {
             borderBottom: 'none',
             cursor: 'pointer',
-            color: theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[900],
+            color: colors.grey[900],
           },
           '& .MuiDataGrid-row': {
             cursor: 'pointer',
             '&:hover': {
-              backgroundColor: colors.primary[300],
+              backgroundColor: colors.grey[200],
             },
           },
           '& .name-column--cell': {
-            color: colors.greenAccent[300],
+            color: colors.greenAccent[700],
+            fontWeight: 500,
           },
           '& .MuiDataGrid-columnHeaders': {
-            backgroundColor: theme.palette.mode === 'dark' ? colors.blueAccent[700] : colors.blueAccent[500],
+            backgroundColor: colors.blueAccent[500],
             borderBottom: 'none',
-            color: theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[100],
+            color: colors.grey[100],
           },
           '& .MuiDataGrid-virtualScroller': {
-            backgroundColor: theme.palette.mode === 'dark' ? colors.primary[400] : colors.grey[100],
+            backgroundColor: colors.grey[100],
           },
           '& .MuiDataGrid-footerContainer': {
             borderTop: 'none',
-            backgroundColor: theme.palette.mode === 'dark' ? colors.blueAccent[700] : colors.blueAccent[500],
-            color: theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[100],
+            backgroundColor: colors.blueAccent[500],
+            color: colors.grey[100],
           },
           '& .MuiCheckbox-root': {
-            color: `${colors.greenAccent[200]} !important`,
+            color: `${colors.greenAccent[600]} !important`,
           },
           '& .MuiDataGrid-cell:focus': {
             outline: 'none',
@@ -438,11 +445,11 @@ const Users = () => {
             flexDirection="column"
             gap="20px"
           >
-            <Typography variant="h5" color={theme.palette.mode === 'dark' ? colors.grey[300] : colors.grey[700]}>
+            <Typography variant="h5" color={colors.grey[700]}>
               {searchTerm ? `No users found matching "${searchTerm}"` : 'No users available'}
             </Typography>
             {searchTerm && users.length > 0 && (
-              <Typography variant="body2" color={theme.palette.mode === 'dark' ? colors.grey[400] : colors.grey[600]}>
+              <Typography variant="body2" color={colors.grey[600]}>
                 Try searching by email, role, or instrument instead
               </Typography>
             )}

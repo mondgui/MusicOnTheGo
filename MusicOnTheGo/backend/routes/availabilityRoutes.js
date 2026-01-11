@@ -111,12 +111,24 @@ router.get("/teacher/:teacherId", async (req, res) => {
     });
     
     // Filter availability: keep date-based items that are today or future, and all recurring weekly items
-    // Use UTC to ensure consistent date comparisons regardless of server timezone
+    // Use the 'day' field (YYYY-MM-DD) when available, as it represents the user's selected date
     const today = new Date();
     const todayUTC = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
+    const todayStr = todayUTC.toISOString().split('T')[0]; // YYYY-MM-DD format in UTC
+    
+    // Calculate yesterday in UTC to account for timezone differences
+    // (e.g., if it's late evening in US, it might already be tomorrow in UTC)
+    const yesterdayUTC = new Date(todayUTC);
+    yesterdayUTC.setUTCDate(yesterdayUTC.getUTCDate() - 1);
+    const yesterdayStr = yesterdayUTC.toISOString().split('T')[0];
     
     let availability = allAvailability.filter((item) => {
-      // If item has a date field, it's date-based availability - filter out past dates
+      // If day is in YYYY-MM-DD format, use it for comparison (this is the date the user selected)
+      // Allow items from yesterday UTC onwards to account for timezone differences
+      if (item.day && /^\d{4}-\d{2}-\d{2}$/.test(item.day)) {
+        return item.day >= yesterdayStr; // Keep if yesterday, today, or future
+      }
+      // If it has a specific date field (fallback), check if it's in the past
       if (item.date) {
         const itemDate = new Date(item.date);
         // Validate that the date is valid before using it
@@ -124,6 +136,7 @@ router.get("/teacher/:teacherId", async (req, res) => {
           return false; // Invalid date, filter it out
         }
         // Compare dates in UTC to avoid timezone issues
+        const todayUTC = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
         const itemDateUTC = new Date(Date.UTC(itemDate.getUTCFullYear(), itemDate.getUTCMonth(), itemDate.getUTCDate()));
         return itemDateUTC >= todayUTC; // Keep if today or future
       }
@@ -245,12 +258,24 @@ router.get(
       });
       
       // Filter out past dates (keep recurring weekly availability and future dates)
-      // Use UTC to ensure consistent date comparisons regardless of server timezone
+      // Use the 'day' field (YYYY-MM-DD) when available, as it represents the user's selected date
       const today = new Date();
       const todayUTC = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
+      const todayStr = todayUTC.toISOString().split('T')[0]; // YYYY-MM-DD format in UTC
+      
+      // Calculate yesterday in UTC to account for timezone differences
+      // (e.g., if it's late evening in US, it might already be tomorrow in UTC)
+      const yesterdayUTC = new Date(todayUTC);
+      yesterdayUTC.setUTCDate(yesterdayUTC.getUTCDate() - 1);
+      const yesterdayStr = yesterdayUTC.toISOString().split('T')[0];
       
       const availability = allAvailability.filter((item) => {
-        // If it has a specific date, check if it's in the past
+        // If day is in YYYY-MM-DD format, use it for comparison (this is the date the user selected)
+        // Allow items from yesterday UTC onwards to account for timezone differences
+        if (item.day && /^\d{4}-\d{2}-\d{2}$/.test(item.day)) {
+          return item.day >= yesterdayStr; // Keep if yesterday, today, or future
+        }
+        // If it has a specific date field (fallback), check if it's in the past
         if (item.date) {
           const itemDate = new Date(item.date);
           // Validate that the date is valid before using it
@@ -258,6 +283,7 @@ router.get(
             return false; // Invalid date, filter it out
           }
           // Compare dates in UTC to avoid timezone issues
+          const todayUTC = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
           const itemDateUTC = new Date(Date.UTC(itemDate.getUTCFullYear(), itemDate.getUTCMonth(), itemDate.getUTCDate()));
           return itemDateUTC >= todayUTC; // Keep if today or future
         }

@@ -31,7 +31,7 @@ router.get("/", async (req, res) => {
 
     // Fetch teachers with pagination
     const teachers = await User.find(filter)
-      .select("name instruments experience location email createdAt rate about specialties profileImage")
+      .select("name instruments experience location email createdAt rate about specialties profileImage averageRating reviewCount")
       .skip(skip)
       .limit(limitNum)
       .sort({ createdAt: -1 }); // Most recent first
@@ -64,7 +64,7 @@ router.get("/:id", async (req, res) => {
       _id: req.params.id,
       role: "teacher",
     }).select(
-      "name instruments experience location email createdAt rate about specialties profileImage"
+      "name instruments experience location email createdAt rate about specialties profileImage averageRating reviewCount"
     );
 
     if (!teacher) {

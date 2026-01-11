@@ -26,7 +26,7 @@ import DashboardIcon from '@mui/icons-material/Dashboard';
 
 const Settings = () => {
   const theme = useTheme();
-  const colors = tokens(theme.palette.mode);
+  const colors = tokens;
   const { showToast } = useToast();
   const [user, setUser] = useState(null);
   const [settings, setSettings] = useState({
@@ -72,18 +72,18 @@ const Settings = () => {
 
   return (
     <Box m="20px">
-      <Typography variant="h2" color={theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[900]} fontWeight="bold" mb="20px">
+      <Typography variant="h2" color={colors.grey[900]} fontWeight="bold" mb="20px">
         Settings
       </Typography>
 
       <Grid container spacing={3}>
         {/* Profile Settings */}
         <Grid item xs={12} md={6}>
-          <Card sx={{ backgroundColor: theme.palette.mode === 'dark' ? colors.primary[400] : colors.grey[200] }}>
+          <Card sx={{ backgroundColor: colors.grey[200] }}>
             <CardContent>
               <Box display="flex" alignItems="center" mb={2}>
                 <PersonIcon sx={{ mr: 1, color: colors.greenAccent[500] }} />
-                <Typography variant="h5" fontWeight="600" color={theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[900]}>
+                <Typography variant="h5" fontWeight="600" color={colors.grey[900]}>
                   Profile
                 </Typography>
               </Box>
@@ -118,11 +118,11 @@ const Settings = () => {
 
         {/* Notification Settings */}
         <Grid item xs={12} md={6}>
-          <Card sx={{ backgroundColor: theme.palette.mode === 'dark' ? colors.primary[400] : colors.grey[200] }}>
+          <Card sx={{ backgroundColor: colors.grey[200] }}>
             <CardContent>
               <Box display="flex" alignItems="center" mb={2}>
                 <NotificationsIcon sx={{ mr: 1, color: colors.blueAccent[500] }} />
-                <Typography variant="h5" fontWeight="600" color={theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[900]}>
+                <Typography variant="h5" fontWeight="600" color={colors.grey[900]}>
                   Notifications
                 </Typography>
               </Box>
@@ -137,11 +137,11 @@ const Settings = () => {
                 }
                 label="Email Notifications"
                 sx={{
-                  color: theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[900],
+                  color: colors.grey[900],
                 }}
               />
               
-              <Typography variant="body2" color={theme.palette.mode === 'dark' ? colors.grey[300] : colors.grey[700]} sx={{ mt: 1, mb: 2 }}>
+              <Typography variant="body2" color={colors.grey[700]} sx={{ mt: 1, mb: 2 }}>
                 Receive email alerts for important events (new users, system issues, etc.)
               </Typography>
             </CardContent>
@@ -150,11 +150,11 @@ const Settings = () => {
 
         {/* Dashboard Settings */}
         <Grid item xs={12} md={6}>
-          <Card sx={{ backgroundColor: theme.palette.mode === 'dark' ? colors.primary[400] : colors.grey[200] }}>
+          <Card sx={{ backgroundColor: colors.grey[200] }}>
             <CardContent>
               <Box display="flex" alignItems="center" mb={2}>
                 <DashboardIcon sx={{ mr: 1, color: colors.greenAccent[500] }} />
-                <Typography variant="h5" fontWeight="600" color={theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[900]}>
+                <Typography variant="h5" fontWeight="600" color={colors.grey[900]}>
                   Dashboard Preferences
                 </Typography>
               </Box>
@@ -183,7 +183,7 @@ const Settings = () => {
                 helperText="How often the dashboard should refresh data automatically"
                 sx={{
                   '& .MuiInputBase-input': {
-                    color: theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[900],
+                    color: colors.grey[900],
                   },
                 }}
               />
@@ -193,9 +193,9 @@ const Settings = () => {
 
         {/* System Info */}
         <Grid item xs={12} md={6}>
-          <Card sx={{ backgroundColor: theme.palette.mode === 'dark' ? colors.primary[400] : colors.grey[200] }}>
+          <Card sx={{ backgroundColor: colors.grey[200] }}>
             <CardContent>
-              <Typography variant="h5" fontWeight="600" color={theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[900]} mb={2}>
+              <Typography variant="h5" fontWeight="600" color={colors.grey[900]} mb={2}>
                 System Information
               </Typography>
               
@@ -208,7 +208,7 @@ const Settings = () => {
                 </Typography>
               </Alert>
               
-              <Typography variant="body2" color={theme.palette.mode === 'dark' ? colors.grey[300] : colors.grey[700]}>
+              <Typography variant="body2" color={colors.grey[700]}>
                 This admin panel is designed to help you monitor user growth and improve user experience. 
                 All data is read-only for analytics purposes, except for bulk messaging which allows you 
                 to help users who need support.

@@ -18,9 +18,9 @@ import practiceRoutes from "./routes/practiceRoutes.js";
 import messageRoutes from "./routes/messageRoutes.js";
 import uploadRoutes from "./routes/uploadRoutes.js";
 import resourceRoutes from "./routes/resourceRoutes.js";
-import challengeRoutes from "./routes/challengeRoutes.js";
 import communityRoutes from "./routes/communityRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
+import reviewRoutes from "./routes/reviewRoutes.js";
 import Message from "./models/Message.js";
 
 const app = express();
@@ -42,9 +42,12 @@ app.use("/api/practice", practiceRoutes);
 app.use("/api/messages", messageRoutes);
 app.use("/api/uploads", uploadRoutes);
 app.use("/api/resources", resourceRoutes);
-app.use("/api/challenges", challengeRoutes);
 app.use("/api/community", communityRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/reviews", reviewRoutes);
+
+// Debug: Log all registered routes
+console.log("✅ Review routes registered at /api/reviews");
 
 
 
@@ -247,9 +250,25 @@ io.on("connection", (socket) => {
 // Export io instance for use in routes
 export { io };
 
+// 404 handler for undefined routes
+app.use((req, res) => {
+  console.log(`❌ 404 - Route not found: ${req.method} ${req.path}`);
+  res.status(404).json({ 
+    message: `Route not found: ${req.method} ${req.path}`,
+    availableRoutes: [
+      "POST /api/reviews",
+      "GET /api/reviews/teacher/:teacherId",
+      "GET /api/reviews/teacher/:teacherId/me",
+      "PUT /api/reviews/:id",
+      "DELETE /api/reviews/:id"
+    ]
+  });
+});
+
 // Start the server
 const PORT = process.env.PORT || 5050;
 httpServer.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
   console.log(`🔌 Socket.io ready for connections`);
+  console.log(`📝 Review routes available at /api/reviews`);
 });

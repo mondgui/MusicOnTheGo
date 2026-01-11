@@ -6,7 +6,7 @@ import { api } from '../../lib/api';
 
 const Resources = () => {
   const theme = useTheme();
-  const colors = tokens(theme.palette.mode);
+  const colors = tokens;
   const [resources, setResources] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -85,7 +85,7 @@ const Resources = () => {
   return (
     <Box m="20px">
       <Box display="flex" justifyContent="space-between" alignItems="center">
-        <Typography variant="h2" color={theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[900]} fontWeight="bold">
+        <Typography variant="h2" color={colors.grey[900]} fontWeight="bold">
           Resources Management
         </Typography>
       </Box>
@@ -98,23 +98,23 @@ const Resources = () => {
           },
           '& .MuiDataGrid-cell': {
             borderBottom: 'none',
-            color: theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[900],
+            color: colors.grey[900],
           },
           '& .name-column--cell': {
             color: colors.greenAccent[300],
           },
           '& .MuiDataGrid-columnHeaders': {
-            backgroundColor: theme.palette.mode === 'dark' ? colors.blueAccent[700] : colors.blueAccent[500],
+            backgroundColor: colors.blueAccent[500],
             borderBottom: 'none',
-            color: theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[100],
+            color: colors.grey[100],
           },
           '& .MuiDataGrid-virtualScroller': {
-            backgroundColor: theme.palette.mode === 'dark' ? colors.primary[400] : colors.grey[100],
+            backgroundColor: colors.grey[100],
           },
           '& .MuiDataGrid-footerContainer': {
             borderTop: 'none',
-            backgroundColor: theme.palette.mode === 'dark' ? colors.blueAccent[700] : colors.blueAccent[500],
-            color: theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[100],
+            backgroundColor: colors.blueAccent[500],
+            color: colors.grey[100],
           },
         }}
       >

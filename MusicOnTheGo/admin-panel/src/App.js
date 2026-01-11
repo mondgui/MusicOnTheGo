@@ -1,5 +1,4 @@
-import { useState } from 'react';
-import { ColorModeContext, useMode } from './theme';
+import { useTheme } from './theme';
 import { CssBaseline, ThemeProvider } from '@mui/material';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import Topbar from './scenes/global/Topbar';
@@ -30,45 +29,43 @@ const ProtectedRoute = ({ children }) => {
 };
 
 function App() {
-  const [theme, colorMode] = useMode();
+  const theme = useTheme();
 
   return (
-    <ColorModeContext.Provider value={colorMode}>
-      <ThemeProvider theme={theme}>
-        <CssBaseline />
-        <ToastProvider>
-          <div className="app">
-            <Routes>
-              <Route path="/login" element={<Login />} />
-              <Route
-                path="/*"
-                element={
-                  <ProtectedRoute>
-                    <ProSidebarProvider>
-                      <AdminSidebar />
-                      <main className="content">
-                        <Topbar />
-                        <Routes>
-                          <Route path="/" element={<Dashboard />} />
-                          <Route path="/users" element={<Users />} />
-                          <Route path="/bulk-messaging" element={<BulkMessaging />} />
-                          <Route path="/bookings" element={<Bookings />} />
-                          <Route path="/messages" element={<Messages />} />
-                          <Route path="/practice" element={<Practice />} />
-                          <Route path="/resources" element={<Resources />} />
-                          <Route path="/community" element={<Community />} />
-                          <Route path="/settings" element={<Settings />} />
-                        </Routes>
-                      </main>
-                    </ProSidebarProvider>
-                  </ProtectedRoute>
-                }
-              />
-            </Routes>
-          </div>
-        </ToastProvider>
-      </ThemeProvider>
-    </ColorModeContext.Provider>
+    <ThemeProvider theme={theme}>
+      <CssBaseline />
+      <ToastProvider>
+        <div className="app">
+          <Routes>
+            <Route path="/login" element={<Login />} />
+            <Route
+              path="/*"
+              element={
+                <ProtectedRoute>
+                  <ProSidebarProvider>
+                    <AdminSidebar />
+                    <main className="content">
+                      <Topbar />
+                      <Routes>
+                        <Route path="/" element={<Dashboard />} />
+                        <Route path="/users" element={<Users />} />
+                        <Route path="/bulk-messaging" element={<BulkMessaging />} />
+                        <Route path="/bookings" element={<Bookings />} />
+                        <Route path="/messages" element={<Messages />} />
+                        <Route path="/practice" element={<Practice />} />
+                        <Route path="/resources" element={<Resources />} />
+                        <Route path="/community" element={<Community />} />
+                        <Route path="/settings" element={<Settings />} />
+                      </Routes>
+                    </main>
+                  </ProSidebarProvider>
+                </ProtectedRoute>
+              }
+            />
+          </Routes>
+        </div>
+      </ToastProvider>
+    </ThemeProvider>
   );
 }
 

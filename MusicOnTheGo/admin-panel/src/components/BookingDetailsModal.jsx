@@ -9,7 +9,7 @@ import Modal from './Modal';
 
 const BookingDetailsModal = ({ open, onClose, booking }) => {
   const theme = useTheme();
-  const colors = tokens(theme.palette.mode);
+  const colors = tokens;
 
   if (!booking) return null;
 

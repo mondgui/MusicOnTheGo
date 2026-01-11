@@ -63,7 +63,7 @@ export default function HelpCenterScreen() {
       id: 7,
       question: "How do I track my practice and progress?",
       answer:
-        "Students can use the Practice Log feature to record daily practice sessions. Teachers can add lesson notes and feedback after each lesson. You'll earn skill badges as you progress! Track your stats on your dashboard, including total practice time, streaks, and completed challenges.",
+        "Students can use the Practice Log feature to record daily practice sessions. Teachers can add lesson notes and feedback after each lesson. You'll earn skill badges as you progress! Track your stats on your dashboard, including total practice time and streaks.",
     },
     {
       id: 8,

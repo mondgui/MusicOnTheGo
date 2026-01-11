@@ -137,7 +137,7 @@ export default function TimesTab({ availability: initialAvailability }: Props) {
             }
             
             // Parse the date for grouping
-            let parsedDate: Date | null = null;
+            let parsedDate: Date | undefined = undefined;
             if (item.day && /^\d{4}-\d{2}-\d{2}$/.test(item.day)) {
               // Parse as local date to avoid timezone issues
               const [year, month, day] = item.day.split('-').map(Number);
@@ -210,16 +210,25 @@ export default function TimesTab({ availability: initialAvailability }: Props) {
         end: formatTime12To24(selectedToTime),
       };
       
-      // Format date as YYYY-MM-DD
-      const dateStr = selectedDate.toISOString().split('T')[0];
+      // Format date as YYYY-MM-DD in LOCAL timezone (not UTC)
+      // This ensures the date doesn't shift when converted to UTC
+      const year = selectedDate.getFullYear();
+      const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
+      const day = String(selectedDate.getDate()).padStart(2, '0');
+      const dateStr = `${year}-${month}-${day}`;
+      
+      // Create ISO date string at midnight UTC for the selected local date
+      // We parse the YYYY-MM-DD string as UTC to avoid timezone shifts
+      // This ensures the backend stores the correct date regardless of timezone
+      const isoDate = new Date(`${dateStr}T00:00:00.000Z`).toISOString();
       
       // Create new availability entry
       await api("/api/availability", {
         method: "POST",
         auth: true,
         body: JSON.stringify({
-          day: dateStr, // Send date as YYYY-MM-DD string
-          date: selectedDate.toISOString(), // Also send as ISO date
+          day: dateStr, // Send date as YYYY-MM-DD string (local date)
+          date: isoDate, // Send as ISO date (midnight UTC for the selected date)
           timeSlots: [timeSlotObj],
         }),
       });

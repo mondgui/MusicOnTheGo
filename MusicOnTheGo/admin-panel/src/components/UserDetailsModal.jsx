@@ -1,4 +1,4 @@
-import { Box, Typography, Divider, Chip, useTheme } from '@mui/material';
+import { Box, Typography, Divider, Chip } from '@mui/material';
 import EmailIcon from '@mui/icons-material/Email';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import SchoolIcon from '@mui/icons-material/School';
@@ -8,32 +8,38 @@ import { tokens } from '../theme';
 import Modal from './Modal';
 
 const UserDetailsModal = ({ open, onClose, user }) => {
-  const theme = useTheme();
-  const colors = tokens(theme.palette.mode);
+  const colors = tokens;
 
   if (!user) return null;
 
-  const InfoRow = ({ icon, label, value, color = colors.grey[100] }) => (
-    <Box display="flex" alignItems="center" gap="15px" mb="15px">
-      <Box
-        sx={{
-          color: colors.greenAccent[500],
-          display: 'flex',
-          alignItems: 'center',
-        }}
-      >
-        {icon}
+  const InfoRow = ({ icon, label, value, color }) => {
+    // Use appropriate colors based on theme mode
+    const labelColor = colors.grey[600];
+    const valueColor = color || (colors.grey[900]);
+    const iconColor = colors.greenAccent[700];
+    
+    return (
+      <Box display="flex" alignItems="center" gap="15px" mb="15px">
+        <Box
+          sx={{
+            color: iconColor,
+            display: 'flex',
+            alignItems: 'center',
+          }}
+        >
+          {icon}
+        </Box>
+        <Box flex={1}>
+          <Typography variant="body2" color={labelColor} sx={{ mb: '5px' }}>
+            {label}
+          </Typography>
+          <Typography variant="body1" color={valueColor} fontWeight="500">
+            {value || 'N/A'}
+          </Typography>
+        </Box>
       </Box>
-      <Box flex={1}>
-        <Typography variant="body2" color={colors.grey[400]} sx={{ mb: '5px' }}>
-          {label}
-        </Typography>
-        <Typography variant="body1" color={color} fontWeight="500">
-          {value || 'N/A'}
-        </Typography>
-      </Box>
-    </Box>
-  );
+    );
+  };
 
   return (
     <Modal
@@ -44,13 +50,20 @@ const UserDetailsModal = ({ open, onClose, user }) => {
     >
       <Box>
         {/* Profile Header */}
-        <Box display="flex" alignItems="center" gap="20px" mb="30px" pb="20px" borderBottom={`1px solid ${colors.grey[700]}`}>
+        <Box 
+          display="flex" 
+          alignItems="center" 
+          gap="20px" 
+          mb="30px" 
+          pb="20px" 
+          borderBottom={`1px solid ${colors.grey[300]}`}
+        >
           <Box
             sx={{
               width: '80px',
               height: '80px',
               borderRadius: '50%',
-              backgroundColor: colors.primary[300],
+              backgroundColor: colors.primary[200],
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -73,7 +86,12 @@ const UserDetailsModal = ({ open, onClose, user }) => {
             )}
           </Box>
           <Box>
-            <Typography variant="h4" color={colors.grey[100]} fontWeight="bold" mb="5px">
+            <Typography 
+              variant="h4" 
+              color={colors.grey[900]} 
+              fontWeight="bold" 
+              mb="5px"
+            >
               {user.name || 'Unknown User'}
             </Typography>
             <Chip
@@ -85,7 +103,7 @@ const UserDetailsModal = ({ open, onClose, user }) => {
                     : user.role === 'student'
                     ? colors.blueAccent[600]
                     : colors.grey[700],
-                color: colors.grey[100],
+                color: '#ffffff',
                 fontWeight: 'bold',
               }}
             />
@@ -93,7 +111,12 @@ const UserDetailsModal = ({ open, onClose, user }) => {
         </Box>
 
         {/* Basic Information */}
-        <Typography variant="h6" color={colors.grey[100]} mb="15px" fontWeight="bold">
+        <Typography 
+          variant="h6" 
+          color={colors.grey[900]} 
+          mb="15px" 
+          fontWeight="bold"
+        >
           Basic Information
         </Typography>
         <InfoRow icon={<EmailIcon />} label="Email" value={user.email} />
@@ -106,8 +129,13 @@ const UserDetailsModal = ({ open, onClose, user }) => {
         {/* Role-Specific Information */}
         {user.role === 'teacher' && (
           <>
-            <Divider sx={{ my: '20px', borderColor: colors.grey[700] }} />
-            <Typography variant="h6" color={colors.grey[100]} mb="15px" fontWeight="bold">
+            <Divider sx={{ my: '20px', borderColor: colors.grey[300] }} />
+            <Typography 
+              variant="h6" 
+              color={colors.grey[900]} 
+              mb="15px" 
+              fontWeight="bold"
+            >
               Teacher Information
             </Typography>
             <InfoRow
@@ -123,12 +151,16 @@ const UserDetailsModal = ({ open, onClose, user }) => {
                 icon={<SchoolIcon />}
                 label="Rate"
                 value={`$${user.rate}/hour`}
-                color={colors.greenAccent[500]}
+                color={colors.greenAccent[700]}
               />
             )}
             {user.specialties && user.specialties.length > 0 && (
               <Box mb="15px">
-                <Typography variant="body2" color={colors.grey[400]} sx={{ mb: '10px' }}>
+                <Typography 
+                  variant="body2" 
+                  color={colors.grey[600]} 
+                  sx={{ mb: '10px' }}
+                >
                   Specialties
                 </Typography>
                 <Box display="flex" flexWrap="wrap" gap="10px">
@@ -139,7 +171,7 @@ const UserDetailsModal = ({ open, onClose, user }) => {
                       size="small"
                       sx={{
                         backgroundColor: colors.blueAccent[600],
-                        color: colors.grey[100],
+                        color: '#ffffff',
                       }}
                     />
                   ))}
@@ -151,8 +183,13 @@ const UserDetailsModal = ({ open, onClose, user }) => {
 
         {user.role === 'student' && (
           <>
-            <Divider sx={{ my: '20px', borderColor: colors.grey[700] }} />
-            <Typography variant="h6" color={colors.grey[100]} mb="15px" fontWeight="bold">
+            <Divider sx={{ my: '20px', borderColor: colors.grey[300] }} />
+            <Typography 
+              variant="h6" 
+              color={colors.grey[900]} 
+              mb="15px" 
+              fontWeight="bold"
+            >
               Student Information
             </Typography>
             <InfoRow
@@ -176,7 +213,7 @@ const UserDetailsModal = ({ open, onClose, user }) => {
         {/* Location */}
         {user.location && (
           <>
-            <Divider sx={{ my: '20px', borderColor: colors.grey[700] }} />
+            <Divider sx={{ my: '20px', borderColor: colors.grey[300] }} />
             <InfoRow icon={<LocationOnIcon />} label="Location" value={user.location} />
           </>
         )}
@@ -184,11 +221,20 @@ const UserDetailsModal = ({ open, onClose, user }) => {
         {/* About */}
         {user.about && (
           <>
-            <Divider sx={{ my: '20px', borderColor: colors.grey[700] }} />
-            <Typography variant="h6" color={colors.grey[100]} mb="15px" fontWeight="bold">
+            <Divider sx={{ my: '20px', borderColor: colors.grey[300] }} />
+            <Typography 
+              variant="h6" 
+              color={colors.grey[900]} 
+              mb="15px" 
+              fontWeight="bold"
+            >
               About
             </Typography>
-            <Typography variant="body1" color={colors.grey[200]} sx={{ lineHeight: 1.6 }}>
+            <Typography 
+              variant="body1" 
+              color={colors.grey[700]} 
+              sx={{ lineHeight: 1.6 }}
+            >
               {user.about}
             </Typography>
           </>

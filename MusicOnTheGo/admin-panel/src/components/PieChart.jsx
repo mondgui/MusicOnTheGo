@@ -1,10 +1,8 @@
 import { ResponsivePie } from '@nivo/pie';
-import { useTheme } from '@mui/material';
 import { tokens } from '../theme';
 
 const PieChart = ({ data }) => {
-  const theme = useTheme();
-  const colors = tokens(theme.palette.mode);
+  const colors = tokens;
 
   return (
     <ResponsivePie
@@ -13,27 +11,27 @@ const PieChart = ({ data }) => {
         axis: {
           domain: {
             line: {
-              stroke: theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[800],
+              stroke: colors.grey[800],
             },
           },
           legend: {
             text: {
-              fill: theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[900],
+              fill: colors.grey[900],
             },
           },
           ticks: {
             line: {
-              stroke: theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[800],
+              stroke: colors.grey[800],
               strokeWidth: 1,
             },
             text: {
-              fill: theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[900],
+              fill: colors.grey[900],
             },
           },
         },
         legends: {
           text: {
-            fill: theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[900],
+            fill: colors.grey[900],
           },
         },
       }}
@@ -47,7 +45,7 @@ const PieChart = ({ data }) => {
         modifiers: [['darker', 0.2]],
       }}
       arcLinkLabelsSkipAngle={10}
-      arcLinkLabelsTextColor={theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[900]}
+      arcLinkLabelsTextColor={colors.grey[900]}
       arcLinkLabelsThickness={2}
       arcLinkLabelsColor={{ from: 'color' }}
       enableArcLabels={true}
@@ -92,7 +90,7 @@ const PieChart = ({ data }) => {
           itemsSpacing: 20,
           itemWidth: 140,
           itemHeight: 18,
-          itemTextColor: theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[900],
+          itemTextColor: colors.grey[900],
           itemDirection: 'left-to-right',
           itemOpacity: 1,
           symbolSize: 18,

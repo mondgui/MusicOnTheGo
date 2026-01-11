@@ -17,7 +17,7 @@ import { api } from '../lib/api';
 
 const NotificationsMenu = () => {
   const theme = useTheme();
-  const colors = tokens(theme.palette.mode);
+  const colors = tokens;
   const [anchorEl, setAnchorEl] = useState(null);
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -133,7 +133,7 @@ const NotificationsMenu = () => {
           sx: {
             width: 350,
             maxHeight: 500,
-            backgroundColor: theme.palette.mode === 'dark' ? colors.primary[400] : colors.grey[100],
+            backgroundColor: colors.grey[100],
             mt: 1,
           },
         }}
@@ -147,20 +147,20 @@ const NotificationsMenu = () => {
         }}
       >
         <Box p={2}>
-          <Typography variant="h6" fontWeight="bold" color={theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[900]}>
+          <Typography variant="h6" fontWeight="bold" color={colors.grey[900]}>
             Notifications
           </Typography>
         </Box>
         <Divider />
         {loading ? (
           <Box p={2}>
-            <Typography variant="body2" color={theme.palette.mode === 'dark' ? colors.grey[300] : colors.grey[700]}>
+            <Typography variant="body2" color={colors.grey[700]}>
               Loading...
             </Typography>
           </Box>
         ) : notifications.length === 0 ? (
           <Box p={2}>
-            <Typography variant="body2" color={theme.palette.mode === 'dark' ? colors.grey[300] : colors.grey[700]}>
+            <Typography variant="body2" color={colors.grey[700]}>
               No new notifications
             </Typography>
           </Box>
@@ -173,7 +173,7 @@ const NotificationsMenu = () => {
                 py: 1.5,
                 px: 2,
                 '&:hover': {
-                  backgroundColor: theme.palette.mode === 'dark' ? colors.primary[500] : colors.grey[200],
+                  backgroundColor: colors.grey[200],
                 },
               }}
             >
@@ -190,13 +190,13 @@ const NotificationsMenu = () => {
                   <Typography
                     variant="body2"
                     fontWeight="bold"
-                    color={theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[900]}
+                    color={colors.grey[900]}
                   >
                     {notification.title}
                   </Typography>
                   <Typography
                     variant="body2"
-                    color={theme.palette.mode === 'dark' ? colors.grey[300] : colors.grey[700]}
+                    color={colors.grey[700]}
                     sx={{ mt: 0.5 }}
                   >
                     {notification.message}

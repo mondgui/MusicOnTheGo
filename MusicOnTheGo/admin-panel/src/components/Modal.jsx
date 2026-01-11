@@ -1,10 +1,9 @@
-import { Dialog, DialogTitle, DialogContent, DialogActions, IconButton, Typography, useTheme } from '@mui/material';
+import { Dialog, DialogTitle, DialogContent, DialogActions, IconButton, Typography } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import { tokens } from '../theme';
 
 const Modal = ({ open, onClose, title, children, maxWidth = 'md', actions }) => {
-  const theme = useTheme();
-  const colors = tokens(theme.palette.mode);
+  const colors = tokens;
 
   return (
     <Dialog
@@ -14,19 +13,20 @@ const Modal = ({ open, onClose, title, children, maxWidth = 'md', actions }) => 
       fullWidth
       PaperProps={{
         sx: {
-          backgroundColor: colors.primary[400],
-          color: colors.grey[100],
+          backgroundColor: '#ffffff',
+          color: colors.grey[900],
+          boxShadow: '0px 8px 24px rgba(0, 0, 0, 0.12)',
         },
       }}
     >
       <DialogTitle
         sx={{
-          backgroundColor: colors.primary[500],
-          color: colors.grey[100],
+          backgroundColor: colors.grey[100],
+          color: colors.grey[900],
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          borderBottom: `1px solid ${colors.grey[700]}`,
+          borderBottom: `1px solid ${colors.grey[300]}`,
         }}
       >
         <Typography variant="h5" fontWeight="bold">
@@ -35,9 +35,9 @@ const Modal = ({ open, onClose, title, children, maxWidth = 'md', actions }) => 
         <IconButton
           onClick={onClose}
           sx={{
-            color: colors.grey[100],
+            color: colors.grey[700],
             '&:hover': {
-              backgroundColor: colors.primary[600],
+              backgroundColor: colors.grey[200],
             },
           }}
         >
@@ -50,8 +50,8 @@ const Modal = ({ open, onClose, title, children, maxWidth = 'md', actions }) => 
       {actions && (
         <DialogActions
           sx={{
-            backgroundColor: colors.primary[500],
-            borderTop: `1px solid ${colors.grey[700]}`,
+            backgroundColor: colors.grey[100],
+            borderTop: `1px solid ${colors.grey[300]}`,
             padding: '10px 20px',
           }}
         >

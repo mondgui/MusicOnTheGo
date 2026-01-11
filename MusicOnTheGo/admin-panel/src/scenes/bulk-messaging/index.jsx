@@ -29,7 +29,7 @@ import MessageIcon from '@mui/icons-material/Message';
 
 const BulkMessaging = () => {
   const theme = useTheme();
-  const colors = tokens(theme.palette.mode);
+  const colors = tokens;
   const { showToast } = useToast();
 
   const [filters, setFilters] = useState({
@@ -169,18 +169,18 @@ const BulkMessaging = () => {
 
   return (
     <Box m="20px">
-      <Typography variant="h2" color={theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[900]} fontWeight="bold" mb="20px">
+      <Typography variant="h2" color={colors.grey[900]} fontWeight="bold" mb="20px">
         Bulk Messaging
       </Typography>
 
       <Grid container spacing={3}>
         {/* Filters Section */}
         <Grid item xs={12} md={4}>
-          <Card sx={{ backgroundColor: theme.palette.mode === 'dark' ? colors.primary[400] : colors.grey[200] }}>
+          <Card sx={{ backgroundColor: colors.grey[200] }}>
             <CardContent>
               <Box display="flex" alignItems="center" mb={2}>
                 <FilterListIcon sx={{ mr: 1, color: colors.greenAccent[500] }} />
-                <Typography variant="h5" fontWeight="600" color={theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[900]}>
+                <Typography variant="h5" fontWeight="600" color={colors.grey[900]}>
                   User Segmentation
                 </Typography>
               </Box>
@@ -194,7 +194,7 @@ const BulkMessaging = () => {
                     label="Role"
                     onChange={(e) => setFilters({ ...filters, role: e.target.value })}
                     sx={{
-                      color: theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[900],
+                      color: colors.grey[900],
                     }}
                   >
                     <MenuItem value="all">All Roles</MenuItem>
@@ -211,7 +211,7 @@ const BulkMessaging = () => {
                     label="Instrument"
                     onChange={(e) => setFilters({ ...filters, instrument: e.target.value })}
                     sx={{
-                      color: theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[900],
+                      color: colors.grey[900],
                     }}
                   >
                     <MenuItem value="all">All Instruments</MenuItem>
@@ -231,7 +231,7 @@ const BulkMessaging = () => {
                     label="Activity Level"
                     onChange={(e) => setFilters({ ...filters, activityLevel: e.target.value })}
                     sx={{
-                      color: theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[900],
+                      color: colors.grey[900],
                     }}
                   >
                     <MenuItem value="all">All Users</MenuItem>
@@ -248,7 +248,7 @@ const BulkMessaging = () => {
                     label="Profile Status"
                     onChange={(e) => setFilters({ ...filters, hasProfile: e.target.value })}
                     sx={{
-                      color: theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[900],
+                      color: colors.grey[900],
                     }}
                   >
                     <MenuItem value="all">All Users</MenuItem>
@@ -265,7 +265,7 @@ const BulkMessaging = () => {
                     label="Booking Status"
                     onChange={(e) => setFilters({ ...filters, hasBooking: e.target.value })}
                     sx={{
-                      color: theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[900],
+                      color: colors.grey[900],
                     }}
                   >
                     <MenuItem value="all">All Users</MenuItem>
@@ -284,7 +284,7 @@ const BulkMessaging = () => {
                   fullWidth
                   sx={{
                     '& .MuiInputBase-input': {
-                      color: theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[900],
+                      color: colors.grey[900],
                     },
                   }}
                 />
@@ -297,7 +297,7 @@ const BulkMessaging = () => {
                   fullWidth
                   sx={{
                     '& .MuiInputBase-input': {
-                      color: theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[900],
+                      color: colors.grey[900],
                     },
                   }}
                 />
@@ -323,11 +323,11 @@ const BulkMessaging = () => {
 
         {/* Message Composition & User Selection */}
         <Grid item xs={12} md={8}>
-          <Card sx={{ backgroundColor: theme.palette.mode === 'dark' ? colors.primary[400] : colors.grey[200], mb: 3 }}>
+          <Card sx={{ backgroundColor: colors.grey[200], mb: 3 }}>
             <CardContent>
               <Box display="flex" alignItems="center" mb={2}>
                 <MessageIcon sx={{ mr: 1, color: colors.greenAccent[500] }} />
-                <Typography variant="h5" fontWeight="600" color={theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[900]}>
+                <Typography variant="h5" fontWeight="600" color={colors.grey[900]}>
                   Compose Message
                 </Typography>
               </Box>
@@ -340,7 +340,7 @@ const BulkMessaging = () => {
                   label="Message Type"
                   onChange={(e) => setMessageType(e.target.value)}
                   sx={{
-                    color: theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[900],
+                    color: colors.grey[900],
                   }}
                 >
                   <MenuItem value="custom">Custom Message</MenuItem>
@@ -363,7 +363,7 @@ const BulkMessaging = () => {
                 sx={{
                   mb: 2,
                   '& .MuiInputBase-input': {
-                    color: theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[900],
+                    color: colors.grey[900],
                   },
                 }}
               />
@@ -372,7 +372,7 @@ const BulkMessaging = () => {
               {filteredUsers.length > 0 && (
                 <Box mb={2}>
                   <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
-                    <Typography variant="body1" color={theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[900]}>
+                    <Typography variant="body1" color={colors.grey[900]}>
                       <PeopleIcon sx={{ verticalAlign: 'middle', mr: 0.5 }} />
                       {filteredUsers.length} user(s) found
                     </Typography>
@@ -386,7 +386,7 @@ const BulkMessaging = () => {
                       }
                       label="Select All"
                       sx={{
-                        color: theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[900],
+                        color: colors.grey[900],
                       }}
                     />
                   </Box>
@@ -394,7 +394,7 @@ const BulkMessaging = () => {
                   {/* Selected Users Chips */}
                   {selectedUsers.length > 0 && (
                     <Box mb={2}>
-                      <Typography variant="body2" color={theme.palette.mode === 'dark' ? colors.grey[300] : colors.grey[700]} mb={1}>
+                      <Typography variant="body2" color={colors.grey[700]} mb={1}>
                         Selected: {selectedUsers.length} user(s)
                       </Typography>
                       <Box display="flex" flexWrap="wrap" gap={1}>
@@ -432,7 +432,7 @@ const BulkMessaging = () => {
                     sx={{
                       maxHeight: '300px',
                       overflow: 'auto',
-                      backgroundColor: theme.palette.mode === 'dark' ? colors.primary[500] : colors.grey[100],
+                      backgroundColor: colors.grey[100],
                       p: 1,
                     }}
                   >
@@ -445,7 +445,7 @@ const BulkMessaging = () => {
                         sx={{
                           cursor: 'pointer',
                           '&:hover': {
-                            backgroundColor: theme.palette.mode === 'dark' ? colors.primary[400] : colors.grey[200],
+                            backgroundColor: colors.grey[200],
                           },
                         }}
                         onClick={() => handleSelectUser(user._id)}
@@ -456,10 +456,10 @@ const BulkMessaging = () => {
                           onClick={(e) => e.stopPropagation()}
                         />
                         <Box ml={1}>
-                          <Typography variant="body1" color={theme.palette.mode === 'dark' ? colors.grey[100] : colors.grey[900]}>
+                          <Typography variant="body1" color={colors.grey[900]}>
                             {user.name}
                           </Typography>
-                          <Typography variant="body2" color={theme.palette.mode === 'dark' ? colors.grey[400] : colors.grey[600]}>
+                          <Typography variant="body2" color={colors.grey[600]}>
                             {user.email} • {user.role}
                           </Typography>
                         </Box>
